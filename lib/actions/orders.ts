@@ -1,0 +1,191 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getAdminUser } from './auth'
+import { ManualSaleSchema, StoreCheckoutSchema } from '@/lib/validations/order'
+import type { ManualSaleValues, StoreCheckoutValues } from '@/lib/validations/order'
+import type { OrderEstado } from '@/lib/supabase/types'
+
+// ── Admin: cargar venta manual ──────────────────────────────────────────────
+
+export async function createManualSale(data: ManualSaleValues) {
+  await getAdminUser()
+  const validated = ManualSaleSchema.safeParse(data)
+  if (!validated.success) return { error: validated.error.flatten().fieldErrors }
+
+  const supabase = createServiceClient()
+  const { items, ...orderData } = validated.data
+
+  const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
+
+  // Crear pedido + items en transacción via RPC
+  const { data: result, error } = await supabase.rpc('crear_venta_manual', {
+    p_order: {
+      ...orderData,
+      total,
+      origen: 'manual',
+      estado: 'confirmada',
+    },
+    p_items: items,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/dashboard')
+  return { orderId: result }
+}
+
+// ── Admin: confirmar pedido pendiente ───────────────────────────────────────
+
+export async function confirmOrder(orderId: string) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const { error } = await supabase.rpc('confirmar_pedido', {
+    p_order_id: orderId,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/dashboard')
+  return { success: true }
+}
+
+// ── Admin: cancelar pedido ──────────────────────────────────────────────────
+
+export async function cancelOrder(orderId: string) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const { error } = await supabase.rpc('cancelar_pedido', {
+    p_order_id: orderId,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/dashboard')
+  return { success: true }
+}
+
+// ── Admin: cambiar estado manual ────────────────────────────────────────────
+
+export async function updateOrderStatus(orderId: string, estado: OrderEstado) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  if (estado === 'confirmada') return confirmOrder(orderId)
+  if (estado === 'cancelada') return cancelOrder(orderId)
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ estado })
+    .eq('id', orderId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+// ── Admin: listado de pedidos ───────────────────────────────────────────────
+
+export async function getOrders(params?: {
+  estado?: OrderEstado
+  limit?: number
+  offset?: number
+}) {
+  const supabase = createServiceClient()
+  let query = supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (
+        *,
+        products (nombre),
+        product_variants (nombre_variante)
+      )
+    `)
+    .order('created_at', { ascending: false })
+
+  if (params?.estado) query = query.eq('estado', params.estado)
+  if (params?.limit) query = query.limit(params.limit)
+  if (params?.offset) query = query.range(params.offset, (params.offset) + (params.limit ?? 20) - 1)
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getOrder(id: string) {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (
+        *,
+        products (nombre, categoria),
+        product_variants (nombre_variante, color, tamaño)
+      )
+    `)
+    .eq('id', id)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// ── Tienda pública: crear pedido WhatsApp ───────────────────────────────────
+
+export async function createStoreOrder(data: StoreCheckoutValues) {
+  const validated = StoreCheckoutSchema.safeParse(data)
+  if (!validated.success) return { error: validated.error.flatten().fieldErrors }
+
+  const supabase = createServiceClient()
+  const { items, ...orderData } = validated.data
+
+  // Verificar stock disponible antes de crear
+  for (const item of items) {
+    const { data: variant } = await supabase
+      .from('product_variants')
+      .select('stock, nombre_variante')
+      .eq('id', item.variant_id)
+      .single()
+
+    if (!variant || variant.stock < item.cantidad) {
+      return {
+        error: `Stock insuficiente para ${variant?.nombre_variante ?? 'una variante'}`,
+      }
+    }
+  }
+
+  const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .insert({
+      ...orderData,
+      total,
+      origen: 'web',
+      estado: 'pendiente',
+      metodo_pago: 'whatsapp',
+    })
+    .select()
+    .single()
+
+  if (orderError || !order) return { error: orderError?.message ?? 'Error al crear el pedido' }
+
+  const orderItems = items.map((i) => ({ ...i, order_id: order.id }))
+  const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
+
+  if (itemsError) {
+    await supabase.from('orders').delete().eq('id', order.id)
+    return { error: itemsError.message }
+  }
+
+  return { orderId: order.id }
+}
