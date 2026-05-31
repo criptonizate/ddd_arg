@@ -37,8 +37,8 @@ export async function getAdminUser() {
 
   if (!user) return null
 
-  const adminEmail = process.env.ADMIN_EMAIL
-  if (adminEmail && user.email !== adminEmail) return null
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+  if (adminEmails.length > 0 && !adminEmails.includes(user.email ?? '')) return null
 
   return user
 }

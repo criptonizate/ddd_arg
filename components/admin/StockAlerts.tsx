@@ -17,7 +17,7 @@ export default function StockAlerts({
         <Link
           key={v.id}
           href={`/admin/productos/${v.product_id}`}
-          className="flex items-center justify-between bg-white border border-orange-200 rounded-lg px-3 py-2 hover:border-orange-300 transition-colors"
+          className="flex items-center justify-between bg-card border border-orange-200 rounded-lg px-3 py-2 hover:border-orange-300 transition-colors"
         >
           <div className="min-w-0">
             <p className="text-sm font-medium text-orange-900 truncate">
