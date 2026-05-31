@@ -38,6 +38,7 @@ export function formatDateTime(date: string | Date): string {
 export const ESTADO_LABELS: Record<OrderEstado, string> = {
   pendiente: 'Pendiente',
   confirmada: 'Confirmada',
+  listo: 'Listo para retirar',
   entregada: 'Entregada',
   cancelada: 'Cancelada',
 }
@@ -45,13 +46,30 @@ export const ESTADO_LABELS: Record<OrderEstado, string> = {
 export const ESTADO_COLORS: Record<OrderEstado, string> = {
   pendiente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   confirmada: 'bg-blue-100 text-blue-800 border-blue-200',
+  listo: 'bg-purple-100 text-purple-800 border-purple-200',
   entregada: 'bg-green-100 text-green-800 border-green-200',
   cancelada: 'bg-red-100 text-red-800 border-red-200',
+}
+
+export const METODO_PAGO_LABELS: Record<string, string> = {
+  efectivo: '💵 Efectivo',
+  transferencia: '🏦 Transferencia',
+  mercadopago: '💙 Mercado Pago',
+  whatsapp: '💬 WhatsApp',
+}
+
+export const ORIGEN_LABELS: Record<string, string> = {
+  tienda: '🌐 Web',
+  manual: '✏️ Manual',
+  whatsapp: '💬 WhatsApp',
+  instagram: '📸 Instagram',
 }
 
 export const PRODUCT_ESTADO_LABELS: Record<ProductEstado, string> = {
   activo: 'Activo',
   pausado: 'Pausado',
+  agotado: 'Agotado',
+  archivado: 'Archivado',
 }
 
 export const EGRESO_CATEGORIA_LABELS: Record<EgresoCategoria, string> = {

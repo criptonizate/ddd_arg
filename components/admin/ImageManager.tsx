@@ -18,6 +18,11 @@ export default function ImageManager({ productId, images }: Props) {
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no puede superar 5 MB')
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     const fd = new FormData()
     fd.append('file', file)
     startTransition(async () => {
@@ -37,14 +42,14 @@ export default function ImageManager({ productId, images }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
-        {images.map((img) => (
+        {images.map((img, idx) => (
           <div key={img.id} className="relative w-24 h-24 rounded-xl overflow-hidden border border-border group">
-            <Image
-              src={img.url}
-              alt="Imagen producto"
-              fill
-              className="object-cover"
-            />
+            <Image src={img.url} alt="Imagen producto" fill className="object-cover" />
+            {idx === 0 && (
+              <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[10px] font-medium bg-black/50 py-0.5">
+                Principal
+              </span>
+            )}
             <button
               onClick={() => handleDelete(img.id, img.url)}
               disabled={isPending}

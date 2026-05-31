@@ -15,7 +15,7 @@ export async function createManualSale(data: ManualSaleValues) {
   if (!validated.success) return { error: validated.error.flatten().fieldErrors }
 
   const supabase = createServiceClient()
-  const { items, ...orderData } = validated.data
+  const { items, sena, prioridad, ...orderData } = validated.data
 
   const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
 
@@ -32,9 +32,61 @@ export async function createManualSale(data: ManualSaleValues) {
 
   if (error) return { error: error.message }
 
+  if (sena > 0 || prioridad) {
+    await supabase.from('orders').update({ sena, prioridad }).eq('id', result)
+  }
+
   revalidatePath('/admin/ventas')
   revalidatePath('/admin/dashboard')
   return { orderId: result }
+}
+
+export async function updateOrderSena(orderId: string, sena: number) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ sena }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export async function toggleOrderPriority(orderId: string, prioridad: boolean) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ prioridad }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/pedidos')
+  return { success: true }
+}
+
+export async function updateOrderFechaEntrega(orderId: string, fecha: string | null) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ fecha_entrega: fecha }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export async function markOrderListo(orderId: string) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ estado: 'listo' }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export async function getPendingOrdersCount(): Promise<number> {
+  const supabase = createServiceClient()
+  const { count } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado', 'pendiente')
+  return count ?? 0
 }
 
 // ── Admin: confirmar pedido pendiente ───────────────────────────────────────
@@ -95,6 +147,7 @@ export async function updateOrderStatus(orderId: string, estado: OrderEstado) {
 
 export async function getOrders(params?: {
   estado?: OrderEstado
+  estados?: OrderEstado[]
   limit?: number
   offset?: number
 }) {
@@ -106,12 +159,13 @@ export async function getOrders(params?: {
       order_items (
         *,
         products (nombre),
-        product_variants (nombre_variante)
+        product_variants (nombre_variante, stock)
       )
     `)
     .order('created_at', { ascending: false })
 
   if (params?.estado) query = query.eq('estado', params.estado)
+  if (params?.estados?.length) query = query.in('estado', params.estados)
   if (params?.limit) query = query.limit(params.limit)
   if (params?.offset) query = query.range(params.offset, (params.offset) + (params.limit ?? 20) - 1)
 
@@ -170,7 +224,7 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
     .insert({
       ...orderData,
       total,
-      origen: 'web',
+      origen: 'tienda',
       estado: 'pendiente',
       metodo_pago: 'whatsapp',
     })

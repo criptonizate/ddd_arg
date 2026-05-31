@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
-import Image from 'next/image'
 import { getProduct } from '@/lib/actions/products'
 import { formatARS } from '@/lib/utils'
 import AddToCartSection from '@/components/store/AddToCartSection'
+import ProductGallery from '@/components/store/ProductGallery'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({
@@ -42,42 +42,7 @@ export default async function ProductoPage({
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         {/* Galería */}
-        <div className="space-y-3">
-          {product.product_images.length > 0 ? (
-            <>
-              <div className="aspect-square rounded-2xl overflow-hidden bg-secondary relative">
-                <Image
-                  src={product.product_images[0].url}
-                  alt={product.nombre}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              </div>
-              {product.product_images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto">
-                  {product.product_images.map((img, idx) => (
-                    <div
-                      key={img.id}
-                      className="w-16 h-16 rounded-xl overflow-hidden bg-secondary shrink-0 relative border border-border"
-                    >
-                      <Image
-                        src={img.url}
-                        alt={`${product.nombre} ${idx + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="aspect-square rounded-2xl bg-secondary flex items-center justify-center">
-              <span className="text-6xl text-muted-foreground/30 font-bold">3D</span>
-            </div>
-          )}
-        </div>
+        <ProductGallery images={product.product_images} productName={product.nombre} />
 
         {/* Info */}
         <div>

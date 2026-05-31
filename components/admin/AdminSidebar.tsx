@@ -4,48 +4,42 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  DollarSign,
-  LogOut,
-  Menu,
-  X,
-} from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 
 const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/productos', label: 'Productos', icon: Package },
-  { href: '/admin/ventas', label: 'Ventas', icon: ShoppingCart },
-  { href: '/admin/finanzas', label: 'Finanzas', icon: DollarSign },
+  { href: '/admin/dashboard', label: '🚀 Dashboard' },
+  { href: '/admin/pedidos', label: '📥 Pedidos', showBadge: true },
+  { href: '/admin/ventas', label: '💸 Ventas' },
+  { href: '/admin/productos', label: '📦 Productos' },
+  { href: '/admin/finanzas', label: '💰 Finanzas' },
 ]
 
-export default function AdminSidebar({ userEmail }: { userEmail: string }) {
+export default function AdminSidebar({
+  userEmail,
+  pendingCount = 0,
+}: {
+  userEmail: string
+  pendingCount?: number
+}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
   return (
     <>
-      {/* Mobile toggle */}
       <button
         className="fixed top-4 left-4 z-50 md:hidden p-2 rounded-lg bg-card border border-border shadow-sm"
         onClick={() => setOpen(!open)}
         aria-label="Toggle menu"
+        aria-expanded={open}
       >
         {open ? <X size={18} /> : <Menu size={18} />}
       </button>
 
-      {/* Overlay mobile */}
       {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 md:hidden"
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-40 flex flex-col w-60 bg-card border-r border-border transition-transform duration-200',
@@ -67,7 +61,6 @@ export default function AdminSidebar({ userEmail }: { userEmail: string }) {
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
           {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
             const active = pathname.startsWith(item.href)
             return (
               <Link
@@ -75,14 +68,21 @@ export default function AdminSidebar({ userEmail }: { userEmail: string }) {
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   active
                     ? 'bg-foreground text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 )}
               >
-                <Icon size={16} />
-                {item.label}
+                <span>{item.label}</span>
+                {item.showBadge && pendingCount > 0 && (
+                  <span className={cn(
+                    'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
+                    active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'
+                  )}>
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             )
           })}

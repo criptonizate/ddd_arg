@@ -1,12 +1,14 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
 
-export const metadata = { title: 'Iniciar sesión' }
+export const metadata = { title: 'Iniciar sesión — DDD ARG' }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>
 }) {
+  const { error } = await searchParams
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
@@ -23,10 +25,16 @@ export default function LoginPage({
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
           <h2 className="text-lg font-semibold mb-2">Acceder</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Solo el administrador puede ingresar.
+            Iniciá sesión con tu cuenta de Google para acceder al panel.
           </p>
 
-          <ErrorMessage />
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive mb-5">
+              {error === 'unauthorized'
+                ? 'Tu cuenta no tiene acceso al panel de administración.'
+                : 'Ocurrió un error al iniciar sesión. Intentá de nuevo.'}
+            </div>
+          )}
 
           <form action={signInWithGoogle}>
             <button
@@ -45,13 +53,6 @@ export default function LoginPage({
       </div>
     </div>
   )
-}
-
-async function ErrorMessage() {
-  // Los search params en Next.js 16 son Promises en pages, pero en Server Components
-  // podemos leerlos directamente de la URL a través del componente padre.
-  // Sin embargo, para evitar ciclos innecesarios, el error lo leeremos del prop.
-  return null
 }
 
 function GoogleIcon() {

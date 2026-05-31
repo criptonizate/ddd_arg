@@ -143,6 +143,25 @@ export async function getDashboardStats() {
     .select('*, products (nombre)')
     .filter('stock', 'lte', 'stock_minimo')
 
+  // Cobro pendiente: total - sena de pedidos confirmados/listos
+  const { data: pendientesCobro } = await supabase
+    .from('orders')
+    .select('total, sena')
+    .in('estado', ['confirmada', 'listo'])
+
+  // Pedidos pendientes de confirmación
+  const { count: pedidosPendientes } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado', 'pendiente')
+
+  // Cancelaciones del mes
+  const { data: cancelacionesMes } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('estado', 'cancelada')
+    .gte('created_at', primerDiaMes)
+
   // Calcular stats
   const ingresosMes = txMes
     ?.filter((t) => t.tipo === 'ingreso')
@@ -197,6 +216,11 @@ export async function getDashboardStats() {
     (v: any) => v.stock <= v.stock_minimo
   ).map((v: any) => ({ ...v, product_nombre: v.products?.nombre ?? '' }))
 
+  const cobroPendiente = (pendientesCobro ?? []).reduce(
+    (sum, o) => sum + Math.max(0, Number(o.total) - Number(o.sena ?? 0)),
+    0
+  )
+
   return {
     ventasMes: ventasMes?.length ?? 0,
     ingresosMes,
@@ -208,5 +232,8 @@ export async function getDashboardStats() {
     ventasPorDia,
     topVariantes,
     stockBajo: stockBajoFiltrado,
+    cobroPendiente,
+    pedidosPendientes: pedidosPendientes ?? 0,
+    cancelacionesMes: cancelacionesMes?.length ?? 0,
   }
 }

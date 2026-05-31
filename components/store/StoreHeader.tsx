@@ -25,6 +25,12 @@ export default function StoreHeader() {
             Catálogo
           </Link>
           <Link
+            href="/auth/login"
+            className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            Admin
+          </Link>
+          <Link
             href="/carrito"
             className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
             aria-label="Carrito"

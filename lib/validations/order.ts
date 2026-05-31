@@ -15,6 +15,8 @@ export const ManualSaleSchema = z.object({
   direccion_envio: z.string().optional().default(''),
   nota: z.string().optional().default(''),
   metodo_pago: z.enum(['whatsapp', 'mercadopago', 'efectivo', 'transferencia']),
+  sena: z.number().min(0).default(0),
+  prioridad: z.boolean().default(false),
   items: z.array(OrderItemSchema).min(1, 'Agregá al menos un producto'),
 })
 

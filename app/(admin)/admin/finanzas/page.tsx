@@ -2,6 +2,7 @@ import { getBalance } from '@/lib/actions/finance'
 import { formatARS, formatDate, EGRESO_CATEGORIA_LABELS } from '@/lib/utils'
 import EgresoForm from '@/components/admin/EgresoForm'
 import ExportCSVButton from '@/components/admin/ExportCSVButton'
+import DeleteTransactionButton from '@/components/admin/DeleteTransactionButton'
 import type { Transaction } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Finanzas' }
@@ -109,6 +110,7 @@ export default async function FinanzasPage({
                         Descripción
                       </th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Monto</th>
+                      <th className="px-2 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -141,6 +143,9 @@ export default async function FinanzasPage({
                           }`}
                         >
                           {tx.tipo === 'ingreso' ? '+' : '-'}{formatARS(tx.monto)}
+                        </td>
+                        <td className="px-2 py-3">
+                          <DeleteTransactionButton id={tx.id} />
                         </td>
                       </tr>
                     ))}

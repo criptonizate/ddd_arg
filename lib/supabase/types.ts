@@ -1,7 +1,7 @@
 // Tipos generados del esquema de Supabase
 
-export type ProductEstado = 'activo' | 'pausado'
-export type OrderEstado = 'pendiente' | 'confirmada' | 'entregada' | 'cancelada'
+export type ProductEstado = 'activo' | 'pausado' | 'agotado' | 'archivado'
+export type OrderEstado = 'pendiente' | 'confirmada' | 'listo' | 'entregada' | 'cancelada'
 export type OrderOrigen = 'web' | 'manual'
 export type MetodoPago = 'whatsapp' | 'mercadopago' | 'efectivo' | 'transferencia'
 export type TransactionTipo = 'ingreso' | 'egreso'
@@ -57,6 +57,9 @@ export interface Order {
   direccion_envio: string | null
   nota: string | null
   total: number
+  sena: number
+  prioridad: boolean
+  fecha_entrega: string | null
   origen: OrderOrigen
   estado: OrderEstado
   metodo_pago: MetodoPago
