@@ -93,7 +93,6 @@ export default async function ProductosPage() {
                             <AlertTriangle
                               size={14}
                               className="text-[var(--brand-orange)]"
-                              title="Stock bajo"
                             />
                           )}
                         </span>
