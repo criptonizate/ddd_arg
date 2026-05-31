@@ -17,13 +17,13 @@ export default async function CatalogoPage({
   let filtered = allProducts
   if (categoria) {
     filtered = filtered.filter(
-      (p) => p.categoria?.toLowerCase() === categoria.toLowerCase()
+      (p: any) => p.categoria?.toLowerCase() === categoria.toLowerCase()
     )
   }
   if (q) {
     const query = q.toLowerCase()
     filtered = filtered.filter(
-      (p) =>
+      (p: any) =>
         p.nombre.toLowerCase().includes(query) ||
         p.descripcion?.toLowerCase().includes(query)
     )
