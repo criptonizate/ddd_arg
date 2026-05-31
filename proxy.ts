@@ -44,9 +44,9 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
-    // Con sesión pero email incorrecto → redirect a login con error
-    const adminEmail = process.env.ADMIN_EMAIL
-    if (adminEmail && user.email !== adminEmail) {
+    // Con sesión pero email no autorizado → redirect a login con error
+    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+    if (adminEmails.length > 0 && !adminEmails.includes(user.email ?? '')) {
       await supabase.auth.signOut()
       return NextResponse.redirect(
         new URL('/auth/login?error=unauthorized', request.url)
@@ -56,8 +56,8 @@ export async function proxy(request: NextRequest) {
 
   // Si ya está autenticado como admin y visita login → redirect al dashboard
   if (isAuthRoute && user) {
-    const adminEmail = process.env.ADMIN_EMAIL
-    if (!adminEmail || user.email === adminEmail) {
+    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+    if (adminEmails.length === 0 || adminEmails.includes(user.email ?? '')) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
   }
