@@ -31,7 +31,7 @@ export default async function CatalogoPage({
 
   // Categorías únicas
   const categorias = Array.from(
-    new Set(allProducts.map((p) => p.categoria).filter(Boolean) as string[])
+    new Set(allProducts.map((p: any) => p.categoria).filter(Boolean) as string[])
   ).sort()
 
   return (
