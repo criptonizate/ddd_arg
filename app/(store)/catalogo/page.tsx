@@ -11,19 +11,19 @@ export default async function CatalogoPage({
   searchParams: Promise<{ categoria?: string; q?: string }>
 }) {
   const { categoria, q } = await searchParams
-  const allProducts = await getActiveProducts()
+  const allProducts = await getActiveProducts() as any[]
 
   // Filtrar por categoría y búsqueda
-  let filtered = allProducts
+  let filtered: any[] = allProducts
   if (categoria) {
     filtered = filtered.filter(
-      (p: any) => p.categoria?.toLowerCase() === categoria.toLowerCase()
+      (p) => p.categoria?.toLowerCase() === categoria.toLowerCase()
     )
   }
   if (q) {
     const query = q.toLowerCase()
     filtered = filtered.filter(
-      (p: any) =>
+      (p) =>
         p.nombre.toLowerCase().includes(query) ||
         p.descripcion?.toLowerCase().includes(query)
     )
@@ -31,7 +31,7 @@ export default async function CatalogoPage({
 
   // Categorías únicas
   const categorias = Array.from(
-    new Set(allProducts.map((p: any) => p.categoria).filter(Boolean) as string[])
+    new Set(allProducts.map((p) => p.categoria).filter(Boolean) as string[])
   ).sort()
 
   return (
