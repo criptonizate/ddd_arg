@@ -63,7 +63,7 @@ export async function deleteProduct(id: string) {
     .eq('product_id', id)
 
   if (images?.length) {
-    const paths = images.map((img) => {
+    const paths = images.map((img: any) => {
       const url = new URL(img.url)
       return url.pathname.split('/storage/v1/object/public/productos/')[1]
     }).filter(Boolean)

@@ -69,7 +69,7 @@ export default function DashboardCharts({
               tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
             />
             <Tooltip
-              formatter={(value: number) => [formatARS(value), 'Ingresos']}
+              formatter={(value: any) => [formatARS(Number(value)), 'Ingresos']}
               labelFormatter={(l) => formatDate(l)}
             />
             <Area
@@ -101,7 +101,7 @@ export default function DashboardCharts({
                 <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(v: number) => [`${v} pedidos`]} />
+            <Tooltip formatter={(v: any) => [`${v} pedidos`]} />
             <Legend
               iconType="circle"
               iconSize={8}
@@ -128,7 +128,7 @@ export default function DashboardCharts({
               tick={{ fontSize: 10 }}
               width={100}
             />
-            <Tooltip formatter={(v: number) => [`${v} unidades`, 'Vendidas']} />
+            <Tooltip formatter={(v: any) => [`${v} unidades`, 'Vendidas']} />
             <Bar dataKey="vendidos" fill="#EA580C" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>

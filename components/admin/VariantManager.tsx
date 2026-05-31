@@ -62,6 +62,8 @@ export default function VariantManager({ productId, variants }: Props) {
     setError(null)
     const data = {
       ...form,
+      color: form.color ?? '',
+      tamaño: form.tamaño ?? '',
       precio: form.precio === null || form.precio === 0 ? null : Number(form.precio),
       stock: Number(form.stock),
       stock_minimo: Number(form.stock_minimo),

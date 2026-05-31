@@ -21,8 +21,8 @@ export const metadata = {
 
 export default async function HomePage() {
   const products = await getActiveProducts()
-  const featured = products.filter((p) => {
-    const totalStock = p.product_variants.reduce((s, v) => s + v.stock, 0)
+  const featured = (products as any[]).filter((p) => {
+    const totalStock = p.product_variants.reduce((s: number, v: any) => s + v.stock, 0)
     return totalStock > 0
   }).slice(0, 4)
 
@@ -79,7 +79,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {featured.map((product) => {
               const imagen = product.product_images?.[0]?.url
-              const totalStock = product.product_variants.reduce((s, v) => s + v.stock, 0)
+              const totalStock = product.product_variants.reduce((s: number, v: any) => s + v.stock, 0)
               const agotado = totalStock === 0
               return (
                 <Link

@@ -36,7 +36,7 @@ export default async function ProductoPage({
   const product = await getProduct(id).catch(() => null)
   if (!product || product.estado !== 'activo') notFound()
 
-  const totalStock = product.product_variants.reduce((s, v) => s + v.stock, 0)
+  const totalStock = product.product_variants.reduce((s: number, v: any) => s + v.stock, 0)
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">

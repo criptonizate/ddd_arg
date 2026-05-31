@@ -78,12 +78,12 @@ export async function getBalance(desde?: string, hasta?: string) {
   const transactions = await getTransactions({ desde, hasta })
 
   const ingresos = transactions
-    .filter((t) => t.tipo === 'ingreso')
-    .reduce((sum, t) => sum + Number(t.monto), 0)
+    .filter((t: any) => t.tipo === 'ingreso')
+    .reduce((sum: number, t: any) => sum + Number(t.monto), 0)
 
   const egresos = transactions
-    .filter((t) => t.tipo === 'egreso')
-    .reduce((sum, t) => sum + Number(t.monto), 0)
+    .filter((t: any) => t.tipo === 'egreso')
+    .reduce((sum: number, t: any) => sum + Number(t.monto), 0)
 
   return { ingresos, egresos, balance: ingresos - egresos, transactions }
 }
@@ -164,15 +164,15 @@ export async function getDashboardStats() {
 
   // Calcular stats
   const ingresosMes = txMes
-    ?.filter((t) => t.tipo === 'ingreso')
-    .reduce((s, t) => s + Number(t.monto), 0) ?? 0
+    ?.filter((t: any) => t.tipo === 'ingreso')
+    .reduce((s: number, t: any) => s + Number(t.monto), 0) ?? 0
   const egresosMes = txMes
-    ?.filter((t) => t.tipo === 'egreso')
-    .reduce((s, t) => s + Number(t.monto), 0) ?? 0
+    ?.filter((t: any) => t.tipo === 'egreso')
+    .reduce((s: number, t: any) => s + Number(t.monto), 0) ?? 0
 
   // Agrupar ventas por día
   const ventasPorDiaMap = new Map<string, { total: number; cantidad: number }>()
-  ventasDia?.forEach((v) => {
+  ventasDia?.forEach((v: any) => {
     const d = v.created_at.split('T')[0]
     const prev = ventasPorDiaMap.get(d) ?? { total: 0, cantidad: 0 }
     ventasPorDiaMap.set(d, { total: prev.total + Number(v.total), cantidad: prev.cantidad + 1 })
@@ -203,7 +203,7 @@ export async function getDashboardStats() {
 
   // Pedidos por estado
   const estadoMap = new Map<string, number>()
-  pedidosEstado?.forEach((o) => {
+  pedidosEstado?.forEach((o: any) => {
     estadoMap.set(o.estado, (estadoMap.get(o.estado) ?? 0) + 1)
   })
   const pedidosPorEstado = Array.from(estadoMap.entries()).map(([estado, count]) => ({
@@ -217,7 +217,7 @@ export async function getDashboardStats() {
   ).map((v: any) => ({ ...v, product_nombre: v.products?.nombre ?? '' }))
 
   const cobroPendiente = (pendientesCobro ?? []).reduce(
-    (sum, o) => sum + Math.max(0, Number(o.total) - Number(o.sena ?? 0)),
+    (sum: number, o: any) => sum + Math.max(0, Number(o.total) - Number(o.sena ?? 0)),
     0
   )
 

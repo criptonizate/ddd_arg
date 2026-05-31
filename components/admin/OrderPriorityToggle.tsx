@@ -15,7 +15,7 @@ export default function OrderPriorityToggle({
 
   return (
     <button
-      onClick={() => startTransition(() => toggleOrderPriority(orderId, !prioridad))}
+      onClick={() => { startTransition(() => { toggleOrderPriority(orderId, !prioridad) }) }}
       disabled={isPending}
       title={prioridad ? 'Quitar urgencia' : 'Marcar como urgente'}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${

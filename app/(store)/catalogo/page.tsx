@@ -101,7 +101,7 @@ export default async function CatalogoPage({
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((product) => {
               const imagen = product.product_images?.[0]?.url
-              const totalStock = product.product_variants.reduce((s, v) => s + v.stock, 0)
+              const totalStock = (product.product_variants as any[]).reduce((s: number, v: any) => s + v.stock, 0)
               const agotado = totalStock === 0
               const esNuevo =
                 new Date(product.created_at) >
