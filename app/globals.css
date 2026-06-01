@@ -142,12 +142,18 @@
 
 /* Admin dark: ajuste de badges de color para que sean legibles en fondo oscuro */
 .dark .badge-green,
-.dark .bg-green-50 { background-color: oklch(0.28 0.08 160) !important; }
-.dark .text-green-700, .dark .text-green-600 { color: oklch(0.75 0.18 160) !important; }
+.dark .bg-green-50 { background-color: oklch(0.26 0.08 160) !important; }
+.dark .bg-green-100 { background-color: oklch(0.29 0.09 160) !important; }
+.dark .text-green-600 { color: oklch(0.72 0.18 160) !important; }
+.dark .text-green-700 { color: oklch(0.76 0.18 160) !important; }
+.dark .text-green-800 { color: oklch(0.84 0.16 160) !important; }
 .dark .border-green-200 { border-color: oklch(0.42 0.12 160 / 40%) !important; }
 
-.dark .bg-blue-50 { background-color: oklch(0.26 0.06 230) !important; }
-.dark .text-blue-700, .dark .text-blue-600 { color: oklch(0.72 0.16 230) !important; }
+.dark .bg-blue-50 { background-color: oklch(0.24 0.06 230) !important; }
+.dark .bg-blue-100 { background-color: oklch(0.26 0.07 230) !important; }
+.dark .text-blue-600 { color: oklch(0.72 0.16 230) !important; }
+.dark .text-blue-700 { color: oklch(0.76 0.16 230) !important; }
+.dark .text-blue-800 { color: oklch(0.84 0.14 230) !important; }
 .dark .border-blue-200 { border-color: oklch(0.40 0.10 230 / 40%) !important; }
 
 .dark .bg-yellow-50, .dark .bg-yellow-100 { background-color: oklch(0.28 0.08 85) !important; }
