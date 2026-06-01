@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 
+// ── Tipos ──────────────────────────────────────────────────────────────────
+
 export interface NegocioItem {
   id: string
   pedido_id: string
@@ -22,18 +24,35 @@ export interface NegocioPedido {
   negocio_items: NegocioItem[]
 }
 
+export interface NegocioEgreso {
+  id: string
+  negocio_id: string
+  nombre_producto: string
+  tipo: 'vendido' | 'devuelto'
+  cantidad: number
+  fecha: string
+  nota: string | null
+  created_at: string
+}
+
 export interface Negocio {
   id: string
   nombre: string
   contacto: string | null
   created_at: string
   negocio_pedidos: NegocioPedido[]
+  negocio_egresos: NegocioEgreso[]
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 function sortPedidos(pedidos: NegocioPedido[]): NegocioPedido[] {
-  return [...pedidos].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-  )
+  return [...pedidos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+}
+
+function revalidate(negocioId: string) {
+  revalidatePath('/admin/negocios')
+  revalidatePath(`/admin/negocios/${negocioId}`)
 }
 
 // ── Lectura ────────────────────────────────────────────────────────────────
@@ -43,10 +62,14 @@ export async function getNegocios(): Promise<Negocio[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('negocios')
-    .select('*, negocio_pedidos(*, negocio_items(*))')
+    .select('*, negocio_pedidos(*, negocio_items(*)), negocio_egresos(*)')
     .order('nombre', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((n: any) => ({ ...n, negocio_pedidos: sortPedidos(n.negocio_pedidos ?? []) }))
+  return (data ?? []).map((n: any) => ({
+    ...n,
+    negocio_pedidos: sortPedidos(n.negocio_pedidos ?? []),
+    negocio_egresos: n.negocio_egresos ?? [],
+  }))
 }
 
 export async function getNegocio(id: string): Promise<Negocio | null> {
@@ -54,19 +77,22 @@ export async function getNegocio(id: string): Promise<Negocio | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('negocios')
-    .select('*, negocio_pedidos(*, negocio_items(*))')
+    .select('*, negocio_pedidos(*, negocio_items(*)), negocio_egresos(*)')
     .eq('id', id)
     .single()
   if (error) return null
-  return { ...data, negocio_pedidos: sortPedidos(data.negocio_pedidos ?? []) }
+  return {
+    ...data,
+    negocio_pedidos: sortPedidos(data.negocio_pedidos ?? []),
+    negocio_egresos: (data.negocio_egresos ?? []).sort(
+      (a: NegocioEgreso, b: NegocioEgreso) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    ),
+  }
 }
 
 // ── Negocios ───────────────────────────────────────────────────────────────
 
-export async function createNegocio(data: {
-  nombre: string
-  contacto?: string
-}): Promise<{ error?: string }> {
+export async function createNegocio(data: { nombre: string; contacto?: string }): Promise<{ error?: string }> {
   await getAdminUser()
   if (!data.nombre?.trim()) return { error: 'El nombre es obligatorio' }
   const supabase = createServiceClient()
@@ -79,10 +105,7 @@ export async function createNegocio(data: {
   return {}
 }
 
-export async function updateNegocio(
-  id: string,
-  data: { nombre: string; contacto?: string }
-): Promise<{ error?: string }> {
+export async function updateNegocio(id: string, data: { nombre: string; contacto?: string }): Promise<{ error?: string }> {
   await getAdminUser()
   if (!data.nombre?.trim()) return { error: 'El nombre es obligatorio' }
   const supabase = createServiceClient()
@@ -91,8 +114,7 @@ export async function updateNegocio(
     .update({ nombre: data.nombre.trim(), contacto: data.contacto?.trim() || null })
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/negocios')
-  revalidatePath(`/admin/negocios/${id}`)
+  revalidate(id)
   return {}
 }
 
@@ -131,16 +153,11 @@ export async function createNegocioPedido(data: {
     }))
   )
   if (itemsError) return { error: itemsError.message }
-  revalidatePath('/admin/negocios')
-  revalidatePath(`/admin/negocios/${data.negocio_id}`)
+  revalidate(data.negocio_id)
   return {}
 }
 
-export async function markPedidoEntregado(
-  pedidoId: string,
-  negocioId: string,
-  fecha: string
-): Promise<{ error?: string }> {
+export async function markPedidoEntregado(pedidoId: string, negocioId: string, fecha: string): Promise<{ error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
   const { error } = await supabase
@@ -148,24 +165,18 @@ export async function markPedidoEntregado(
     .update({ entregado_at: new Date(fecha + 'T12:00:00').toISOString() })
     .eq('id', pedidoId)
   if (error) return { error: error.message }
-  revalidatePath(`/admin/negocios/${negocioId}`)
+  revalidate(negocioId)
   return {}
 }
 
-export async function deleteNegocioPedido(
-  id: string,
-  negocioId: string
-): Promise<{ error?: string }> {
+export async function deleteNegocioPedido(id: string, negocioId: string): Promise<{ error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
   const { error } = await supabase.from('negocio_pedidos').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/negocios')
-  revalidatePath(`/admin/negocios/${negocioId}`)
+  revalidate(negocioId)
   return {}
 }
-
-// ── Items ──────────────────────────────────────────────────────────────────
 
 export async function addItemsToPedido(
   pedidoId: string,
@@ -184,18 +195,45 @@ export async function addItemsToPedido(
     }))
   )
   if (error) return { error: error.message }
-  revalidatePath(`/admin/negocios/${negocioId}`)
+  revalidate(negocioId)
   return {}
 }
 
-export async function deleteNegocioItem(
-  id: string,
-  negocioId: string
-): Promise<{ error?: string }> {
+export async function deleteNegocioItem(id: string, negocioId: string): Promise<{ error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
   const { error } = await supabase.from('negocio_items').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath(`/admin/negocios/${negocioId}`)
+  revalidate(negocioId)
+  return {}
+}
+
+// ── Egresos ────────────────────────────────────────────────────────────────
+
+export async function createEgresoNegocio(
+  negocioId: string,
+  data: { nombre_producto: string; tipo: 'vendido' | 'devuelto'; cantidad: number; fecha: string; nota?: string }
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('negocio_egresos').insert({
+    negocio_id: negocioId,
+    nombre_producto: data.nombre_producto.trim(),
+    tipo: data.tipo,
+    cantidad: data.cantidad,
+    fecha: data.fecha,
+    nota: data.nota?.trim() || null,
+  })
+  if (error) return { error: error.message }
+  revalidate(negocioId)
+  return {}
+}
+
+export async function deleteEgresoNegocio(id: string, negocioId: string): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('negocio_egresos').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidate(negocioId)
   return {}
 }
