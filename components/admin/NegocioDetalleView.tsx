@@ -8,7 +8,7 @@ import {
   deleteNegocioPedido,
   addItemsToPedido,
   deleteNegocioItem,
-  createEgresoNegocio,
+  createEgresosNegocio,
   deleteEgresoNegocio,
   createNegocioPedido,
 } from '@/lib/actions/negocios'
@@ -61,9 +61,46 @@ function computeStock(negocio: Negocio): StockRow[] {
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
 
-// ── Modal: Registrar egreso desde stock ────────────────────────────────────
+// ── PDF Export ─────────────────────────────────────────────────────────────
 
-function EgresoStockModal({
+function exportStockPDF(stock: StockRow[], negocioNombre: string) {
+  const fecha = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
+  const rows = stock.map((r) => `
+    <tr>
+      <td>${r.nombre}</td>
+      <td style="text-align:center">${r.recibido}</td>
+      <td style="text-align:center">${r.vendido || '—'}</td>
+      <td style="text-align:center">${r.devuelto || '—'}</td>
+      <td style="text-align:center;font-weight:bold;color:${r.stock <= 0 ? '#dc2626' : r.stock <= 3 ? '#ea580c' : '#16a34a'}">${r.stock <= 0 ? '0 ⚠' : r.stock}</td>
+      <td style="text-align:right">$${Number(r.precio).toLocaleString('es-AR')}</td>
+    </tr>`).join('')
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stock ${negocioNombre}</title>
+    <style>
+      body{font-family:Arial,sans-serif;margin:32px;color:#111}
+      h1{font-size:20px;margin:0}p{font-size:12px;color:#555;margin:4px 0 20px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid #e5e7eb}
+      td{padding:7px 12px;border-bottom:1px solid #e5e7eb}
+      tr:last-child td{border-bottom:none}
+      @media print{body{margin:16px}}
+    </style></head><body>
+    <h1>📦 Stock — ${negocioNombre}</h1>
+    <p>Generado el ${fecha}</p>
+    <table><thead><tr>
+      <th>Producto</th><th style="text-align:center">Recibido</th>
+      <th style="text-align:center">Vendido</th><th style="text-align:center">Devuelto</th>
+      <th style="text-align:center">En stock</th><th style="text-align:right">Precio may.</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`
+  const win = window.open('', '_blank')
+  if (win) { win.document.write(html); win.document.close(); win.focus(); win.print() }
+}
+
+// ── Modal: Registrar múltiples egresos ─────────────────────────────────────
+
+interface EgresoItem { producto: string; tipo: 'vendido' | 'devuelto'; cantidad: number; fecha: string; nota: string }
+
+function MultiEgresoModal({
   negocioId,
   productosDisponibles,
   productoInicial,
@@ -74,20 +111,37 @@ function EgresoStockModal({
   productoInicial?: string
   onClose: () => void
 }) {
-  const [producto, setProducto] = useState(productoInicial ?? productosDisponibles[0] ?? '')
+  const hoy = new Date().toISOString().split('T')[0]
+  const [lista, setLista] = useState<EgresoItem[]>([])
+  const [producto, setProducto] = useState(productoInicial ?? '')
   const [tipo, setTipo] = useState<'vendido' | 'devuelto'>('vendido')
   const [cantidad, setCantidad] = useState(1)
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(hoy)
   const [nota, setNota] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const listId = 'egreso-productos-list'
+
+  function addItem() {
+    if (!producto.trim()) { setError('Escribí un producto'); return }
+    if (cantidad < 1) { setError('La cantidad debe ser ≥ 1'); return }
+    setError(null)
+    setLista((prev) => [...prev, { producto: producto.trim(), tipo, cantidad, fecha, nota }])
+    setProducto(productoInicial ?? '')
+    setCantidad(1)
+    setNota('')
+  }
 
   function handleSubmit() {
-    setError(null)
-    if (!producto) { setError('Seleccioná un producto'); return }
-    if (cantidad < 1) { setError('La cantidad debe ser mayor a 0'); return }
+    if (!lista.length) { setError('Agregá al menos un egreso'); return }
     startTransition(async () => {
-      const res = await createEgresoNegocio(negocioId, { nombre_producto: producto, tipo, cantidad, fecha, nota })
+      const res = await createEgresosNegocio(negocioId, lista.map((i) => ({
+        nombre_producto: i.producto,
+        tipo: i.tipo,
+        cantidad: i.cantidad,
+        fecha: i.fecha,
+        nota: i.nota,
+      })))
       if (res?.error) { setError(res.error); return }
       onClose()
     })
@@ -96,85 +150,95 @@ function EgresoStockModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-sm">
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><TrendingDown size={16} /> Registrar egreso</h2>
+          <h2 className="font-semibold flex items-center gap-2"><TrendingDown size={16} /> Registrar egresos</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={15} /></button>
         </div>
+
         <div className="p-5 space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div>
-            <label className="text-xs font-medium mb-1 block">Producto</label>
-            {productoInicial ? (
-              <p className="text-sm font-semibold">{productoInicial}</p>
-            ) : (
-              <select
+          {/* Datalist para autocompletado */}
+          <datalist id={listId}>
+            {productosDisponibles.map((p) => <option key={p} value={p} />)}
+          </datalist>
+
+          {/* Formulario de un ítem */}
+          <div className="bg-secondary/20 rounded-xl p-4 space-y-3">
+            <div>
+              <label className="text-xs font-medium mb-1 block">Producto</label>
+              <input
                 value={producto}
                 onChange={(e) => setProducto(e.target.value)}
+                list={listId}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {productosDisponibles.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            )}
-          </div>
-
-          <div>
-            <label className="text-xs font-medium mb-2 block">Tipo</label>
+                placeholder="Nombre del producto..."
+                autoFocus={!productoInicial}
+              />
+            </div>
             <div className="flex gap-2">
               {(['vendido', 'devuelto'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTipo(t)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    tipo === t ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border hover:bg-secondary'
-                  }`}
-                >
+                <button key={t} onClick={() => setTipo(t)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${tipo === t ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border hover:bg-secondary'}`}>
                   {t === 'vendido' ? '📤 Vendido' : '↩ Devuelto'}
                 </button>
               ))}
             </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs font-medium mb-1 block">Cantidad</label>
+                <input type="number" min="1" value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))}
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block">Fecha</label>
+                <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block">Nota</label>
+                <input value={nota} onChange={(e) => setNota(e.target.value)}
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Opcional" />
+              </div>
+            </div>
+            <button onClick={addItem} className="w-full py-2 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 border border-border transition-colors flex items-center justify-center gap-2">
+              <Plus size={14} /> Agregar a la lista
+            </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium mb-1 block">Cantidad</label>
-              <input
-                type="number" min="1"
-                value={cantidad}
-                onChange={(e) => setCantidad(Number(e.target.value))}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+          {/* Lista de egresos a registrar */}
+          {lista.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">A registrar ({lista.length})</p>
+              {lista.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2.5 bg-secondary/30 rounded-lg text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${item.tipo === 'vendido' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                      {item.tipo === 'vendido' ? '📤' : '↩'} {item.tipo}
+                    </span>
+                    <span className="font-medium truncate">{item.producto}</span>
+                    <span className="text-muted-foreground shrink-0">× {item.cantidad}</span>
+                    {item.nota && <span className="text-xs text-muted-foreground italic truncate">— {item.nota}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{formatFecha(item.fecha)}</span>
+                    <button onClick={() => setLista((p) => p.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
+                      <Trash2 size={11} className="text-muted-foreground" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block">Fecha</label>
-              <input
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium mb-1 block">Nota (opcional)</label>
-            <input
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Observación..."
-            />
-          </div>
+          )}
         </div>
+
         <div className="flex justify-end gap-3 p-5 border-t border-border">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">Cancelar</button>
-          <button
-            onClick={handleSubmit}
-            disabled={isPending}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors"
-          >
-            {isPending ? 'Guardando...' : 'Registrar'}
+          <button onClick={handleSubmit} disabled={isPending || lista.length === 0}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors">
+            {isPending ? 'Guardando...' : `Registrar ${lista.length > 0 ? `(${lista.length})` : ''}`}
           </button>
         </div>
       </div>
@@ -187,12 +251,15 @@ function EgresoStockModal({
 function CargaRapidaModal({
   negocioId,
   productoInicial,
+  productosDisponibles,
   onClose,
 }: {
   negocioId: string
   productoInicial: string
+  productosDisponibles: string[]
   onClose: () => void
 }) {
+  const listId = 'carga-productos-list'
   const [producto, setProducto] = useState(productoInicial)
   const [precio, setPrecio] = useState(0)
   const [cantidad, setCantidad] = useState(1)
@@ -225,11 +292,15 @@ function CargaRapidaModal({
         </div>
         <div className="p-5 space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
+          <datalist id={listId}>
+            {productosDisponibles.map((p) => <option key={p} value={p} />)}
+          </datalist>
           <div>
             <label className="text-xs font-medium mb-1 block">Producto</label>
             <input
               value={producto}
               onChange={(e) => setProducto(e.target.value)}
+              list={listId}
               className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -273,6 +344,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const [isPending, startTransition] = useTransition()
 
   const productosNombres = stock.map((s) => s.nombre)
+  const listId = 'stock-carga-list'
 
   function handleDeleteEgreso(id: string) {
     if (!confirm('¿Eliminar este egreso?')) return
@@ -291,7 +363,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   return (
     <>
       {egresoProducto !== null && (
-        <EgresoStockModal
+        <MultiEgresoModal
           negocioId={negocio.id}
           productosDisponibles={productosNombres}
           productoInicial={egresoProducto || undefined}
@@ -302,25 +374,32 @@ function StockSection({ negocio }: { negocio: Negocio }) {
         <CargaRapidaModal
           negocioId={negocio.id}
           productoInicial={cargaProducto}
+          productosDisponibles={productosNombres}
           onClose={() => setCargaProducto(null)}
         />
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-wrap gap-2">
           <h2 className="font-semibold">📦 Stock actual</h2>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowHistorial(!showHistorial)}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {showHistorial ? 'Ocultar historial' : 'Ver historial de egresos'}
+              {showHistorial ? 'Ocultar historial' : 'Ver historial'}
+            </button>
+            <button
+              onClick={() => exportStockPDF(stock, negocio.nombre)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
+            >
+              📄 Exportar PDF
             </button>
             <button
               onClick={() => setEgresoProducto('')}
               className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
             >
-              <TrendingDown size={12} /> Registrar egreso
+              <TrendingDown size={12} /> Registrar egresos
             </button>
           </div>
         </div>

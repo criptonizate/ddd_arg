@@ -255,6 +255,28 @@ export async function createEgresoNegocio(
   return {}
 }
 
+export async function createEgresosNegocio(
+  negocioId: string,
+  items: { nombre_producto: string; tipo: 'vendido' | 'devuelto'; cantidad: number; fecha: string; nota?: string }[]
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  if (!items.length) return { error: 'Agregá al menos un item' }
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('negocio_egresos').insert(
+    items.map((d) => ({
+      negocio_id: negocioId,
+      nombre_producto: d.nombre_producto.trim(),
+      tipo: d.tipo,
+      cantidad: d.cantidad,
+      fecha: d.fecha,
+      nota: d.nota?.trim() || null,
+    }))
+  )
+  if (error) return { error: error.message }
+  revalidate(negocioId)
+  return {}
+}
+
 export async function deleteEgresoNegocio(id: string, negocioId: string): Promise<{ error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
