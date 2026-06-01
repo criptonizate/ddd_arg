@@ -16,7 +16,7 @@ export default function StoreFooter() {
     <footer className="border-t border-border py-8 mt-16">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <Image src="/logoDDDARG.png" alt="DDD ARG" width={72} height={48} className="h-7 w-auto" />
+          <Image src="/logoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-7 w-auto" />
           <span>— Impresión 3D en Argentina</span>
         </div>
         <div className="flex items-center gap-4">

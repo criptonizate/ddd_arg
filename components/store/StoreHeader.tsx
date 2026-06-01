@@ -12,7 +12,7 @@ export default function StoreHeader() {
     <header className="sticky top-0 z-40 bg-background/90 backdrop-blur border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          <Image src="/logoDDDARG.png" alt="DDD ARG" width={96} height={64} className="h-9 w-auto" priority />
+          <Image src="/logoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-9 w-auto" priority />
         </Link>
 
         <nav className="flex items-center gap-1">

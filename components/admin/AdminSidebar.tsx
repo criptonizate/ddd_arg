@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
-import { LogOut, Menu, X } from 'lucide-react'
+import { LogOut, Menu, X, Sun, Moon } from 'lucide-react'
 import { useState } from 'react'
+import { useTheme } from './AdminThemeWrapper'
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: '🚀 Dashboard' },
@@ -25,6 +26,7 @@ export default function AdminSidebar({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const { dark, toggle } = useTheme()
 
   return (
     <>
@@ -49,8 +51,14 @@ export default function AdminSidebar({
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 p-6 border-b border-border">
-          <Image src="/logoDDDARG.png" alt="DDD ARG" width={96} height={64} className="h-8 w-auto invert" />
+        <div className="flex items-center gap-3 p-5 border-b border-border">
+          <Image
+            src="/logoDDDARG.png"
+            alt="DDD ARG"
+            width={511}
+            height={339}
+            className="h-8 w-auto dark:invert"
+          />
           <p className="text-xs text-muted-foreground">Admin</p>
         </div>
 
@@ -85,8 +93,17 @@ export default function AdminSidebar({
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-border">
-          <p className="text-xs text-muted-foreground px-3 mb-2 truncate">{userEmail}</p>
+        <div className="p-3 border-t border-border space-y-1">
+          {/* Toggle tema */}
+          <button
+            onClick={toggle}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            {dark ? <Sun size={16} /> : <Moon size={16} />}
+            {dark ? 'Modo claro' : 'Modo oscuro'}
+          </button>
+
+          <p className="text-xs text-muted-foreground px-3 pt-1 truncate">{userEmail}</p>
           <form action={signOut}>
             <button
               type="submit"
