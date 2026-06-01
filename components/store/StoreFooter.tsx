@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 function InstagramIcon() {
   return (
@@ -15,10 +16,7 @@ export default function StoreFooter() {
     <footer className="border-t border-border py-8 mt-16">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 rounded bg-foreground">
-            <span className="text-[10px] font-bold text-background">3D</span>
-          </div>
-          <span className="font-medium text-foreground">DDD ARG</span>
+          <Image src="/logoDDDARG.png" alt="DDD ARG" width={72} height={48} className="h-7 w-auto" />
           <span>— Impresión 3D en Argentina</span>
         </div>
         <div className="flex items-center gap-4">

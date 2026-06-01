@@ -18,7 +18,11 @@ import {
 import { formatARS, formatDate, ESTADO_LABELS } from '@/lib/utils'
 import type { OrderEstado } from '@/lib/supabase/types'
 
-const COLORS = ['#EA580C', '#18181B', '#71717A', '#E7E5E4', '#A8A29E']
+// Colores por estado: pendiente, confirmada, listo, entregada, cancelada
+const COLORS = ['#FBBF24', '#60A5FA', '#A78BFA', '#34D399', '#F87171']
+const CHART_BLUE = '#60A5FA'
+const CHART_PURPLE = '#A78BFA'
+const GRID_COLOR = 'rgba(255,255,255,0.08)'
 
 interface Props {
   ventasPorDia: { fecha: string; total: number; cantidad: number }[]
@@ -50,11 +54,11 @@ export default function DashboardCharts({
           <AreaChart data={ventasPorDia}>
             <defs>
               <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#EA580C" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#EA580C" stopOpacity={0} />
+                <stop offset="5%" stopColor={CHART_BLUE} stopOpacity={0.25} />
+                <stop offset="95%" stopColor={CHART_BLUE} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E7E5E4" />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
             <XAxis
               dataKey="fecha"
               tick={{ fontSize: 11 }}
@@ -75,7 +79,7 @@ export default function DashboardCharts({
             <Area
               type="monotone"
               dataKey="total"
-              stroke="#EA580C"
+              stroke={CHART_BLUE}
               strokeWidth={2}
               fill="url(#gradTotal)"
             />
@@ -120,7 +124,7 @@ export default function DashboardCharts({
             layout="vertical"
             margin={{ left: 8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#E7E5E4" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 11 }} />
             <YAxis
               type="category"
@@ -129,7 +133,7 @@ export default function DashboardCharts({
               width={100}
             />
             <Tooltip formatter={(v: any) => [`${v} unidades`, 'Vendidas']} />
-            <Bar dataKey="vendidos" fill="#EA580C" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="vendidos" fill={CHART_PURPLE} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

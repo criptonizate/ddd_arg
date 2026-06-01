@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
@@ -49,13 +50,8 @@ export default function AdminSidebar({
       >
         {/* Logo */}
         <div className="flex items-center gap-3 p-6 border-b border-border">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-foreground">
-            <span className="text-xs font-bold text-background">3D</span>
-          </div>
-          <div>
-            <p className="font-semibold text-sm leading-none">DDD ARG</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Admin</p>
-          </div>
+          <Image src="/logoDDDARG.png" alt="DDD ARG" width={96} height={64} className="h-8 w-auto invert" />
+          <p className="text-xs text-muted-foreground">Admin</p>
         </div>
 
         {/* Nav */}

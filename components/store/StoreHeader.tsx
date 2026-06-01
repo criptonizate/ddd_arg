@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCart } from './CartProvider'
 import { ShoppingBag } from 'lucide-react'
 
@@ -10,11 +11,8 @@ export default function StoreHeader() {
   return (
     <header className="sticky top-0 z-40 bg-background/90 backdrop-blur border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-foreground">
-            <span className="text-xs font-bold text-background">3D</span>
-          </div>
-          <span className="font-semibold text-sm">DDD ARG</span>
+        <Link href="/" className="flex items-center">
+          <Image src="/logoDDDARG.png" alt="DDD ARG" width={96} height={64} className="h-9 w-auto" priority />
         </Link>
 
         <nav className="flex items-center gap-1">
