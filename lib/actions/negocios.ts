@@ -62,14 +62,31 @@ export async function getNegocios(): Promise<Negocio[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('negocios')
-    .select('*, negocio_pedidos(*, negocio_items(*)), negocio_egresos(*)')
+    .select('*, negocio_pedidos(*, negocio_items(*))')
     .order('nombre', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((n: any) => ({
+
+  const negocios = (data ?? []).map((n: any) => ({
     ...n,
     negocio_pedidos: sortPedidos(n.negocio_pedidos ?? []),
-    negocio_egresos: n.negocio_egresos ?? [],
+    negocio_egresos: [] as NegocioEgreso[],
   }))
+
+  // Fetch egresos por separado — tabla puede no existir todavía si la migración no se corrió
+  try {
+    const { data: egresos, error: egError } = await supabase.from('negocio_egresos').select('*')
+    if (!egError && egresos) {
+      const map = new Map<string, NegocioEgreso[]>()
+      for (const e of egresos) {
+        const arr = map.get(e.negocio_id) ?? []
+        arr.push(e as NegocioEgreso)
+        map.set(e.negocio_id, arr)
+      }
+      for (const n of negocios) n.negocio_egresos = map.get(n.id) ?? []
+    }
+  } catch { /* tabla aún no existe */ }
+
+  return negocios
 }
 
 export async function getNegocio(id: string): Promise<Negocio | null> {
@@ -77,16 +94,25 @@ export async function getNegocio(id: string): Promise<Negocio | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('negocios')
-    .select('*, negocio_pedidos(*, negocio_items(*)), negocio_egresos(*)')
+    .select('*, negocio_pedidos(*, negocio_items(*))')
     .eq('id', id)
     .single()
   if (error) return null
+
+  let egresos: NegocioEgreso[] = []
+  try {
+    const { data: eg, error: egError } = await supabase
+      .from('negocio_egresos')
+      .select('*')
+      .eq('negocio_id', id)
+      .order('created_at', { ascending: false })
+    if (!egError && eg) egresos = eg as NegocioEgreso[]
+  } catch { /* tabla aún no existe */ }
+
   return {
     ...data,
     negocio_pedidos: sortPedidos(data.negocio_pedidos ?? []),
-    negocio_egresos: (data.negocio_egresos ?? []).sort(
-      (a: NegocioEgreso, b: NegocioEgreso) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    ),
+    negocio_egresos: egresos,
   }
 }
 
