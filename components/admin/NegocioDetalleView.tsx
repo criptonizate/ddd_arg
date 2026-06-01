@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { formatARS } from '@/lib/utils'
-import { ChevronDown, ChevronUp, Trash2, Plus, X, Check, TrendingDown, PackagePlus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trash2, Plus, X, Check, TrendingDown, PackagePlus, Pencil } from 'lucide-react'
 import {
   markPedidoEntregado,
   deleteNegocioPedido,
@@ -11,6 +11,7 @@ import {
   createEgresosNegocio,
   deleteEgresoNegocio,
   createNegocioPedido,
+  updatePedidoCompleto,
 } from '@/lib/actions/negocios'
 import type { Negocio, NegocioPedido, NegocioEgreso } from '@/lib/actions/negocios'
 
@@ -643,12 +644,120 @@ function AgregarItemsModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
   )
 }
 
+// ── Modal: Editar pedido (fecha, nota, precios, cantidades) ────────────────
+
+function EditarPedidoModal({ pedido, negocioId, onClose }: { pedido: NegocioPedido; negocioId: string; onClose: () => void }) {
+  const [fecha, setFecha] = useState(pedido.fecha.slice(0, 10))
+  const [nota, setNota] = useState(pedido.nota ?? '')
+  const [items, setItems] = useState(
+    pedido.negocio_items.map((i) => ({
+      id: i.id,
+      nombre_producto: i.nombre_producto,
+      precio_mayorista: Number(i.precio_mayorista),
+      cantidad: i.cantidad,
+    }))
+  )
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function setItemField(idx: number, field: 'precio_mayorista' | 'cantidad', value: number) {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
+  function handleSubmit() {
+    setError(null)
+    if (!fecha) { setError('La fecha es obligatoria'); return }
+    startTransition(async () => {
+      const res = await updatePedidoCompleto(pedido.id, negocioId, { fecha, nota, items })
+      if (res?.error) { setError(res.error); return }
+      onClose()
+    })
+  }
+
+  const total = items.reduce((s, i) => s + i.precio_mayorista * i.cantidad, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-semibold flex items-center gap-2"><Pencil size={15} /> Editar pedido</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={15} /></button>
+        </div>
+        <div className="p-5 space-y-5">
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1 block">Fecha del pedido</label>
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block">Nota</label>
+              <input value={nota} onChange={(e) => setNota(e.target.value)}
+                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Opcional" />
+            </div>
+          </div>
+          {items.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Productos</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-medium px-1 mb-1">
+                  <div className="col-span-5">Producto</div>
+                  <div className="col-span-3">Precio may.</div>
+                  <div className="col-span-2">Cant.</div>
+                  <div className="col-span-2 text-right">Subtotal</div>
+                </div>
+                {items.map((item, idx) => (
+                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-5 text-sm font-medium truncate" title={item.nombre_producto}>{item.nombre_producto}</div>
+                    <div className="col-span-3">
+                      <input
+                        type="number" min="0" value={item.precio_mayorista || ''}
+                        onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        placeholder="Precio"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <input
+                        type="number" min="1" value={item.cantidad}
+                        onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="col-span-2 text-right text-sm font-semibold">
+                      {formatARS(item.precio_mayorista * item.cantidad)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                <span className="text-sm font-bold">Total: {formatARS(total)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-3 p-5 border-t border-border">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">Cancelar</button>
+          <button onClick={handleSubmit} disabled={isPending}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors">
+            {isPending ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Card de pedido ─────────────────────────────────────────────────────────
 
 function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: string }) {
   const [expanded, setExpanded] = useState(!pedido.entregado_at)
   const [showEntrega, setShowEntrega] = useState(false)
   const [showAgregar, setShowAgregar] = useState(false)
+  const [showEditar, setShowEditar] = useState(false)
   const [isPending, startTransition] = useTransition()
   const total = pedidoTotal(pedido)
   const entregado = !!pedido.entregado_at
@@ -666,6 +775,7 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
     <>
       {showEntrega && <EntregaModal pedido={pedido} negocioId={negocioId} onClose={() => setShowEntrega(false)} />}
       {showAgregar && <AgregarItemsModal pedido={pedido} negocioId={negocioId} onClose={() => setShowAgregar(false)} />}
+      {showEditar && <EditarPedidoModal pedido={pedido} negocioId={negocioId} onClose={() => setShowEditar(false)} />}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
@@ -688,6 +798,10 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
                 <Check size={11} /> Entregar
               </button>
             )}
+            <button onClick={() => setShowEditar(true)}
+              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <Pencil size={11} /> Editar
+            </button>
             <button onClick={() => setShowAgregar(true)}
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">
               <Plus size={11} /> Items

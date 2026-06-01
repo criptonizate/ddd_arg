@@ -234,6 +234,33 @@ export async function deleteNegocioItem(id: string, negocioId: string): Promise<
   return {}
 }
 
+export async function updatePedidoCompleto(
+  pedidoId: string,
+  negocioId: string,
+  data: {
+    fecha: string
+    nota?: string
+    items: { id: string; precio_mayorista: number; cantidad: number }[]
+  }
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error: pedidoError } = await supabase
+    .from('negocio_pedidos')
+    .update({ fecha: data.fecha, nota: data.nota?.trim() || null })
+    .eq('id', pedidoId)
+  if (pedidoError) return { error: pedidoError.message }
+  for (const item of data.items) {
+    const { error } = await supabase
+      .from('negocio_items')
+      .update({ precio_mayorista: item.precio_mayorista, cantidad: item.cantidad })
+      .eq('id', item.id)
+    if (error) return { error: error.message }
+  }
+  revalidate(negocioId)
+  return {}
+}
+
 // ── Egresos ────────────────────────────────────────────────────────────────
 
 export async function createEgresoNegocio(
