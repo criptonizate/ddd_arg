@@ -66,6 +66,14 @@ export default async function DashboardPage() {
       color: stats.cancelacionesMes > 0 ? 'text-red-500' : 'text-muted-foreground',
       bg: stats.cancelacionesMes > 0 ? 'bg-red-50 border-red-100' : 'bg-card border-border',
     },
+    {
+      label: '📅 Ventas hoy',
+      value: stats.ventasHoy.toString(),
+      sub: stats.montoHoy > 0 ? formatARS(stats.montoHoy) : 'sin ventas aún',
+      icon: TrendingUp,
+      color: stats.ventasHoy > 0 ? 'text-blue-600' : 'text-muted-foreground',
+      bg: stats.ventasHoy > 0 ? 'bg-blue-50 border-blue-200' : 'bg-card border-border',
+    },
   ]
 
   return (

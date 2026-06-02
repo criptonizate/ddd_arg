@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { createManualSale } from '@/lib/actions/orders'
-import { getActiveProducts } from '@/lib/actions/products'
+import { getActiveProducts, } from '@/lib/actions/products'
+import { getPastClients } from '@/lib/actions/orders'
+import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
-import { Plus, X, Trash2 } from 'lucide-react'
+import { Plus, X, Trash2, Loader2 } from 'lucide-react'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
 interface CartItem {
@@ -16,61 +18,75 @@ interface CartItem {
   variante: string
 }
 
+const EMPTY_FORM = {
+  cliente_nombre: '',
+  cliente_telefono: '',
+  cliente_email: '',
+  entrega: 'retiro' as 'retiro' | 'envio',
+  direccion_envio: '',
+  nota: '',
+  metodo_pago: 'efectivo' as string,
+  sena: 0,
+  prioridad: false,
+}
+
 export default function ManualSaleButton() {
   const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [products, setProducts] = useState<ProductWithVariants[]>([])
+  const [pastClients, setPastClients] = useState<{ nombre: string; telefono: string }[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
-  const [form, setForm] = useState({
-    cliente_nombre: '',
-    cliente_telefono: '',
-    cliente_email: '',
-    entrega: 'retiro' as 'retiro' | 'envio',
-    direccion_envio: '',
-    nota: '',
-    metodo_pago: 'efectivo' as string,
-    sena: 0,
-    prioridad: false,
-  })
+  const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
 
-  // Selector temporal de producto/variante
   const [selProductId, setSelProductId] = useState('')
   const [selVariantId, setSelVariantId] = useState('')
   const [selCantidad, setSelCantidad] = useState(1)
 
   async function openModal() {
-    const prods = await getActiveProducts()
+    setLoading(true)
+    const [prods, clients] = await Promise.all([
+      getActiveProducts(),
+      getPastClients(),
+    ])
     setProducts(prods as ProductWithVariants[])
+    setPastClients(clients)
+    setLoading(false)
     setOpen(true)
+  }
+
+  function closeModal() {
+    setOpen(false)
+    setCart([])
+    setForm(EMPTY_FORM)
+    setError(null)
+    setSelProductId('')
+    setSelVariantId('')
+  }
+
+  // Autocompletar teléfono cuando se selecciona un cliente conocido
+  function handleClienteNombre(nombre: string) {
+    setForm((f) => {
+      const match = pastClients.find((c) => c.nombre === nombre)
+      return { ...f, cliente_nombre: nombre, cliente_telefono: match ? match.telefono : f.cliente_telefono }
+    })
   }
 
   function addItem() {
     const product = products.find((p) => p.id === selProductId)
     const variant = product?.product_variants.find((v) => v.id === selVariantId)
     if (!product || !variant) return
-
     const precio = variant.precio ?? product.precio_base
     setCart((prev) => {
       const existing = prev.find((i) => i.variant_id === selVariantId)
       if (existing) {
         return prev.map((i) =>
-          i.variant_id === selVariantId
-            ? { ...i, cantidad: i.cantidad + selCantidad }
-            : i
+          i.variant_id === selVariantId ? { ...i, cantidad: i.cantidad + selCantidad } : i
         )
       }
-      return [
-        ...prev,
-        {
-          product_id: selProductId,
-          variant_id: selVariantId,
-          cantidad: selCantidad,
-          precio_unitario: precio,
-          nombre: product.nombre,
-          variante: variant.nombre_variante,
-        },
-      ]
+      return [...prev, { product_id: selProductId, variant_id: selVariantId, cantidad: selCantidad, precio_unitario: precio, nombre: product.nombre, variante: variant.nombre_variante }]
     })
     setSelCantidad(1)
   }
@@ -79,39 +95,21 @@ export default function ManualSaleButton() {
 
   function handleSubmit() {
     setError(null)
-    if (cart.length === 0) {
-      setError('Agregá al menos un producto')
-      return
-    }
+    if (!form.cliente_nombre.trim()) { setError('El nombre del cliente es obligatorio'); return }
+    if (cart.length === 0) { setError('Agregá al menos un producto'); return }
     startTransition(async () => {
       const res = await createManualSale({
         ...form,
         metodo_pago: form.metodo_pago as any,
         sena: form.sena,
         prioridad: form.prioridad,
-        items: cart.map((i) => ({
-          product_id: i.product_id,
-          variant_id: i.variant_id,
-          cantidad: i.cantidad,
-          precio_unitario: i.precio_unitario,
-        })),
+        items: cart.map((i) => ({ product_id: i.product_id, variant_id: i.variant_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
       })
       if (res?.error) {
         setError(typeof res.error === 'string' ? res.error : 'Error al registrar la venta')
       } else {
-        setOpen(false)
-        setCart([])
-        setForm({
-          cliente_nombre: '',
-          cliente_telefono: '',
-          cliente_email: '',
-          entrega: 'retiro',
-          direccion_envio: '',
-          nota: '',
-          metodo_pago: 'efectivo',
-          sena: 0,
-          prioridad: false,
-        })
+        toast(`Venta registrada — ${form.cliente_nombre} · ${formatARS(total)}`)
+        closeModal()
       }
     })
   }
@@ -122,19 +120,20 @@ export default function ManualSaleButton() {
     <>
       <button
         onClick={openModal}
-        className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-lg px-4 py-2 text-sm font-medium"
+        disabled={loading}
+        className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-70"
       >
-        <Plus size={16} />
-        Venta manual
+        {loading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+        {loading ? 'Cargando...' : 'Venta manual'}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h2 className="text-lg font-semibold">Registrar venta manual</h2>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-secondary">
+              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-secondary">
                 <X size={16} />
               </button>
             </div>
@@ -146,6 +145,11 @@ export default function ManualSaleButton() {
                 </div>
               )}
 
+              {/* Datalist para autocompletado de clientes */}
+              <datalist id="clientes-list">
+                {pastClients.map((c) => <option key={c.nombre} value={c.nombre} />)}
+              </datalist>
+
               {/* Datos del cliente */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Datos del cliente</h3>
@@ -154,13 +158,14 @@ export default function ManualSaleButton() {
                     <label className="text-xs font-medium mb-1 block">Nombre *</label>
                     <input
                       value={form.cliente_nombre}
-                      onChange={(e) => setForm({ ...form, cliente_nombre: e.target.value })}
+                      onChange={(e) => handleClienteNombre(e.target.value)}
+                      list="clientes-list"
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                       placeholder="Juan García"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium mb-1 block">Teléfono *</label>
+                    <label className="text-xs font-medium mb-1 block">Teléfono</label>
                     <input
                       value={form.cliente_telefono}
                       onChange={(e) => setForm({ ...form, cliente_telefono: e.target.value })}
@@ -193,7 +198,7 @@ export default function ManualSaleButton() {
                   </div>
                   {form.entrega === 'envio' && (
                     <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block">Dirección</label>
+                      <label className="text-xs font-medium mb-1 block">Dirección *</label>
                       <input
                         value={form.direccion_envio}
                         onChange={(e) => setForm({ ...form, direccion_envio: e.target.value })}
@@ -212,9 +217,8 @@ export default function ManualSaleButton() {
                   <div>
                     <label className="text-xs font-medium mb-1 block">Seña recibida</label>
                     <input
-                      type="number"
-                      min="0"
-                      value={form.sena}
+                      type="number" min="0"
+                      value={form.sena || ''}
                       onChange={(e) => setForm({ ...form, sena: Number(e.target.value) })}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                       placeholder="0"
@@ -223,8 +227,7 @@ export default function ManualSaleButton() {
                   <div className="flex items-end pb-2">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
-                        type="checkbox"
-                        checked={form.prioridad}
+                        type="checkbox" checked={form.prioridad}
                         onChange={(e) => setForm({ ...form, prioridad: e.target.checked })}
                         className="w-4 h-4 rounded border-input accent-red-600"
                       />
@@ -242,16 +245,11 @@ export default function ManualSaleButton() {
                     <label className="text-xs font-medium mb-1 block">Producto</label>
                     <select
                       value={selProductId}
-                      onChange={(e) => {
-                        setSelProductId(e.target.value)
-                        setSelVariantId('')
-                      }}
+                      onChange={(e) => { setSelProductId(e.target.value); setSelVariantId('') }}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="">Seleccionar...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
+                      {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                     </select>
                   </div>
                   <div className="col-span-4">
@@ -264,26 +262,21 @@ export default function ManualSaleButton() {
                     >
                       <option value="">Variante...</option>
                       {selectedProduct?.product_variants.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.nombre_variante} ({v.stock} disponibles)
-                        </option>
+                        <option key={v.id} value={v.id}>{v.nombre_variante} ({v.stock} disp.)</option>
                       ))}
                     </select>
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs font-medium mb-1 block">Cant.</label>
                     <input
-                      type="number"
-                      min="1"
-                      value={selCantidad}
+                      type="number" min="1" value={selCantidad}
                       onChange={(e) => setSelCantidad(Number(e.target.value))}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
                   <div className="col-span-1">
                     <button
-                      onClick={addItem}
-                      disabled={!selVariantId}
+                      onClick={addItem} disabled={!selVariantId}
                       className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
                     >
                       <Plus size={16} />
@@ -298,29 +291,22 @@ export default function ManualSaleButton() {
                   <h3 className="text-sm font-semibold mb-2">Pedido</h3>
                   <div className="space-y-2">
                     {cart.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg text-sm"
-                      >
+                      <div key={idx} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg text-sm">
                         <div>
                           <span className="font-medium">{item.nombre}</span>
                           <span className="text-muted-foreground"> — {item.variante}</span>
                           <span className="text-muted-foreground"> × {item.cantidad}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">
-                            {formatARS(item.cantidad * item.precio_unitario)}
-                          </span>
-                          <button
-                            onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}
-                            className="p-1 rounded hover:bg-secondary"
-                          >
+                          <span className="font-semibold">{formatARS(item.cantidad * item.precio_unitario)}</span>
+                          <button onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
                             <Trash2 size={12} className="text-muted-foreground" />
                           </button>
                         </div>
                       </div>
                     ))}
-                    <div className="flex justify-end pt-1">
+                    <div className="flex justify-between pt-1 items-center">
+                      <span className="text-xs text-muted-foreground">{cart.length} producto{cart.length > 1 ? 's' : ''}</span>
                       <span className="text-base font-bold">Total: {formatARS(total)}</span>
                     </div>
                   </div>
@@ -328,12 +314,8 @@ export default function ManualSaleButton() {
               )}
             </div>
 
-            {/* Footer */}
             <div className="flex justify-end gap-3 p-6 border-t border-border">
-              <button
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
-              >
+              <button onClick={closeModal} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">
                 Cancelar
               </button>
               <button
@@ -341,7 +323,7 @@ export default function ManualSaleButton() {
                 disabled={isPending || cart.length === 0}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors"
               >
-                {isPending ? 'Registrando...' : `Confirmar venta — ${formatARS(total)}`}
+                {isPending ? 'Registrando...' : `Confirmar — ${formatARS(total)}`}
               </button>
             </div>
           </div>

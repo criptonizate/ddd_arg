@@ -93,74 +93,34 @@ export async function getDashboardStats() {
   const supabase = createServiceClient()
 
   const now = new Date()
-  const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .split('T')[0]
+  const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  const hoy = now.toISOString().split('T')[0]
+  const hace30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  // Ventas del mes
-  const { data: ventasMes } = await supabase
-    .from('orders')
-    .select('total, estado, created_at')
-    .gte('created_at', primerDiaMes)
-    .neq('estado', 'cancelada')
-
-  // Transacciones del mes
-  const { data: txMes } = await supabase
-    .from('transactions')
-    .select('tipo, monto')
-    .gte('fecha', primerDiaMes)
-
-  // Pedidos por estado
-  const { data: pedidosEstado } = await supabase
-    .from('orders')
-    .select('estado')
-
-  // Ventas por día (últimos 30 días)
-  const hace30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split('T')[0]
-  const { data: ventasDia } = await supabase
-    .from('orders')
-    .select('total, created_at')
-    .gte('created_at', hace30)
-    .neq('estado', 'cancelada')
-
-  // Top variantes
-  const { data: topItems } = await supabase
-    .from('order_items')
-    .select(`
-      cantidad,
-      precio_unitario,
-      product_variants (nombre_variante),
-      products (nombre),
-      orders!inner (estado)
-    `)
-    .neq('orders.estado', 'cancelada')
-
-  // Stock bajo
-  const { data: stockBajo } = await supabase
-    .from('product_variants')
-    .select('*, products (nombre)')
-    .filter('stock', 'lte', 'stock_minimo')
-
-  // Cobro pendiente: total - sena de pedidos confirmados/listos
-  const { data: pendientesCobro } = await supabase
-    .from('orders')
-    .select('total, sena')
-    .in('estado', ['confirmada', 'listo'])
-
-  // Pedidos pendientes de confirmación
-  const { count: pedidosPendientes } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('estado', 'pendiente')
-
-  // Cancelaciones del mes
-  const { data: cancelacionesMes } = await supabase
-    .from('orders')
-    .select('id')
-    .eq('estado', 'cancelada')
-    .gte('created_at', primerDiaMes)
+  // Todas las queries en paralelo
+  const [
+    { data: ventasMes },
+    { data: txMes },
+    { data: pedidosEstado },
+    { data: ventasDia },
+    { data: topItems },
+    { data: stockBajo },
+    { data: pendientesCobro },
+    { count: pedidosPendientes },
+    { data: cancelacionesMes },
+    { data: ventasHoy },
+  ] = await Promise.all([
+    supabase.from('orders').select('total, estado, created_at').gte('created_at', primerDiaMes).neq('estado', 'cancelada'),
+    supabase.from('transactions').select('tipo, monto').gte('fecha', primerDiaMes),
+    supabase.from('orders').select('estado'),
+    supabase.from('orders').select('total, created_at').gte('created_at', hace30).neq('estado', 'cancelada'),
+    supabase.from('order_items').select('cantidad, precio_unitario, product_variants (nombre_variante), products (nombre), orders!inner (estado)').neq('orders.estado', 'cancelada'),
+    supabase.from('product_variants').select('*, products (nombre)').filter('stock', 'lte', 'stock_minimo'),
+    supabase.from('orders').select('total, sena').in('estado', ['confirmada', 'listo']),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+    supabase.from('orders').select('id').eq('estado', 'cancelada').gte('created_at', primerDiaMes),
+    supabase.from('orders').select('total').gte('created_at', hoy).neq('estado', 'cancelada'),
+  ])
 
   // Calcular stats
   const ingresosMes = txMes
@@ -221,6 +181,9 @@ export async function getDashboardStats() {
     0
   )
 
+  const ventasHoyCount = ventasHoy?.length ?? 0
+  const montoHoy = (ventasHoy ?? []).reduce((s: number, o: any) => s + Number(o.total), 0)
+
   return {
     ventasMes: ventasMes?.length ?? 0,
     ingresosMes,
@@ -235,5 +198,7 @@ export async function getDashboardStats() {
     cobroPendiente,
     pedidosPendientes: pedidosPendientes ?? 0,
     cancelacionesMes: cancelacionesMes?.length ?? 0,
+    ventasHoy: ventasHoyCount,
+    montoHoy,
   }
 }

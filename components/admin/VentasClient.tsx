@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, X } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
 import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
 import { updateOrderSena } from '@/lib/actions/orders'
+import OrderNotaInternaInput from './OrderNotaInternaInput'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -22,6 +23,7 @@ interface Order {
   nota?: string
   total: number
   sena?: number
+  nota_interna?: string | null
   order_items?: {
     id: string
     products?: { nombre: string }
@@ -44,6 +46,7 @@ export default function VentasClient({
 }) {
   const [tab, setTab] = useState<Tab>('listas')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -53,17 +56,39 @@ export default function VentasClient({
     })
   }
 
-  // Entregadas: primero las que tienen saldo pendiente
-  const sortedEntregadas = [...entregadas].sort((a, b) => {
-    const pendA = a.total - (a.sena ?? 0)
-    const pendB = b.total - (b.sena ?? 0)
-    if (pendA > 0 && pendB <= 0) return -1
-    if (pendA <= 0 && pendB > 0) return 1
-    return 0
-  })
+  // Entregadas: primero las que tienen saldo pendiente — memoizado
+  const sortedEntregadas = useMemo(() =>
+    [...entregadas].sort((a, b) => {
+      const pendA = a.total - (a.sena ?? 0)
+      const pendB = b.total - (b.sena ?? 0)
+      if (pendA > 0 && pendB <= 0) return -1
+      if (pendA <= 0 && pendB > 0) return 1
+      return 0
+    }),
+    [entregadas]
+  )
 
-  const orders = tab === 'listas' ? listas : sortedEntregadas
-  const total = orders.reduce((sum, o) => sum + Number(o.total), 0)
+  // Total deuda pendiente en entregadas
+  const totalDeuda = useMemo(
+    () => entregadas.reduce((sum, o) => sum + Math.max(0, o.total - (o.sena ?? 0)), 0),
+    [entregadas]
+  )
+
+  const baseOrders = tab === 'listas' ? listas : sortedEntregadas
+
+  // Filtro de búsqueda
+  const orders = useMemo(() => {
+    if (!search.trim()) return baseOrders
+    const q = search.toLowerCase()
+    return baseOrders.filter(
+      (o) =>
+        o.cliente_nombre.toLowerCase().includes(q) ||
+        o.cliente_telefono?.toLowerCase().includes(q) ||
+        o.nota?.toLowerCase().includes(q)
+    )
+  }, [baseOrders, search])
+
+  const total = useMemo(() => orders.reduce((sum, o) => sum + Number(o.total), 0), [orders])
 
   return (
     <div className="space-y-5">
@@ -98,21 +123,46 @@ export default function VentasClient({
               {entregadas.length}
             </span>
           )}
+          {totalDeuda > 0 && tab !== 'entregadas' && (
+            <span className="ml-1.5 text-xs font-semibold text-orange-600">· Deben {formatARS(totalDeuda)}</span>
+          )}
         </button>
-        {total > 0 && (
-          <span className="ml-auto text-sm font-semibold text-muted-foreground">
-            {formatARS(total)}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {total > 0 && (
+            <span className="text-sm font-semibold text-muted-foreground">{formatARS(total)}</span>
+          )}
+          {/* Búsqueda */}
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-40"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Lista de órdenes */}
       {orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-card border border-border rounded-xl">
-          <p className="font-medium">Sin órdenes</p>
+          <p className="font-medium">{search ? 'Sin resultados' : 'Sin órdenes'}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            No hay ventas {tab === 'listas' ? 'listas para entregar' : 'entregadas'} por ahora
+            {search
+              ? `No se encontró "${search}" — probá con otro término`
+              : `No hay ventas ${tab === 'listas' ? 'listas para entregar' : 'entregadas'} por ahora`}
           </p>
+          {search && (
+            <button onClick={() => setSearch('')} className="mt-3 text-xs text-muted-foreground hover:text-foreground underline">
+              Limpiar búsqueda
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -205,6 +255,7 @@ function FullCard({ order }: { order: Order }) {
             <span className="text-base font-bold">{formatARS(order.total)}</span>
           </div>
           <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
+          <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
         </div>
         <OrderActions orderId={order.id} estado={order.estado} />
       </div>
@@ -349,6 +400,7 @@ function CollapsibleCard({
                 <span className="text-base font-bold">{formatARS(order.total)}</span>
               </div>
               <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
+              <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
             </div>
             {order.cliente_telefono && (
               <div className="flex items-center gap-1">

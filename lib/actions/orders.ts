@@ -60,6 +60,16 @@ export async function toggleOrderPriority(orderId: string, prioridad: boolean) {
   return { success: true }
 }
 
+export async function updateOrderNotaInterna(orderId: string, nota: string | null) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ nota_interna: nota || null }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
 export async function updateOrderFechaEntrega(orderId: string, fecha: string | null) {
   await getAdminUser()
   const supabase = createServiceClient()
@@ -78,6 +88,22 @@ export async function markOrderListo(orderId: string) {
   revalidatePath('/admin/pedidos')
   revalidatePath('/admin/ventas')
   return { success: true }
+}
+
+export async function getPastClients(): Promise<{ nombre: string; telefono: string }[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('cliente_nombre, cliente_telefono')
+    .order('created_at', { ascending: false })
+    .limit(300)
+  const seen = new Set<string>()
+  return (data ?? []).filter((o: any) => {
+    if (seen.has(o.cliente_nombre)) return false
+    seen.add(o.cliente_nombre)
+    return true
+  }).map((o: any) => ({ nombre: o.cliente_nombre, telefono: o.cliente_telefono ?? '' }))
 }
 
 export async function getPendingOrdersCount(): Promise<number> {

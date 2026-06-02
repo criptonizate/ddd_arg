@@ -14,6 +14,8 @@ import {
   updatePedidoCompleto,
 } from '@/lib/actions/negocios'
 import type { Negocio, NegocioPedido, NegocioEgreso } from '@/lib/actions/negocios'
+import { useConfirm } from './ConfirmModal'
+import { useToast } from './ToastProvider'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -343,13 +345,18 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const [cargaProducto, setCargaProducto] = useState<string | null>(null)
   const [showHistorial, setShowHistorial] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { confirm, ConfirmDialog } = useConfirm()
+  const { toast } = useToast()
 
   const productosNombres = stock.map((s) => s.nombre)
-  const listId = 'stock-carga-list'
 
-  function handleDeleteEgreso(id: string) {
-    if (!confirm('¿Eliminar este egreso?')) return
-    startTransition(async () => { await deleteEgresoNegocio(id, negocio.id) })
+  async function handleDeleteEgreso(id: string) {
+    const ok = await confirm('¿Eliminar este egreso?', { confirmLabel: 'Eliminar' })
+    if (!ok) return
+    startTransition(async () => {
+      const res = await deleteEgresoNegocio(id, negocio.id)
+      if (res?.error) toast(res.error, 'error')
+    })
   }
 
   if (stock.length === 0) {
@@ -363,6 +370,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
 
   return (
     <>
+      {ConfirmDialog}
       {egresoProducto !== null && (
         <MultiEgresoModal
           negocioId={negocio.id}
@@ -751,6 +759,98 @@ function EditarPedidoModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
   )
 }
 
+// ── Modal: Clonar pedido ───────────────────────────────────────────────────
+
+function ClonarPedidoModal({ pedido, negocioId, onClose }: { pedido: NegocioPedido; negocioId: string; onClose: () => void }) {
+  const { toast } = useToast()
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [items, setItems] = useState(
+    pedido.negocio_items.map((i) => ({
+      id: i.id,
+      nombre_producto: i.nombre_producto,
+      precio_mayorista: Number(i.precio_mayorista),
+      cantidad: i.cantidad,
+    }))
+  )
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function setItemField(idx: number, field: 'precio_mayorista' | 'cantidad', value: number) {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
+  function handleSubmit() {
+    setError(null)
+    startTransition(async () => {
+      const res = await createNegocioPedido({
+        negocio_id: negocioId,
+        fecha,
+        items: items.map((i) => ({ nombre_producto: i.nombre_producto, precio_mayorista: i.precio_mayorista, cantidad: i.cantidad })),
+      })
+      if (res?.error) { setError(res.error); return }
+      toast('Pedido clonado ✓')
+      onClose()
+    })
+  }
+
+  const total = items.reduce((s, i) => s + i.precio_mayorista * i.cantidad, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-semibold flex items-center gap-2">📋 Clonar pedido</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={15} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div>
+            <label className="text-xs font-medium mb-1 block">Fecha del nuevo pedido</label>
+            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Productos (editables)</p>
+            <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-medium px-1 mb-1">
+              <div className="col-span-5">Producto</div>
+              <div className="col-span-3">Precio</div>
+              <div className="col-span-2">Cant.</div>
+              <div className="col-span-2 text-right">Subtotal</div>
+            </div>
+            {items.map((item, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-center mb-2">
+                <div className="col-span-5 text-sm font-medium truncate">{item.nombre_producto}</div>
+                <div className="col-span-3">
+                  <input type="number" min="0" value={item.precio_mayorista || ''}
+                    onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
+                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+                <div className="col-span-2">
+                  <input type="number" min="1" value={item.cantidad}
+                    onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
+                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+                <div className="col-span-2 text-right text-sm font-semibold">{formatARS(item.precio_mayorista * item.cantidad)}</div>
+              </div>
+            ))}
+            <div className="flex justify-end pt-2 border-t border-border">
+              <span className="text-sm font-bold">Total: {formatARS(total)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 p-5 border-t border-border">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">Cancelar</button>
+          <button onClick={handleSubmit} disabled={isPending}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors">
+            {isPending ? 'Creando...' : 'Crear pedido'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Card de pedido ─────────────────────────────────────────────────────────
 
 function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: string }) {
@@ -758,24 +858,34 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
   const [showEntrega, setShowEntrega] = useState(false)
   const [showAgregar, setShowAgregar] = useState(false)
   const [showEditar, setShowEditar] = useState(false)
+  const [showClonar, setShowClonar] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { confirm, ConfirmDialog } = useConfirm()
+  const { toast } = useToast()
   const total = pedidoTotal(pedido)
   const entregado = !!pedido.entregado_at
 
-  function handleDelete() {
-    if (!confirm('¿Eliminar este pedido?')) return
-    startTransition(async () => { await deleteNegocioPedido(pedido.id, negocioId) })
+  async function handleDelete() {
+    const ok = await confirm('¿Eliminar este pedido?', { confirmLabel: 'Eliminar' })
+    if (!ok) return
+    startTransition(async () => {
+      const res = await deleteNegocioPedido(pedido.id, negocioId)
+      if (res?.error) toast(res.error, 'error')
+    })
   }
-  function handleDeleteItem(itemId: string) {
-    if (!confirm('¿Eliminar este producto?')) return
+  async function handleDeleteItem(itemId: string) {
+    const ok = await confirm('¿Eliminar este producto del pedido?', { confirmLabel: 'Eliminar' })
+    if (!ok) return
     startTransition(async () => { await deleteNegocioItem(itemId, negocioId) })
   }
 
   return (
     <>
+      {ConfirmDialog}
       {showEntrega && <EntregaModal pedido={pedido} negocioId={negocioId} onClose={() => setShowEntrega(false)} />}
       {showAgregar && <AgregarItemsModal pedido={pedido} negocioId={negocioId} onClose={() => setShowAgregar(false)} />}
       {showEditar && <EditarPedidoModal pedido={pedido} negocioId={negocioId} onClose={() => setShowEditar(false)} />}
+      {showClonar && <ClonarPedidoModal pedido={pedido} negocioId={negocioId} onClose={() => setShowClonar(false)} />}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
@@ -801,6 +911,10 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
             <button onClick={() => setShowEditar(true)}
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">
               <Pencil size={11} /> Editar
+            </button>
+            <button onClick={() => setShowClonar(true)}
+              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">
+              📋
             </button>
             <button onClick={() => setShowAgregar(true)}
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useLayoutEffect, useCallback } from 'react'
+import ToastProvider from './ToastProvider'
 
 interface ThemeCtx {
   dark: boolean
@@ -31,12 +32,14 @@ export default function AdminThemeWrapper({ children }: { children: React.ReactN
 
   return (
     <ThemeContext.Provider value={{ dark, toggle }}>
-      <div
-        suppressHydrationWarning
-        className={`${dark ? 'dark ' : ''}flex h-screen overflow-hidden bg-background`}
-      >
-        {children}
-      </div>
+      <ToastProvider>
+        <div
+          suppressHydrationWarning
+          className={`${dark ? 'dark ' : ''}flex h-screen overflow-hidden bg-background`}
+        >
+          {children}
+        </div>
+      </ToastProvider>
     </ThemeContext.Provider>
   )
 }
