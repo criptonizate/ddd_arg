@@ -1,10 +1,12 @@
 import { z } from 'zod'
 
 export const OrderItemSchema = z.object({
-  product_id: z.string().uuid(),
-  variant_id: z.string().uuid(),
+  product_id: z.string().optional().default(''),
+  variant_id: z.string().optional().default(''),
   cantidad: z.number().int().min(1, 'La cantidad mínima es 1'),
   precio_unitario: z.number().min(0),
+  nombre_producto: z.string().optional().default(''),
+  nombre_variante: z.string().optional().default(''),
 })
 
 export const ManualSaleSchema = z.object({

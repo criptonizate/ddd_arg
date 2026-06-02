@@ -100,6 +100,7 @@ interface CartItem {
   precio_unitario: number
   nombre: string
   variante: string
+  esLibre?: boolean
 }
 
 const EMPTY_FORM = {
@@ -128,6 +129,8 @@ export default function ManualSaleButton() {
   const [selProductId, setSelProductId] = useState('')
   const [selVariantId, setSelVariantId] = useState('')
   const [selCantidad, setSelCantidad] = useState(1)
+  const [modoLibre, setModoLibre] = useState(false)
+  const [itemLibre, setItemLibre] = useState({ nombre: '', variante: '', precio: '' })
 
   async function openModal() {
     setLoading(true)
@@ -148,6 +151,8 @@ export default function ManualSaleButton() {
     setError(null)
     setSelProductId('')
     setSelVariantId('')
+    setModoLibre(false)
+    setItemLibre({ nombre: '', variante: '', precio: '' })
   }
 
   function handleClienteSelect(nombre: string, telefono: string) {
@@ -176,6 +181,23 @@ export default function ManualSaleButton() {
     setSelCantidad(1)
   }
 
+  function addItemLibre() {
+    if (!itemLibre.nombre.trim() || !itemLibre.precio) return
+    const precio = parseFloat(itemLibre.precio)
+    if (isNaN(precio) || precio <= 0) return
+    setCart((prev) => [...prev, {
+      product_id: '',
+      variant_id: '',
+      cantidad: selCantidad,
+      precio_unitario: precio,
+      nombre: itemLibre.nombre.trim(),
+      variante: itemLibre.variante.trim(),
+      esLibre: true,
+    }])
+    setItemLibre({ nombre: '', variante: '', precio: '' })
+    setSelCantidad(1)
+  }
+
   const total = cart.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
 
   function handleSubmit() {
@@ -188,7 +210,14 @@ export default function ManualSaleButton() {
         metodo_pago: form.metodo_pago as any,
         sena: form.sena,
         prioridad: form.prioridad,
-        items: cart.map((i) => ({ product_id: i.product_id, variant_id: i.variant_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
+        items: cart.map((i) => ({
+          product_id: i.product_id || '',
+          variant_id: i.variant_id || '',
+          cantidad: i.cantidad,
+          precio_unitario: i.precio_unitario,
+          nombre_producto: i.nombre,
+          nombre_variante: i.variante,
+        })),
       })
       if (res?.error) {
         setError(typeof res.error === 'string' ? res.error : 'Error al registrar la venta')
@@ -318,50 +347,122 @@ export default function ManualSaleButton() {
 
               {/* Agregar productos */}
               <div>
-                <h3 className="text-sm font-semibold mb-3">Agregar productos</h3>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-5">
-                    <label className="text-xs font-medium mb-1 block">Producto</label>
-                    <select
-                      value={selProductId}
-                      onChange={(e) => { setSelProductId(e.target.value); setSelVariantId('') }}
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-span-4">
-                    <label className="text-xs font-medium mb-1 block">Variante</label>
-                    <select
-                      value={selVariantId}
-                      onChange={(e) => setSelVariantId(e.target.value)}
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      disabled={!selProductId}
-                    >
-                      <option value="">Variante...</option>
-                      {selectedProduct?.product_variants.map((v) => (
-                        <option key={v.id} value={v.id}>{v.nombre_variante} ({v.stock} disp.)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs font-medium mb-1 block">Cant.</label>
-                    <input
-                      type="number" min="1" value={selCantidad}
-                      onChange={(e) => setSelCantidad(Number(e.target.value))}
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                  </div>
-                  <div className="col-span-1">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Agregar productos</h3>
+                  <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
                     <button
-                      onClick={addItem} disabled={!selVariantId}
-                      className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
+                      type="button"
+                      onClick={() => setModoLibre(false)}
+                      className={`px-3 py-1.5 transition-colors ${!modoLibre ? 'bg-foreground text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
                     >
-                      <Plus size={16} />
+                      Del catálogo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoLibre(true)}
+                      className={`px-3 py-1.5 transition-colors ${modoLibre ? 'bg-foreground text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                    >
+                      Ítem libre
                     </button>
                   </div>
                 </div>
+
+                {!modoLibre ? (
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-5">
+                      <label className="text-xs font-medium mb-1 block">Producto</label>
+                      <select
+                        value={selProductId}
+                        onChange={(e) => { setSelProductId(e.target.value); setSelVariantId('') }}
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Seleccionar...</option>
+                        {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-4">
+                      <label className="text-xs font-medium mb-1 block">Variante</label>
+                      <select
+                        value={selVariantId}
+                        onChange={(e) => setSelVariantId(e.target.value)}
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        disabled={!selProductId}
+                      >
+                        <option value="">Variante...</option>
+                        {selectedProduct?.product_variants.map((v) => (
+                          <option key={v.id} value={v.id}>{v.nombre_variante} ({v.stock} disp.)</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium mb-1 block">Cant.</label>
+                      <input
+                        type="number" min="1" value={selCantidad}
+                        onChange={(e) => setSelCantidad(Number(e.target.value))}
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <button
+                        onClick={addItem} disabled={!selVariantId}
+                        className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-5">
+                      <label className="text-xs font-medium mb-1 block">Nombre</label>
+                      <input
+                        value={itemLibre.nombre}
+                        onChange={(e) => setItemLibre((l) => ({ ...l, nombre: e.target.value }))}
+                        placeholder="Ej: Llavero personalizado"
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-xs font-medium mb-1 block">Variante <span className="text-muted-foreground font-normal">(opc.)</span></label>
+                      <input
+                        value={itemLibre.variante}
+                        onChange={(e) => setItemLibre((l) => ({ ...l, variante: e.target.value }))}
+                        placeholder="Ej: Azul"
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium mb-1 block">Precio $</label>
+                      <input
+                        type="number" min="0" step="any"
+                        value={itemLibre.precio}
+                        onChange={(e) => setItemLibre((l) => ({ ...l, precio: e.target.value }))}
+                        placeholder="0"
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="text-xs font-medium mb-1 block">Cant.</label>
+                      <input
+                        type="number" min="1" value={selCantidad}
+                        onChange={(e) => setSelCantidad(Number(e.target.value))}
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <button
+                        onClick={addItemLibre}
+                        disabled={!itemLibre.nombre.trim() || !itemLibre.precio}
+                        className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Carrito */}
