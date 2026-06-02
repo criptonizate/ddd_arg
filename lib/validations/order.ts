@@ -20,7 +20,7 @@ const AdminOrderItemSchema = z.object({
 
 export const ManualSaleSchema = z.object({
   cliente_nombre: z.string().min(2, 'Ingresá el nombre del cliente').trim(),
-  cliente_telefono: z.string().min(6, 'Ingresá un teléfono válido').trim(),
+  cliente_telefono: z.string().optional().default(''),
   cliente_email: z.string().email().optional().or(z.literal('')),
   entrega: z.enum(['retiro', 'envio']),
   direccion_envio: z.string().optional().default(''),

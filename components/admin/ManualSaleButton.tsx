@@ -220,7 +220,12 @@ export default function ManualSaleButton() {
         })),
       })
       if (res?.error) {
-        setError(typeof res.error === 'string' ? res.error : 'Error al registrar la venta')
+        if (typeof res.error === 'string') {
+          setError(res.error)
+        } else {
+          const msgs = Object.values(res.error as Record<string, string[]>).flat()
+          setError(msgs[0] ?? 'Error al registrar la venta')
+        }
       } else {
         toast(`Venta registrada — ${form.cliente_nombre} · ${formatARS(total)}`)
         closeModal()
