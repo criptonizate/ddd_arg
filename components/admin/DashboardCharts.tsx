@@ -57,7 +57,7 @@ export default function DashboardCharts({ ventasPorDia }: Props) {
               allowDecimals={false}
             />
             <Tooltip
-              formatter={(value: any, name: string) =>
+              formatter={(value: any, name: string | undefined) =>
                 name === 'total'
                   ? [formatARS(Number(value)), 'Ingresos']
                   : [`${value} pedido${value !== 1 ? 's' : ''}`, 'Cantidad']
