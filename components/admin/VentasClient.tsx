@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
-import { ChevronDown, ChevronUp, Package } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
 import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
+import { updateOrderSena } from '@/lib/actions/orders'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -52,7 +53,16 @@ export default function VentasClient({
     })
   }
 
-  const orders = tab === 'listas' ? listas : entregadas
+  // Entregadas: primero las que tienen saldo pendiente
+  const sortedEntregadas = [...entregadas].sort((a, b) => {
+    const pendA = a.total - (a.sena ?? 0)
+    const pendB = b.total - (b.sena ?? 0)
+    if (pendA > 0 && pendB <= 0) return -1
+    if (pendA <= 0 && pendB > 0) return 1
+    return 0
+  })
+
+  const orders = tab === 'listas' ? listas : sortedEntregadas
   const total = orders.reduce((sum, o) => sum + Number(o.total), 0)
 
   return (
@@ -213,28 +223,99 @@ function CollapsibleCard({
 }) {
   const pendiente = order.total - (order.sena ?? 0)
   const pagado = (order.sena ?? 0) >= order.total && order.total > 0
+  const tienePendiente = !pagado && pendiente > 0
+
+  const [showCobrar, setShowCobrar] = useState(false)
+  const [valorCobro, setValorCobro] = useState(pendiente)
+  const [isPending, startTransition] = useTransition()
+
+  function abrirCobrar(e: React.MouseEvent) {
+    e.stopPropagation()
+    setValorCobro(pendiente)
+    setShowCobrar(true)
+  }
+
+  function confirmarCobro(e: React.MouseEvent) {
+    e.stopPropagation()
+    const nuevoSena = Math.min(order.total, (order.sena ?? 0) + valorCobro)
+    startTransition(async () => {
+      await updateOrderSena(order.id, nuevoSena)
+      setShowCobrar(false)
+    })
+  }
+
+  function cancelarCobro(e: React.MouseEvent) {
+    e.stopPropagation()
+    setShowCobrar(false)
+  }
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+    <div className={`bg-card rounded-xl shadow-sm overflow-hidden border-l-4 ${tienePendiente ? 'border-l-orange-500 border-t border-r border-b border-orange-500/40' : 'border-l-transparent border border-border'}`}>
       {/* Cabecera siempre visible */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
           <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
-          {pagado ? (
-            <span className="text-xs text-green-600 font-medium shrink-0">✓ Pagado</span>
-          ) : pendiente > 0 && (order.sena ?? 0) > 0 ? (
-            <span className="text-xs text-orange-600 shrink-0">Debe {formatARS(pendiente)}</span>
-          ) : null}
+          {pagado && (
+            <span className="text-xs font-medium text-green-600 shrink-0">✓ Pagado</span>
+          )}
+          {tienePendiente && !showCobrar && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 shrink-0 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800">
+              Debe {formatARS(pendiente)}
+            </span>
+          )}
         </div>
+
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Cobrar inline */}
+          {tienePendiente && !showCobrar && (
+            <button
+              onClick={abrirCobrar}
+              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+            >
+              💰 Cobrar
+            </button>
+          )}
+          {tienePendiente && showCobrar && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min="1"
+                max={pendiente}
+                value={valorCobro || ''}
+                onChange={(e) => setValorCobro(Number(e.target.value))}
+                className="w-24 text-xs border border-orange-400 rounded-lg px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-500"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmarCobro(e as any)
+                  if (e.key === 'Escape') cancelarCobro(e as any)
+                }}
+              />
+              <button
+                onClick={confirmarCobro}
+                disabled={isPending || valorCobro <= 0}
+                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {isPending ? '...' : 'OK'}
+              </button>
+              <button
+                onClick={cancelarCobro}
+                className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-secondary transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 shrink-0">
           <span className="font-bold text-sm">{formatARS(order.total)}</span>
-          <span className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</span>
+          <span className="text-xs text-muted-foreground hidden sm:block">{formatDateTime(order.created_at)}</span>
           {expanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
         </div>
       </button>
