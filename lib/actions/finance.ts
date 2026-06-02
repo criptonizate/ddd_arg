@@ -101,25 +101,21 @@ export async function getDashboardStats() {
   const [
     { data: ventasMes },
     { data: txMes },
-    { data: pedidosEstado },
     { data: ventasDia },
-    { data: topItems },
     { data: stockBajo },
     { data: pendientesCobro },
     { count: pedidosPendientes },
-    { data: cancelacionesMes },
     { data: ventasHoy },
+    { count: clientesNuevosMes },
   ] = await Promise.all([
     supabase.from('orders').select('total, estado, created_at').gte('created_at', primerDiaMes).neq('estado', 'cancelada'),
     supabase.from('transactions').select('tipo, monto').gte('fecha', primerDiaMes),
-    supabase.from('orders').select('estado'),
-    supabase.from('orders').select('total, created_at').gte('created_at', hace30).neq('estado', 'cancelada'),
-    supabase.from('order_items').select('cantidad, precio_unitario, product_variants (nombre_variante), products (nombre), orders!inner (estado)').neq('orders.estado', 'cancelada'),
+    supabase.from('orders').select('total, created_at, cantidad:id').gte('created_at', hace30).neq('estado', 'cancelada'),
     supabase.from('product_variants').select('*, products (nombre)').filter('stock', 'lte', 'stock_minimo'),
     supabase.from('orders').select('total, sena').in('estado', ['confirmada', 'listo']),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
-    supabase.from('orders').select('id').eq('estado', 'cancelada').gte('created_at', primerDiaMes),
     supabase.from('orders').select('total').gte('created_at', hoy).neq('estado', 'cancelada'),
+    supabase.from('clientes').select('*', { count: 'exact', head: true }).gte('created_at', primerDiaMes),
   ])
 
   // Calcular stats
@@ -141,36 +137,6 @@ export async function getDashboardStats() {
     .map(([fecha, data]) => ({ fecha, ...data }))
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
 
-  // Top variantes agrupadas
-  const topMap = new Map<string, { nombre_variante: string; producto: string; vendidos: number; ingresos: number }>()
-  topItems?.forEach((item: any) => {
-    const key = item.product_variants?.nombre_variante ?? 'Sin variante'
-    const prev = topMap.get(key) ?? {
-      nombre_variante: key,
-      producto: item.products?.nombre ?? '',
-      vendidos: 0,
-      ingresos: 0,
-    }
-    topMap.set(key, {
-      ...prev,
-      vendidos: prev.vendidos + item.cantidad,
-      ingresos: prev.ingresos + item.cantidad * Number(item.precio_unitario),
-    })
-  })
-  const topVariantes = Array.from(topMap.values())
-    .sort((a, b) => b.vendidos - a.vendidos)
-    .slice(0, 10)
-
-  // Pedidos por estado
-  const estadoMap = new Map<string, number>()
-  pedidosEstado?.forEach((o: any) => {
-    estadoMap.set(o.estado, (estadoMap.get(o.estado) ?? 0) + 1)
-  })
-  const pedidosPorEstado = Array.from(estadoMap.entries()).map(([estado, count]) => ({
-    estado: estado as any,
-    count,
-  }))
-
   // Stock bajo — filtrar donde stock <= stock_minimo
   const stockBajoFiltrado = (stockBajo ?? []).filter(
     (v: any) => v.stock <= v.stock_minimo
@@ -189,16 +155,12 @@ export async function getDashboardStats() {
     ingresosMes,
     egresosMes,
     balanceMes: ingresosMes - egresosMes,
-    totalVentas: pedidosEstado?.length ?? 0,
-    totalIngresos: 0,
-    pedidosPorEstado,
     ventasPorDia,
-    topVariantes,
     stockBajo: stockBajoFiltrado,
     cobroPendiente,
     pedidosPendientes: pedidosPendientes ?? 0,
-    cancelacionesMes: cancelacionesMes?.length ?? 0,
     ventasHoy: ventasHoyCount,
     montoHoy,
+    clientesNuevosMes: clientesNuevosMes ?? 0,
   }
 }

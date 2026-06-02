@@ -2,7 +2,7 @@ import { getDashboardStats } from '@/lib/actions/finance'
 import { formatARS } from '@/lib/utils'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import StockAlerts from '@/components/admin/StockAlerts'
-import { TrendingUp, ShoppingCart, DollarSign, AlertTriangle, Clock, XCircle, Inbox } from 'lucide-react'
+import { TrendingUp, ShoppingCart, Users, DollarSign, AlertTriangle, Clock, Inbox } from 'lucide-react'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -11,28 +11,28 @@ export default async function DashboardPage() {
 
   const kpis = [
     {
-      label: '🛒 Ventas del mes',
-      value: stats.ventasMes.toString(),
-      sub: 'pedidos confirmados',
-      icon: ShoppingCart,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50 border-blue-200',
-    },
-    {
       label: '💰 Ingresos del mes',
       value: formatARS(stats.ingresosMes),
-      sub: 'cobrado',
+      sub: 'ventas cobradas',
       icon: TrendingUp,
       color: 'text-green-600',
-      bg: 'bg-green-50 border-green-200',
+      bg: 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800',
     },
     {
-      label: '💸 Egresos del mes',
-      value: formatARS(stats.egresosMes),
-      sub: 'gastado',
-      icon: DollarSign,
-      color: 'text-red-600',
-      bg: 'bg-red-50 border-red-200',
+      label: '🛒 Pedidos del mes',
+      value: stats.ventasMes.toString(),
+      sub: stats.montoHoy > 0 ? `Hoy: ${formatARS(stats.montoHoy)}` : `Hoy: sin ventas`,
+      icon: ShoppingCart,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
+    },
+    {
+      label: '👥 Clientes nuevos',
+      value: stats.clientesNuevosMes.toString(),
+      sub: 'registrados este mes',
+      icon: Users,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
     },
     {
       label: '📊 Balance del mes',
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       sub: 'ingresos − egresos',
       icon: DollarSign,
       color: stats.balanceMes >= 0 ? 'text-green-600' : 'text-red-600',
-      bg: stats.balanceMes >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200',
+      bg: stats.balanceMes >= 0 ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
     },
     {
       label: '⏳ Por cobrar',
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       sub: 'confirmados sin cobrar',
       icon: Clock,
       color: stats.cobroPendiente > 0 ? 'text-orange-600' : 'text-muted-foreground',
-      bg: stats.cobroPendiente > 0 ? 'bg-orange-50 border-orange-200' : 'bg-card border-border',
+      bg: stats.cobroPendiente > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800' : 'bg-card border-border',
     },
     {
       label: '📥 Pedidos pendientes',
@@ -56,23 +56,7 @@ export default async function DashboardPage() {
       sub: 'esperando confirmación',
       icon: Inbox,
       color: stats.pedidosPendientes > 0 ? 'text-yellow-600' : 'text-muted-foreground',
-      bg: stats.pedidosPendientes > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-card border-border',
-    },
-    {
-      label: '❌ Cancelaciones',
-      value: stats.cancelacionesMes.toString(),
-      sub: 'este mes',
-      icon: XCircle,
-      color: stats.cancelacionesMes > 0 ? 'text-red-500' : 'text-muted-foreground',
-      bg: stats.cancelacionesMes > 0 ? 'bg-red-50 border-red-100' : 'bg-card border-border',
-    },
-    {
-      label: '📅 Ventas hoy',
-      value: stats.ventasHoy.toString(),
-      sub: stats.montoHoy > 0 ? formatARS(stats.montoHoy) : 'sin ventas aún',
-      icon: TrendingUp,
-      color: stats.ventasHoy > 0 ? 'text-blue-600' : 'text-muted-foreground',
-      bg: stats.ventasHoy > 0 ? 'bg-blue-50 border-blue-200' : 'bg-card border-border',
+      bg: stats.pedidosPendientes > 0 ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800' : 'bg-card border-border',
     },
   ]
 
@@ -84,7 +68,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
@@ -102,10 +86,10 @@ export default async function DashboardPage() {
 
       {/* Alertas de stock bajo */}
       {stats.stockBajo.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 dark:bg-orange-950/30 dark:border-orange-800">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={16} className="text-orange-600" />
-            <span className="text-sm font-semibold text-orange-800">
+            <span className="text-sm font-semibold text-orange-800 dark:text-orange-400">
               ⚠️ Stock bajo — {stats.stockBajo.length} variante{stats.stockBajo.length > 1 ? 's' : ''} casi sin stock
             </span>
           </div>
@@ -113,12 +97,8 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Gráficos */}
-      <DashboardCharts
-        ventasPorDia={stats.ventasPorDia}
-        pedidosPorEstado={stats.pedidosPorEstado}
-        topVariantes={stats.topVariantes}
-      />
+      {/* Gráfico ingresos */}
+      <DashboardCharts ventasPorDia={stats.ventasPorDia} />
     </div>
   )
 }
