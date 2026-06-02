@@ -119,7 +119,7 @@ export default function ManualSaleButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [products, setProducts] = useState<ProductWithVariants[]>([])
-  const [pastClients, setPastClients] = useState<{ nombre: string; telefono: string }[]>([])
+  const [pastClients, setPastClients] = useState<{ nombre: string; telefono: string | null }[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)

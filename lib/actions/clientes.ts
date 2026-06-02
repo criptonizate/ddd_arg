@@ -76,8 +76,11 @@ export async function getClientes(): Promise<ClienteStats[]> {
     supabase.from('orders').select('cliente_id, total, created_at, estado').neq('estado', 'cancelada'),
   ])
 
-  return (clientes ?? []).map((c) => {
-    const pedidos = (orders ?? []).filter((o) => o.cliente_id === c.id)
+  type RawOrder = { cliente_id: string | null; total: number; created_at: string; estado: string }
+  const allOrders: RawOrder[] = (orders ?? []) as RawOrder[]
+
+  return (clientes ?? []).map((c: { id: string } & Record<string, unknown>) => {
+    const pedidos = allOrders.filter((o) => o.cliente_id === c.id)
     const totalGastado = pedidos.reduce((s, o) => s + Number(o.total), 0)
     const fechas = pedidos.map((o) => o.created_at).sort().reverse()
     return {
@@ -86,7 +89,7 @@ export async function getClientes(): Promise<ClienteStats[]> {
       totalGastado,
       ultimaCompra: fechas[0] ?? null,
     }
-  }).sort((a, b) => b.totalGastado - a.totalGastado)
+  }).sort((a: ClienteStats, b: ClienteStats) => b.totalGastado - a.totalGastado) as ClienteStats[]
 }
 
 export async function getCliente(id: string): Promise<ClienteDetalle | null> {
@@ -104,7 +107,9 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
 
   if (!cliente) return null
 
-  const pedidosValidos = (orders ?? []).filter((o) => o.estado !== 'cancelada')
+  type RawOrderDetail = { id: string; estado: string; total: number; sena: number | null; created_at: string; origen: string; nota: string | null; order_items: unknown[] | null }
+  const allOrders: RawOrderDetail[] = (orders ?? []) as RawOrderDetail[]
+  const pedidosValidos = allOrders.filter((o) => o.estado !== 'cancelada')
   const totalGastado = pedidosValidos.reduce((s, o) => s + Number(o.total), 0)
   const fechas = pedidosValidos.map((o) => o.created_at).sort().reverse()
 
@@ -113,7 +118,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
     totalPedidos: pedidosValidos.length,
     totalGastado,
     ultimaCompra: fechas[0] ?? null,
-    pedidos: (orders ?? []).map((o) => ({
+    pedidos: allOrders.map((o) => ({
       id: o.id,
       estado: o.estado,
       total: Number(o.total),
