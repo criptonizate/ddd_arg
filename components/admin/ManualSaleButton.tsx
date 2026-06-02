@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { createManualSale } from '@/lib/actions/orders'
-import { getActiveProducts, } from '@/lib/actions/products'
-import { getPastClients } from '@/lib/actions/orders'
+import { getActiveProducts } from '@/lib/actions/products'
+import { getClienteNames } from '@/lib/actions/clientes'
 import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
 import { Plus, X, Trash2, Loader2 } from 'lucide-react'
@@ -49,7 +49,7 @@ export default function ManualSaleButton() {
     setLoading(true)
     const [prods, clients] = await Promise.all([
       getActiveProducts(),
-      getPastClients(),
+      getClienteNames(),
     ])
     setProducts(prods as ProductWithVariants[])
     setPastClients(clients)

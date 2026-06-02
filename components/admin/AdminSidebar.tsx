@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: '/admin/productos', label: '📦 Productos' },
   { href: '/admin/finanzas', label: '💰 Finanzas' },
   { href: '/admin/negocios', label: '🏪 Negocios' },
+  { href: '/admin/clientes', label: '👥 Clientes' },
 ]
 
 export default function AdminSidebar({

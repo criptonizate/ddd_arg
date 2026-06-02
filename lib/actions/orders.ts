@@ -6,6 +6,7 @@ import { getAdminUser } from './auth'
 import { ManualSaleSchema, StoreCheckoutSchema } from '@/lib/validations/order'
 import type { ManualSaleValues, StoreCheckoutValues } from '@/lib/validations/order'
 import type { OrderEstado } from '@/lib/supabase/types'
+import { findOrCreateCliente } from './clientes'
 
 // ── Admin: cargar venta manual ──────────────────────────────────────────────
 
@@ -32,12 +33,22 @@ export async function createManualSale(data: ManualSaleValues) {
 
   if (error) return { error: error.message }
 
-  if (sena > 0 || prioridad) {
-    await supabase.from('orders').update({ sena, prioridad }).eq('id', result)
+  // Auto-crear o linkear cliente por nombre
+  try {
+    const clienteId = await findOrCreateCliente(
+      validated.data.cliente_nombre,
+      validated.data.cliente_telefono || null
+    )
+    await supabase.from('orders').update({ cliente_id: clienteId, sena, prioridad }).eq('id', result)
+  } catch {
+    if (sena > 0 || prioridad) {
+      await supabase.from('orders').update({ sena, prioridad }).eq('id', result)
+    }
   }
 
   revalidatePath('/admin/ventas')
   revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/clientes')
   return { orderId: result }
 }
 
@@ -266,6 +277,15 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
     await supabase.from('orders').delete().eq('id', order.id)
     return { error: itemsError.message }
   }
+
+  // Auto-linkear cliente (best-effort, no falla si la tabla no existe aún)
+  try {
+    const clienteId = await findOrCreateCliente(
+      validated.data.cliente_nombre,
+      validated.data.cliente_telefono || null
+    )
+    await supabase.from('orders').update({ cliente_id: clienteId }).eq('id', order.id)
+  } catch { /* migración pendiente */ }
 
   return { orderId: order.id }
 }
