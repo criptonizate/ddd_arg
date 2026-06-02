@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { createManualSale } from '@/lib/actions/orders'
 import { getActiveProducts } from '@/lib/actions/products'
 import { getClienteNames } from '@/lib/actions/clientes'
@@ -8,6 +8,90 @@ import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
 import { Plus, X, Trash2, Loader2 } from 'lucide-react'
 import type { ProductWithVariants } from '@/lib/supabase/types'
+
+// ── Autocomplete de clientes ───────────────────────────────────────────────
+
+function ClienteAutocomplete({
+  value,
+  onChange,
+  clientes,
+  placeholder,
+}: {
+  value: string
+  onChange: (nombre: string, telefono: string) => void
+  clientes: { nombre: string; telefono: string | null }[]
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlighted, setHighlighted] = useState(0)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Filtrar por lo que el usuario escribe
+  const filtered = value.trim()
+    ? clientes.filter((c) => c.nombre.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
+    : clientes.slice(0, 6) // últimos 6 cuando el campo está vacío
+
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
+
+  function select(c: { nombre: string; telefono: string | null }) {
+    onChange(c.nombre, c.telefono ?? '')
+    setOpen(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!open || filtered.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)) }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)) }
+    if (e.key === 'Enter' && filtered[highlighted]) { e.preventDefault(); select(filtered[highlighted]) }
+    if (e.key === 'Escape') setOpen(false)
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        value={value}
+        onChange={(e) => { onChange(e.target.value, ''); setOpen(true); setHighlighted(0) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        placeholder={placeholder}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 z-[60] mt-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+          {value.trim() === '' && (
+            <p className="px-3 py-1.5 text-xs text-muted-foreground border-b border-border">Clientes recientes</p>
+          )}
+          {filtered.map((c, idx) => (
+            <button
+              key={c.nombre}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); select(c) }}
+              onMouseEnter={() => setHighlighted(idx)}
+              className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors ${
+                idx === highlighted ? 'bg-secondary' : 'hover:bg-secondary/60'
+              }`}
+            >
+              <span className="font-medium">{c.nombre}</span>
+              {c.telefono && (
+                <span className="text-xs text-muted-foreground shrink-0">{c.telefono}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface CartItem {
   product_id: string
@@ -66,12 +150,13 @@ export default function ManualSaleButton() {
     setSelVariantId('')
   }
 
-  // Autocompletar teléfono cuando se selecciona un cliente conocido
-  function handleClienteNombre(nombre: string) {
-    setForm((f) => {
-      const match = pastClients.find((c) => c.nombre === nombre)
-      return { ...f, cliente_nombre: nombre, cliente_telefono: match ? match.telefono : f.cliente_telefono }
-    })
+  function handleClienteSelect(nombre: string, telefono: string) {
+    setForm((f) => ({
+      ...f,
+      cliente_nombre: nombre,
+      // Solo pisa el teléfono si el autocomplete trajo uno (no borrar lo que el usuario escribió)
+      cliente_telefono: telefono || f.cliente_telefono,
+    }))
   }
 
   function addItem() {
@@ -145,22 +230,16 @@ export default function ManualSaleButton() {
                 </div>
               )}
 
-              {/* Datalist para autocompletado de clientes */}
-              <datalist id="clientes-list">
-                {pastClients.map((c) => <option key={c.nombre} value={c.nombre} />)}
-              </datalist>
-
               {/* Datos del cliente */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Datos del cliente</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium mb-1 block">Nombre *</label>
-                    <input
+                    <ClienteAutocomplete
                       value={form.cliente_nombre}
-                      onChange={(e) => handleClienteNombre(e.target.value)}
-                      list="clientes-list"
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={handleClienteSelect}
+                      clientes={pastClients}
                       placeholder="Juan García"
                     />
                   </div>
