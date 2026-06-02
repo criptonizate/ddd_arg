@@ -5,7 +5,7 @@ import { confirmOrder, cancelOrder, markOrderListo, updateOrderStatus } from '@/
 import { useConfirm } from './ConfirmModal'
 import { useToast } from './ToastProvider'
 import type { OrderEstado } from '@/lib/supabase/types'
-import { Check, X, Package, Boxes } from 'lucide-react'
+import { Check, X, Package, Boxes, Store } from 'lucide-react'
 
 interface Props {
   orderId: string
@@ -17,7 +17,7 @@ export default function OrderActions({ orderId, estado }: Props) {
   const { confirm, ConfirmDialog } = useConfirm()
   const { toast } = useToast()
 
-  if (estado === 'entregada' || estado === 'cancelada') return null
+  if (estado === 'entregada' || estado === 'cancelada' || estado === 'local') return null
 
   async function handleConfirm() {
     const ok = await confirm('¿Confirmar este pedido? Se descontará el stock.')
@@ -42,6 +42,14 @@ export default function OrderActions({ orderId, estado }: Props) {
       const res = await updateOrderStatus(orderId, 'entregada')
       if (res?.error) toast(res.error, 'error')
       else toast('Pedido entregado ✓')
+    })
+  }
+
+  function handleLocal() {
+    startTransition(async () => {
+      const res = await updateOrderStatus(orderId, 'local')
+      if (res?.error) toast(res.error, 'error')
+      else toast('Movido a ventas del local ✓')
     })
   }
 
@@ -87,6 +95,15 @@ export default function OrderActions({ orderId, estado }: Props) {
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
             <Package size={12} /> Entregado
+          </button>
+        )}
+        {(estado === 'confirmada' || estado === 'listo') && (
+          <button
+            onClick={handleLocal}
+            disabled={isPending}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors"
+          >
+            <Store size={12} /> Local
           </button>
         )}
         <button
