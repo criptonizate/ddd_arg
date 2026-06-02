@@ -113,6 +113,7 @@ const EMPTY_FORM = {
   metodo_pago: 'efectivo' as string,
   sena: 0,
   prioridad: false,
+  esLocal: false,
 }
 
 export default function ManualSaleButton() {
@@ -337,7 +338,7 @@ export default function ManualSaleButton() {
                       placeholder="0"
                     />
                   </div>
-                  <div className="flex items-end pb-2">
+                  <div className="flex items-end pb-2 gap-4 flex-wrap">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox" checked={form.prioridad}
@@ -345,6 +346,14 @@ export default function ManualSaleButton() {
                         className="w-4 h-4 rounded border-input accent-red-600"
                       />
                       <span className="text-xs font-medium">Marcar como urgente</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox" checked={form.esLocal}
+                        onChange={(e) => setForm({ ...form, esLocal: e.target.checked })}
+                        className="w-4 h-4 rounded border-input accent-orange-500"
+                      />
+                      <span className="text-xs font-medium">🏪 Venta en el local</span>
                     </label>
                   </div>
                 </div>

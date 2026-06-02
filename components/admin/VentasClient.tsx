@@ -35,14 +35,16 @@ interface Order {
   }[]
 }
 
-type Tab = 'listas' | 'entregadas'
+type Tab = 'listas' | 'entregadas' | 'local'
 
 export default function VentasClient({
   listas,
   entregadas,
+  local,
 }: {
   listas: Order[]
   entregadas: Order[]
+  local: Order[]
 }) {
   const [tab, setTab] = useState<Tab>('listas')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -74,7 +76,7 @@ export default function VentasClient({
     [entregadas]
   )
 
-  const baseOrders = tab === 'listas' ? listas : sortedEntregadas
+  const baseOrders = tab === 'listas' ? listas : tab === 'entregadas' ? sortedEntregadas : local
 
   // Filtro de búsqueda
   const orders = useMemo(() => {
@@ -127,6 +129,21 @@ export default function VentasClient({
             <span className="ml-1.5 text-xs font-semibold text-orange-600">· Deben {formatARS(totalDeuda)}</span>
           )}
         </button>
+        <button
+          onClick={() => setTab('local')}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            tab === 'local'
+              ? 'bg-foreground text-primary-foreground border-foreground'
+              : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+          }`}
+        >
+          🏪 Local
+          {local.length > 0 && (
+            <span className={`ml-2 text-xs font-bold ${tab === 'local' ? 'opacity-70' : 'text-muted-foreground'}`}>
+              {local.length}
+            </span>
+          )}
+        </button>
         <div className="ml-auto flex items-center gap-3">
           {total > 0 && (
             <span className="text-sm font-semibold text-muted-foreground">{formatARS(total)}</span>
@@ -156,7 +173,9 @@ export default function VentasClient({
           <p className="text-sm text-muted-foreground mt-1">
             {search
               ? `No se encontró "${search}" — probá con otro término`
-              : `No hay ventas ${tab === 'listas' ? 'listas para entregar' : 'entregadas'} por ahora`}
+              : tab === 'listas' ? 'No hay ventas listas para entregar'
+              : tab === 'entregadas' ? 'No hay ventas entregadas'
+              : 'No hay ventas registradas en el local'}
           </p>
           {search && (
             <button onClick={() => setSearch('')} className="mt-3 text-xs text-muted-foreground hover:text-foreground underline">
@@ -177,6 +196,11 @@ export default function VentasClient({
                 onToggle={() => toggleExpanded(order.id)}
               />
             )
+          )}
+          {tab === 'local' && orders.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-1">
+              {orders.length} venta{orders.length !== 1 ? 's' : ''} en el local · {formatARS(total)} total
+            </p>
           )}
         </div>
       )}

@@ -41,6 +41,7 @@ export const ESTADO_LABELS: Record<OrderEstado, string> = {
   listo: 'Listo para retirar',
   entregada: 'Entregada',
   cancelada: 'Cancelada',
+  local: 'Local',
 }
 
 export const ESTADO_COLORS: Record<OrderEstado, string> = {
@@ -49,6 +50,7 @@ export const ESTADO_COLORS: Record<OrderEstado, string> = {
   listo: 'bg-purple-100 text-purple-800 border-purple-200',
   entregada: 'bg-green-100 text-green-800 border-green-200',
   cancelada: 'bg-red-100 text-red-800 border-red-200',
+  local: 'bg-orange-100 text-orange-800 border-orange-200',
 }
 
 export const METODO_PAGO_LABELS: Record<string, string> = {

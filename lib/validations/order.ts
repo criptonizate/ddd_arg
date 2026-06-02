@@ -28,6 +28,7 @@ export const ManualSaleSchema = z.object({
   metodo_pago: z.enum(['whatsapp', 'mercadopago', 'efectivo', 'transferencia']),
   sena: z.number().min(0).default(0),
   prioridad: z.boolean().default(false),
+  esLocal: z.boolean().default(false),
   items: z.array(AdminOrderItemSchema).min(1, 'Agregá al menos un producto'),
 })
 

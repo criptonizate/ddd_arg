@@ -16,7 +16,7 @@ export async function createManualSale(data: ManualSaleValues) {
   if (!validated.success) return { error: validated.error.flatten().fieldErrors }
 
   const supabase = createServiceClient()
-  const { items, sena, prioridad, ...orderData } = validated.data
+  const { items, sena, prioridad, esLocal, ...orderData } = validated.data
 
   const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
 
@@ -26,7 +26,7 @@ export async function createManualSale(data: ManualSaleValues) {
       ...orderData,
       total,
       origen: 'manual',
-      estado: 'confirmada',
+      estado: esLocal ? 'local' : 'confirmada',
     },
     p_items: items,
   })

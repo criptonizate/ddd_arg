@@ -5,9 +5,10 @@ import VentasClient from '@/components/admin/VentasClient'
 export const metadata = { title: 'Ventas' }
 
 export default async function VentasPage() {
-  const [listas, entregadas] = await Promise.all([
+  const [listas, entregadas, local] = await Promise.all([
     getOrders({ estados: ['listo'], limit: 100 }),
     getOrders({ estados: ['entregada'], limit: 200 }),
+    getOrders({ estados: ['local'], limit: 500 }),
   ])
 
   return (
@@ -16,7 +17,7 @@ export default async function VentasPage() {
         <h1 className="text-2xl font-bold">💸 Ventas</h1>
         <ManualSaleButton />
       </div>
-      <VentasClient listas={listas as any} entregadas={entregadas as any} />
+      <VentasClient listas={listas as any} entregadas={entregadas as any} local={local as any} />
     </div>
   )
 }
