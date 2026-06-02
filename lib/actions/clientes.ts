@@ -14,6 +14,8 @@ export interface ClienteStats {
   created_at: string
   totalPedidos: number
   totalGastado: number
+  totalPagado: number
+  totalPendiente: number
   ultimaCompra: string | null
 }
 
@@ -73,20 +75,24 @@ export async function getClientes(): Promise<ClienteStats[]> {
 
   const [{ data: clientes }, { data: orders }] = await Promise.all([
     supabase.from('clientes').select('*').order('nombre'),
-    supabase.from('orders').select('cliente_id, total, created_at, estado').neq('estado', 'cancelada'),
+    supabase.from('orders').select('cliente_id, total, sena, created_at, estado').neq('estado', 'cancelada'),
   ])
 
-  type RawOrder = { cliente_id: string | null; total: number; created_at: string; estado: string }
+  type RawOrder = { cliente_id: string | null; total: number; sena: number | null; created_at: string; estado: string }
   const allOrders: RawOrder[] = (orders ?? []) as RawOrder[]
 
   return (clientes ?? []).map((c: { id: string } & Record<string, unknown>) => {
     const pedidos = allOrders.filter((o) => o.cliente_id === c.id)
     const totalGastado = pedidos.reduce((s, o) => s + Number(o.total), 0)
+    const totalPagado = pedidos.reduce((s, o) => s + Number(o.sena ?? 0), 0)
+    const totalPendiente = pedidos.reduce((s, o) => s + Math.max(0, Number(o.total) - Number(o.sena ?? 0)), 0)
     const fechas = pedidos.map((o) => o.created_at).sort().reverse()
     return {
       ...c,
       totalPedidos: pedidos.length,
       totalGastado,
+      totalPagado,
+      totalPendiente,
       ultimaCompra: fechas[0] ?? null,
     }
   }).sort((a: ClienteStats, b: ClienteStats) => b.totalGastado - a.totalGastado) as ClienteStats[]

@@ -149,21 +149,17 @@ VALUES (v_id,'Soporte Casco',2,3750);
 INSERT INTO transactions (tipo,monto,descripcion,categoria,order_id)
 VALUES ('ingreso',7500,'Venta local: Angeles Romero','venta',v_id);
 
--- 19. Lili Zalazar — 1 Caja figuritas Fucsia (sin cobrar)
+-- 19. Lili Zalazar — 1 Caja figuritas Fucsia (sin cobrar — sin transacción)
 INSERT INTO orders (estado, origen, metodo_pago, cliente_nombre, entrega, total, sena)
 VALUES ('local','manual','efectivo','Lili Zalazar','retiro',5000,0) RETURNING id INTO v_id;
 INSERT INTO order_items (order_id, nombre_producto, nombre_variante, cantidad, precio_unitario)
 VALUES (v_id,'Caja figuritas','Fucsia',1,5000);
-INSERT INTO transactions (tipo,monto,descripcion,categoria,order_id)
-VALUES ('ingreso',0,'Venta local: Lili Zalazar','venta',v_id);
 
--- 20. Maxima (SCJ) — 1 Caja figuritas Fucsia (sin cobrar)
+-- 20. Maxima (SCJ) — 1 Caja figuritas Fucsia (sin cobrar — sin transacción)
 INSERT INTO orders (estado, origen, metodo_pago, cliente_nombre, entrega, total, sena)
 VALUES ('local','manual','efectivo','Maxima (SCJ)','retiro',5000,0) RETURNING id INTO v_id;
 INSERT INTO order_items (order_id, nombre_producto, nombre_variante, cantidad, precio_unitario)
 VALUES (v_id,'Caja figuritas','Fucsia',1,5000);
-INSERT INTO transactions (tipo,monto,descripcion,categoria,order_id)
-VALUES ('ingreso',0,'Venta local: Maxima (SCJ)','venta',v_id);
 
 -- 21. Belen — 1 Caja figuritas Negro
 INSERT INTO orders (estado, origen, metodo_pago, cliente_nombre, entrega, total, sena)
@@ -181,13 +177,11 @@ VALUES (v_id,'Caja figuritas','Celeste',1,5000);
 INSERT INTO transactions (tipo,monto,descripcion,categoria,order_id)
 VALUES ('ingreso',5000,'Venta local: Belen','venta',v_id);
 
--- 23. Lili Zalazar — 2 Caja figuritas Celeste (sin cobrar)
+-- 23. Lili Zalazar — 2 Caja figuritas Celeste (sin cobrar — sin transacción)
 INSERT INTO orders (estado, origen, metodo_pago, cliente_nombre, entrega, total, sena)
 VALUES ('local','manual','efectivo','Lili Zalazar','retiro',10000,0) RETURNING id INTO v_id;
 INSERT INTO order_items (order_id, nombre_producto, nombre_variante, cantidad, precio_unitario)
 VALUES (v_id,'Caja figuritas','Celeste',2,5000);
-INSERT INTO transactions (tipo,monto,descripcion,categoria,order_id)
-VALUES ('ingreso',0,'Venta local: Lili Zalazar','venta',v_id);
 
 -- Linkear clientes existentes a los pedidos recién insertados
 UPDATE orders o
