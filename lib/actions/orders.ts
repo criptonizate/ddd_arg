@@ -230,6 +230,41 @@ export async function getOrder(id: string) {
   return data
 }
 
+// ── Admin: editar items de un pedido ───────────────────────────────────────
+
+export async function updateOrderItems(
+  orderId: string,
+  items: { nombre_producto: string; nombre_variante?: string | null; cantidad: number; precio_unitario: number }[]
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  if (!items.length) return { error: 'Debe tener al menos un producto' }
+  const supabase = createServiceClient()
+
+  const total = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+
+  const { error: deleteError } = await supabase.from('order_items').delete().eq('order_id', orderId)
+  if (deleteError) return { error: deleteError.message }
+
+  const { error: insertError } = await supabase.from('order_items').insert(
+    items.map((i) => ({
+      order_id: orderId,
+      nombre_producto: i.nombre_producto,
+      nombre_variante: i.nombre_variante || null,
+      cantidad: i.cantidad,
+      precio_unitario: i.precio_unitario,
+    }))
+  )
+  if (insertError) return { error: insertError.message }
+
+  const { error: updateError } = await supabase.from('orders').update({ total }).eq('id', orderId)
+  if (updateError) return { error: updateError.message }
+
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/clientes')
+  return {}
+}
+
 // ── Tienda pública: crear pedido WhatsApp ───────────────────────────────────
 
 export async function createStoreOrder(data: StoreCheckoutValues) {

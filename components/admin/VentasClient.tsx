@@ -8,6 +8,7 @@ import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
 import { updateOrderSena } from '@/lib/actions/orders'
 import OrderNotaInternaInput from './OrderNotaInternaInput'
+import EditOrderItemsButton from './EditOrderItemsButton'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -252,7 +253,18 @@ function FullCard({ order }: { order: Order }) {
 
       {/* Productos */}
       <div className="border-t border-border pt-3">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">📦 Productos</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📦 Productos</span>
+          <EditOrderItemsButton
+            orderId={order.id}
+            items={(order.order_items ?? []).map((i) => ({
+              nombre_producto: i.products?.nombre ?? i.nombre_producto,
+              nombre_variante: i.product_variants?.nombre_variante ?? i.nombre_variante ?? null,
+              cantidad: i.cantidad,
+              precio_unitario: i.precio_unitario,
+            }))}
+          />
+        </div>
         <div className="space-y-1.5">
           {order.order_items?.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-2">
@@ -400,6 +412,18 @@ function CollapsibleCard({
         <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
           {/* Productos */}
           <div className="space-y-1.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</span>
+              <EditOrderItemsButton
+                orderId={order.id}
+                items={(order.order_items ?? []).map((i) => ({
+                  nombre_producto: i.products?.nombre ?? i.nombre_producto,
+                  nombre_variante: i.product_variants?.nombre_variante ?? i.nombre_variante ?? null,
+                  cantidad: i.cantidad,
+                  precio_unitario: i.precio_unitario,
+                }))}
+              />
+            </div>
             {order.order_items?.map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1 text-sm">
