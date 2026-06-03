@@ -9,6 +9,7 @@ import OrderNotaInternaInput from './OrderNotaInternaInput'
 import OrderPriorityToggle from './OrderPriorityToggle'
 import FechaEntregaInput from './FechaEntregaInput'
 import CopyButton from './CopyButton'
+import EditOrderItemsButton from './EditOrderItemsButton'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -79,7 +80,18 @@ function OrderCard({ order }: { order: Order }) {
       </div>
 
       <div className="border-t border-border pt-3">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">📦 Productos</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📦 Productos</span>
+          <EditOrderItemsButton
+            orderId={order.id}
+            items={(order.order_items ?? []).map((i) => ({
+              nombre_producto: i.products?.nombre ?? i.nombre_producto,
+              nombre_variante: i.product_variants?.nombre_variante ?? i.nombre_variante ?? null,
+              cantidad: i.cantidad,
+              precio_unitario: i.precio_unitario,
+            }))}
+          />
+        </div>
         <div className="space-y-2">
           {order.order_items?.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-2">
