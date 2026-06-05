@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { formatARS } from '@/lib/utils'
+import { formatARS, formatDate } from '@/lib/utils'
 import { ChevronDown, ChevronUp, Trash2, Plus, X, Check, TrendingDown, PackagePlus, Pencil } from 'lucide-react'
 import {
   markPedidoEntregado,
@@ -12,22 +12,13 @@ import {
   deleteEgresoNegocio,
   createNegocioPedido,
   updatePedidoCompleto,
+  pedidoTotal,
 } from '@/lib/actions/negocios'
 import type { Negocio, NegocioPedido, NegocioEgreso } from '@/lib/actions/negocios'
 import { useConfirm } from './ConfirmModal'
 import { useToast } from './ToastProvider'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function formatFecha(fecha: string) {
-  return new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
-    new Date(fecha.length === 10 ? fecha + 'T12:00:00' : fecha)
-  )
-}
-
-function pedidoTotal(pedido: NegocioPedido) {
-  return pedido.negocio_items.reduce((s, i) => s + Number(i.precio_mayorista) * i.cantidad, 0)
-}
 
 interface StockRow {
   nombre: string
@@ -293,7 +284,7 @@ function MultiEgresoModal({
                             }
                           </span>
                         )}
-                        <span className="text-xs text-muted-foreground">{formatFecha(item.fecha)}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(item.fecha)}</span>
                         <button onClick={() => setLista((p) => p.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
                           <Trash2 size={11} className="text-muted-foreground" />
                         </button>
@@ -573,7 +564,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                     {e.nota && <span className="text-xs text-muted-foreground italic truncate">— {e.nota}</span>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{formatFecha(e.fecha)}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(e.fecha)}</span>
                     <button
                       onClick={() => handleDeleteEgreso(e.id)}
                       disabled={isPending}
@@ -622,7 +613,7 @@ function EntregaModal({ pedido, negocioId, onClose }: { pedido: NegocioPedido; n
         </div>
         <div className="p-5 space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <p className="text-sm text-muted-foreground">Pedido del <strong>{formatFecha(pedido.fecha)}</strong></p>
+          <p className="text-sm text-muted-foreground">Pedido del <strong>{formatDate(pedido.fecha)}</strong></p>
           <div className="bg-secondary/30 rounded-lg p-3 space-y-1 text-sm">
             {pedido.negocio_items.map((i) => (
               <div key={i.id} className="flex justify-between">
@@ -684,7 +675,7 @@ function AgregarItemsModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div>
             <h2 className="font-semibold">+ Agregar productos</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Pedido del {formatFecha(pedido.fecha)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Pedido del {formatDate(pedido.fecha)}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={15} /></button>
         </div>
@@ -978,10 +969,10 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
           <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
-            <span className="text-sm font-semibold">{formatFecha(pedido.fecha)}</span>
+            <span className="text-sm font-semibold">{formatDate(pedido.fecha)}</span>
             {entregado ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                <Check size={10} /> Entregado {formatFecha(pedido.entregado_at!.split('T')[0])}
+                <Check size={10} /> Entregado {formatDate(pedido.entregado_at!.split('T')[0])}
               </span>
             ) : (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">Pendiente</span>

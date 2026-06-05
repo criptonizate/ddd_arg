@@ -16,13 +16,28 @@ export function formatARS(amount: number): string {
   }).format(amount)
 }
 
-// Formatea fecha en es-AR
+// Formatea fecha en es-AR (año completo). Maneja strings YYYY-MM-DD sin timezone drift.
 export function formatDate(date: string | Date): string {
+  const d = typeof date === 'string' && date.length === 10
+    ? new Date(date + 'T12:00:00')
+    : new Date(date)
   return new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(new Date(date))
+  }).format(d)
+}
+
+// Formatea fecha con año abreviado (ej: 05/06/26)
+export function formatDateShort(date: string | Date): string {
+  const d = typeof date === 'string' && date.length === 10
+    ? new Date(date + 'T12:00:00')
+    : new Date(date)
+  return new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).format(d)
 }
 
 export function formatDateTime(date: string | Date): string {

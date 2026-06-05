@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getNegocio } from '@/lib/actions/negocios'
+import { getNegocio, pedidoTotal } from '@/lib/actions/negocios'
 import { formatARS } from '@/lib/utils'
 import NuevoPedidoNegocioButton from '@/components/admin/NuevoPedidoNegocioButton'
 import NegocioDetalleView from '@/components/admin/NegocioDetalleView'
@@ -10,13 +10,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const negocio = await getNegocio(id)
   return { title: negocio?.nombre ?? 'Negocio' }
-}
-
-function pedidoTotal(pedido: any) {
-  return (pedido.negocio_items ?? []).reduce(
-    (s: number, i: any) => s + Number(i.precio_mayorista) * i.cantidad,
-    0
-  )
 }
 
 export default async function NegocioDetallePage({

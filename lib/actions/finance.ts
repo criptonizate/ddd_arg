@@ -111,7 +111,7 @@ export async function getDashboardStats() {
     supabase.from('orders').select('total, estado, created_at').gte('created_at', primerDiaMes).neq('estado', 'cancelada'),
     supabase.from('transactions').select('tipo, monto').gte('fecha', primerDiaMes),
     supabase.from('orders').select('total, created_at, cantidad:id').gte('created_at', hace30).neq('estado', 'cancelada'),
-    supabase.from('product_variants').select('*, products (nombre)').filter('stock', 'lte', 'stock_minimo'),
+    supabase.rpc('get_stock_bajo'),
     supabase.from('orders').select('total, sena').in('estado', ['confirmada', 'listo']),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
     supabase.from('orders').select('total').gte('created_at', hoy).neq('estado', 'cancelada'),
@@ -137,10 +137,8 @@ export async function getDashboardStats() {
     .map(([fecha, data]) => ({ fecha, ...data }))
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
 
-  // Stock bajo — filtrar donde stock <= stock_minimo
-  const stockBajoFiltrado = (stockBajo ?? []).filter(
-    (v: any) => v.stock <= v.stock_minimo
-  ).map((v: any) => ({ ...v, product_nombre: v.products?.nombre ?? '' }))
+  // stock_bajo viene ya filtrado y ordenado por la RPC
+  const stockBajoFiltrado = (stockBajo ?? []) as any[]
 
   const cobroPendiente = (pendientesCobro ?? []).reduce(
     (sum: number, o: any) => sum + Math.max(0, Number(o.total) - Number(o.sena ?? 0)),

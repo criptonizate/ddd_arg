@@ -51,27 +51,32 @@ export interface ProductWithVariants extends Product {
 export interface Order {
   id: string
   cliente_nombre: string
-  cliente_telefono: string
+  cliente_telefono: string | null
   cliente_email: string | null
+  cliente_id: string | null
   entrega: 'retiro' | 'envio'
   direccion_envio: string | null
   nota: string | null
+  nota_interna: string | null
   total: number
-  sena: number
+  sena: number | null
   prioridad: boolean
   fecha_entrega: string | null
   origen: OrderOrigen
   estado: OrderEstado
-  metodo_pago: MetodoPago
+  metodo_pago: MetodoPago | null
   mercadopago_payment_id: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface OrderItem {
   id: string
   order_id: string
-  product_id: string
-  variant_id: string
+  product_id: string | null
+  variant_id: string | null
+  nombre_producto: string
+  nombre_variante: string | null
   cantidad: number
   precio_unitario: number
   created_at: string
@@ -79,8 +84,8 @@ export interface OrderItem {
 
 export interface OrderWithItems extends Order {
   order_items: (OrderItem & {
-    products: Product
-    product_variants: ProductVariant
+    products: Product | null
+    product_variants: ProductVariant | null
   })[]
 }
 
@@ -121,8 +126,8 @@ export interface ManualSaleFormData {
   nota: string
   metodo_pago: MetodoPago
   items: {
-    product_id: string
-    variant_id: string
+    product_id: string | null
+    variant_id: string | null
     cantidad: number
     precio_unitario: number
   }[]
@@ -141,15 +146,11 @@ export interface DashboardStats {
   ingresosMes: number
   egresosMes: number
   balanceMes: number
-  totalVentas: number
-  totalIngresos: number
-  pedidosPorEstado: { estado: OrderEstado; count: number }[]
   ventasPorDia: { fecha: string; total: number; cantidad: number }[]
-  topVariantes: {
-    nombre_variante: string
-    producto: string
-    vendidos: number
-    ingresos: number
-  }[]
   stockBajo: (ProductVariant & { product_nombre: string })[]
+  cobroPendiente: number
+  pedidosPendientes: number
+  ventasHoy: number
+  montoHoy: number
+  clientesNuevosMes: number
 }

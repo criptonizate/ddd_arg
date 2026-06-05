@@ -18,29 +18,49 @@ const AdminOrderItemSchema = z.object({
   nombre_variante: z.string().optional().default(''),
 })
 
-export const ManualSaleSchema = z.object({
-  cliente_nombre: z.string().min(2, 'Ingresá el nombre del cliente').trim(),
-  cliente_telefono: z.string().optional().default(''),
-  cliente_email: z.string().email().optional().or(z.literal('')),
-  entrega: z.enum(['retiro', 'envio']),
-  direccion_envio: z.string().optional().default(''),
-  nota: z.string().optional().default(''),
-  metodo_pago: z.enum(['whatsapp', 'mercadopago', 'efectivo', 'transferencia']),
-  sena: z.number().min(0).default(0),
-  prioridad: z.boolean().default(false),
-  esLocal: z.boolean().default(false),
-  items: z.array(AdminOrderItemSchema).min(1, 'Agregá al menos un producto'),
-})
+export const ManualSaleSchema = z
+  .object({
+    cliente_nombre: z.string().min(2, 'Ingresá el nombre del cliente').trim(),
+    cliente_telefono: z.string().optional().default(''),
+    cliente_email: z
+      .string()
+      .trim()
+      .transform((v) => (v === '' ? undefined : v))
+      .pipe(z.string().email().optional())
+      .optional(),
+    entrega: z.enum(['retiro', 'envio']),
+    direccion_envio: z.string().optional().default(''),
+    nota: z.string().optional().default(''),
+    metodo_pago: z.enum(['whatsapp', 'mercadopago', 'efectivo', 'transferencia']),
+    sena: z.number().min(0).default(0),
+    prioridad: z.boolean().default(false),
+    esLocal: z.boolean().default(false),
+    items: z.array(AdminOrderItemSchema).min(1, 'Agregá al menos un producto'),
+  })
+  .refine(
+    (data) => data.entrega !== 'envio' || data.direccion_envio.trim().length > 0,
+    { message: 'La dirección es requerida para envíos', path: ['direccion_envio'] }
+  )
 
-export const StoreCheckoutSchema = z.object({
-  cliente_nombre: z.string().min(2, 'Ingresá tu nombre').trim(),
-  cliente_telefono: z.string().min(6, 'Ingresá tu teléfono').trim(),
-  cliente_email: z.string().email().optional().or(z.literal('')),
-  entrega: z.enum(['retiro', 'envio']),
-  direccion_envio: z.string().optional().default(''),
-  nota: z.string().optional().default(''),
-  items: z.array(StoreOrderItemSchema).min(1),
-})
+export const StoreCheckoutSchema = z
+  .object({
+    cliente_nombre: z.string().min(2, 'Ingresá tu nombre').trim(),
+    cliente_telefono: z.string().min(6, 'Ingresá tu teléfono').trim(),
+    cliente_email: z
+      .string()
+      .trim()
+      .transform((v) => (v === '' ? undefined : v))
+      .pipe(z.string().email().optional())
+      .optional(),
+    entrega: z.enum(['retiro', 'envio']),
+    direccion_envio: z.string().optional().default(''),
+    nota: z.string().optional().default(''),
+    items: z.array(StoreOrderItemSchema).min(1),
+  })
+  .refine(
+    (data) => data.entrega !== 'envio' || data.direccion_envio.trim().length > 0,
+    { message: 'La dirección es requerida para envíos', path: ['direccion_envio'] }
+  )
 
 export type ManualSaleValues = z.infer<typeof ManualSaleSchema>
 export type StoreCheckoutValues = z.infer<typeof StoreCheckoutSchema>

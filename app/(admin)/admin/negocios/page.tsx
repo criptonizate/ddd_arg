@@ -1,16 +1,9 @@
 import Link from 'next/link'
-import { getNegocios } from '@/lib/actions/negocios'
+import { getNegocios, pedidoTotal } from '@/lib/actions/negocios'
 import NuevoNegocioButton from '@/components/admin/NuevoNegocioButton'
-import { formatARS } from '@/lib/utils'
+import { formatARS, formatDateShort } from '@/lib/utils'
 
 export const metadata = { title: 'Negocios' }
-
-function pedidoTotal(pedido: any) {
-  return (pedido.negocio_items ?? []).reduce(
-    (s: number, i: any) => s + Number(i.precio_mayorista) * i.cantidad,
-    0
-  )
-}
 
 export default async function NegociosPage() {
   const negocios = await getNegocios()
@@ -82,11 +75,7 @@ export default async function NegociosPage() {
                   {ultimoPedido && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Último pedido</span>
-                      <span className="text-xs">
-                        {new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(
-                          new Date(ultimoPedido.fecha + 'T12:00:00')
-                        )}
-                      </span>
+                      <span className="text-xs">{formatDateShort(ultimoPedido.fecha)}</span>
                     </div>
                   )}
                 </div>
