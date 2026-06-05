@@ -12,8 +12,8 @@ import {
   deleteEgresoNegocio,
   createNegocioPedido,
   updatePedidoCompleto,
-  pedidoTotal,
 } from '@/lib/actions/negocios'
+import { pedidoTotal } from '@/lib/negocios-helpers'
 import type { Negocio, NegocioPedido, NegocioEgreso } from '@/lib/actions/negocios'
 import { useConfirm } from './ConfirmModal'
 import { useToast } from './ToastProvider'

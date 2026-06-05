@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { getNegocios, pedidoTotal } from '@/lib/actions/negocios'
+import { getNegocios } from '@/lib/actions/negocios'
+import { pedidoTotal } from '@/lib/negocios-helpers'
 import NuevoNegocioButton from '@/components/admin/NuevoNegocioButton'
 import { formatARS, formatDateShort } from '@/lib/utils'
 

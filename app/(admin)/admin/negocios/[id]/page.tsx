@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getNegocio, pedidoTotal } from '@/lib/actions/negocios'
+import { getNegocio } from '@/lib/actions/negocios'
+import { pedidoTotal } from '@/lib/negocios-helpers'
 import { formatARS } from '@/lib/utils'
 import NuevoPedidoNegocioButton from '@/components/admin/NuevoPedidoNegocioButton'
 import NegocioDetalleView from '@/components/admin/NegocioDetalleView'

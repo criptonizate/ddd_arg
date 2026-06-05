@@ -46,10 +46,6 @@ export interface Negocio {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-export function pedidoTotal(pedido: NegocioPedido): number {
-  return pedido.negocio_items.reduce((s, i) => s + Number(i.precio_mayorista) * i.cantidad, 0)
-}
-
 function sortPedidos(pedidos: NegocioPedido[]): NegocioPedido[] {
   return [...pedidos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 }
