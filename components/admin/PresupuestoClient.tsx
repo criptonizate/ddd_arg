@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
@@ -12,7 +12,7 @@ interface Item {
 
 const EMPRESA = {
   nombre: 'Arnaudo Juan Pablo',
-  direccion: 'Adolfo E Dávila 279 - La Rioja',
+  direccion: 'Adolfo E DÃ¡vila 279 - La Rioja',
   cuit: '20-36255511-7',
   telefono: '3804559909',
   email: 'iarnaudojuanpablo@gmail.com',
@@ -85,10 +85,10 @@ export default function PresupuestoClient() {
         }
       `}</style>
 
-      {/* ── Formulario (oculto al imprimir) ── */}
+      {/* â”€â”€ Formulario (oculto al imprimir) â”€â”€ */}
       <div className="print:hidden space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="text-2xl font-bold">📋 Presupuesto</h1>
+          <h1 className="text-2xl font-bold">ðŸ“‹ Presupuesto</h1>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -105,9 +105,9 @@ export default function PresupuestoClient() {
             {(
               [
                 { field: 'nombre', label: 'Nombre' },
-                { field: 'direccion', label: 'Dirección' },
+                { field: 'direccion', label: 'DirecciÃ³n' },
                 { field: 'cuit', label: 'CUIT' },
-                { field: 'telefono', label: 'Teléfono' },
+                { field: 'telefono', label: 'TelÃ©fono' },
                 { field: 'email', label: 'E-mail' },
               ] as { field: keyof typeof cliente; label: string }[]
             ).map(({ field, label }) => (
@@ -126,7 +126,7 @@ export default function PresupuestoClient() {
           <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <h3 className="font-semibold text-sm">Opciones</h3>
             <div>
-              <label className="text-xs font-medium block mb-1">Validez (días)</label>
+              <label className="text-xs font-medium block mb-1">Validez (dÃ­as)</label>
               <input
                 type="number"
                 min="1"
@@ -136,8 +136,8 @@ export default function PresupuestoClient() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Usá precios negativos para agregar descuentos.<br />
-              Ej: precio <code className="bg-secondary px-1 rounded">-800</code> → descuento
+              UsÃ¡ precios negativos para agregar descuentos.<br />
+              Ej: precio <code className="bg-secondary px-1 rounded">-800</code> â†’ descuento
             </p>
           </div>
         </div>
@@ -147,7 +147,7 @@ export default function PresupuestoClient() {
           <h3 className="font-semibold text-sm mb-4">Productos / servicios</h3>
           <div className="space-y-2">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
-              <div className="col-span-6">Descripción</div>
+              <div className="col-span-6">DescripciÃ³n</div>
               <div className="col-span-2 text-center">Unidades</div>
               <div className="col-span-3">Precio unitario $</div>
               <div className="col-span-1" />
@@ -201,11 +201,11 @@ export default function PresupuestoClient() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center">
-          El botón "Generar PDF / Imprimir" abre el diálogo de impresión del navegador. Elegí "Guardar como PDF" para exportarlo.
+          El botÃ³n "Generar PDF / Imprimir" abre el diÃ¡logo de impresiÃ³n del navegador. ElegÃ­ "Guardar como PDF" para exportarlo.
         </p>
       </div>
 
-      {/* ── Preview / Template de impresión ── */}
+      {/* â”€â”€ Preview / Template de impresiÃ³n â”€â”€ */}
       <div
         id="presupuesto-preview"
         className="mt-8 print:mt-0 bg-white text-black border border-gray-200 rounded-xl overflow-hidden max-w-4xl mx-auto"
@@ -214,7 +214,7 @@ export default function PresupuestoClient() {
         {/* Logo */}
         <div style={{ backgroundColor: '#f0f0f0', textAlign: 'center', padding: '24px 0' }}>
           <Image
-            src="/logoDDDARG.png"
+            src="/LogoDDDARG.png"
             alt="DDD ARG"
             width={160}
             height={100}
@@ -230,7 +230,7 @@ export default function PresupuestoClient() {
                 <p style={{ fontWeight: 'bold', marginBottom: '3px' }}>{EMPRESA.nombre}</p>
                 <p style={{ marginBottom: '2px' }}>{EMPRESA.direccion}</p>
                 <p style={{ marginBottom: '2px' }}>CUIT: {EMPRESA.cuit}</p>
-                <p style={{ marginBottom: '2px' }}>Teléfono: {EMPRESA.telefono}</p>
+                <p style={{ marginBottom: '2px' }}>TelÃ©fono: {EMPRESA.telefono}</p>
                 <p>E-mail: {EMPRESA.email}</p>
               </td>
               <td style={{ width: '50%', verticalAlign: 'top', fontSize: '12px' }}>
@@ -239,9 +239,9 @@ export default function PresupuestoClient() {
                 </div>
                 <div style={{ padding: '12px 16px' }}>
                   <p style={{ marginBottom: '2px' }}>Nombre: {cliente.nombre}</p>
-                  <p style={{ marginBottom: '2px' }}>Dirección: {cliente.direccion}</p>
+                  <p style={{ marginBottom: '2px' }}>DirecciÃ³n: {cliente.direccion}</p>
                   <p style={{ marginBottom: '2px' }}>CUIT: {cliente.cuit}</p>
-                  <p style={{ marginBottom: '2px' }}>Teléfono: {cliente.telefono}</p>
+                  <p style={{ marginBottom: '2px' }}>TelÃ©fono: {cliente.telefono}</p>
                   <p>E-mail: {cliente.email}</p>
                 </div>
               </td>
@@ -256,7 +256,7 @@ export default function PresupuestoClient() {
               <td style={{ padding: '8px 16px', width: '25%' }}>Fecha presupuesto:</td>
               <td style={{ padding: '8px 16px', width: '25%', borderRight: '1px solid #ccc' }}>{today()}</td>
               <td style={{ padding: '8px 16px', width: '25%' }} />
-              <td style={{ padding: '8px 16px', width: '25%' }}>Validez: {validez} días</td>
+              <td style={{ padding: '8px 16px', width: '25%' }}>Validez: {validez} dÃ­as</td>
             </tr>
           </tbody>
         </table>
@@ -265,7 +265,7 @@ export default function PresupuestoClient() {
         <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #ccc', fontSize: '12px' }}>
           <thead>
             <tr style={{ backgroundColor: '#e8e8e8', textAlign: 'center', fontWeight: 'bold' }}>
-              <th style={{ padding: '8px 12px', border: '1px solid #ccc', textAlign: 'left', width: '50%' }}>DESCRIPCIÓN</th>
+              <th style={{ padding: '8px 12px', border: '1px solid #ccc', textAlign: 'left', width: '50%' }}>DESCRIPCIÃ“N</th>
               <th style={{ padding: '8px 12px', border: '1px solid #ccc', width: '15%' }}>UNIDADES</th>
               <th style={{ padding: '8px 12px', border: '1px solid #ccc', width: '17.5%' }}>PRECIO</th>
               <th style={{ padding: '8px 12px', border: '1px solid #ccc', width: '17.5%' }}>TOTAL</th>
@@ -328,7 +328,7 @@ export default function PresupuestoClient() {
                 Firma de la persona que confecciona el presupuesto
               </td>
               <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, borderLeft: '1px solid #ccc', textAlign: 'center', color: TEAL, fontSize: '11px' }}>
-                Firma de aceptación del cliente
+                Firma de aceptaciÃ³n del cliente
               </td>
             </tr>
           </tbody>

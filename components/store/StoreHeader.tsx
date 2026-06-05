@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,7 +12,7 @@ export default function StoreHeader() {
     <header className="sticky top-0 z-40 bg-background/90 backdrop-blur border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          <Image src="/logoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-9 w-auto" priority />
+          <Image src="/LogoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-9 w-auto" priority />
         </Link>
 
         <nav className="flex items-center gap-1">
@@ -20,7 +20,7 @@ export default function StoreHeader() {
             href="/catalogo"
             className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
-            Catálogo
+            CatÃ¡logo
           </Link>
           <Link
             href="/auth/login"

@@ -56,7 +56,7 @@ export default function AdminSidebar({
         {/* Logo */}
         <div className="flex items-center gap-3 p-5 border-b border-border">
           <Image
-            src="/logoDDDARG.png"
+            src="/LogoDDDARG.png"
             alt="DDD ARG"
             width={511}
             height={339}
