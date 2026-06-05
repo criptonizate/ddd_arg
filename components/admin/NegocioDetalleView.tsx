@@ -66,6 +66,54 @@ function computeStock(negocio: Negocio): StockRow[] {
 
 // ── PDF Export ─────────────────────────────────────────────────────────────
 
+function exportCobroPDF(
+  items: EgresoItem[],
+  precios: Record<string, number>,
+  negocioNombre: string
+) {
+  const fecha = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
+  const vendidos = items.filter((i) => i.tipo === 'vendido')
+  const total = vendidos.reduce((s, i) => {
+    return s + i.cantidad * (precios[i.producto.toLowerCase().trim()] ?? 0)
+  }, 0)
+  const rows = vendidos.map((i) => {
+    const precio = precios[i.producto.toLowerCase().trim()] ?? 0
+    const subtotal = i.cantidad * precio
+    return `<tr>
+      <td>${i.producto}</td>
+      <td style="text-align:center">${i.cantidad}</td>
+      <td style="text-align:right">$${Number(precio).toLocaleString('es-AR')}</td>
+      <td style="text-align:right;font-weight:600">$${Number(subtotal).toLocaleString('es-AR')}</td>
+    </tr>`
+  }).join('')
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cobro ${negocioNombre}</title>
+    <style>
+      body{font-family:Arial,sans-serif;margin:32px;color:#111}
+      h1{font-size:20px;margin:0 0 4px}p{font-size:12px;color:#555;margin:2px 0 20px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid #e5e7eb}
+      td{padding:7px 12px;border-bottom:1px solid #e5e7eb}
+      .total td{border-top:2px solid #111;font-weight:700;font-size:15px;padding-top:10px}
+      @media print{body{margin:16px}}
+    </style></head><body>
+    <h1>💰 Cobro — ${negocioNombre}</h1>
+    <p>Fecha: ${fecha}</p>
+    <table><thead><tr>
+      <th>Producto</th>
+      <th style="text-align:center">Cantidad</th>
+      <th style="text-align:right">Precio unit.</th>
+      <th style="text-align:right">Subtotal</th>
+    </tr></thead><tbody>
+    ${rows}
+    <tr class="total">
+      <td colspan="3" style="text-align:right">TOTAL A COBRAR</td>
+      <td style="text-align:right">$${Number(total).toLocaleString('es-AR')}</td>
+    </tr>
+    </tbody></table></body></html>`
+  const win = window.open('', '_blank')
+  if (win) { win.document.write(html); win.document.close(); win.focus(); win.print() }
+}
+
 function exportStockPDF(stock: StockRow[], negocioNombre: string) {
   const fecha = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
   const rows = stock.map((r) => `
@@ -105,12 +153,16 @@ interface EgresoItem { producto: string; tipo: 'vendido' | 'devuelto'; cantidad:
 
 function MultiEgresoModal({
   negocioId,
+  negocioNombre,
   productosDisponibles,
+  precios,
   productoInicial,
   onClose,
 }: {
   negocioId: string
+  negocioNombre: string
   productosDisponibles: string[]
+  precios: Record<string, number>
   productoInicial?: string
   onClose: () => void
 }) {
@@ -212,33 +264,64 @@ function MultiEgresoModal({
           </div>
 
           {/* Lista de egresos a registrar */}
-          {lista.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">A registrar ({lista.length})</p>
-              {lista.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2.5 bg-secondary/30 rounded-lg text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${item.tipo === 'vendido' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
-                      {item.tipo === 'vendido' ? '📤' : '↩'} {item.tipo}
-                    </span>
-                    <span className="font-medium truncate">{item.producto}</span>
-                    <span className="text-muted-foreground shrink-0">× {item.cantidad}</span>
-                    {item.nota && <span className="text-xs text-muted-foreground italic truncate">— {item.nota}</span>}
+          {lista.length > 0 && (() => {
+            const totalVendidos = lista
+              .filter((i) => i.tipo === 'vendido')
+              .reduce((s, i) => s + i.cantidad * (precios[i.producto.toLowerCase().trim()] ?? 0), 0)
+            return (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">A registrar ({lista.length})</p>
+                {lista.map((item, idx) => {
+                  const precio = precios[item.producto.toLowerCase().trim()] ?? 0
+                  const subtotal = item.tipo === 'vendido' ? item.cantidad * precio : 0
+                  return (
+                    <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2.5 bg-secondary/30 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${item.tipo === 'vendido' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                          {item.tipo === 'vendido' ? '📤' : '↩'} {item.tipo}
+                        </span>
+                        <span className="font-medium truncate">{item.producto}</span>
+                        <span className="text-muted-foreground shrink-0">× {item.cantidad}</span>
+                        {item.nota && <span className="text-xs text-muted-foreground italic truncate">— {item.nota}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {item.tipo === 'vendido' && (
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {precio > 0
+                              ? <><span>{formatARS(precio)} c/u</span> → <span className="font-semibold text-foreground">{formatARS(subtotal)}</span></>
+                              : <span className="italic opacity-60">sin precio</span>
+                            }
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">{formatFecha(item.fecha)}</span>
+                        <button onClick={() => setLista((p) => p.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
+                          <Trash2 size={11} className="text-muted-foreground" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {totalVendidos > 0 && (
+                  <div className="flex items-center justify-between px-3 pt-1 pb-0.5 border-t border-border mt-1">
+                    <span className="text-xs text-muted-foreground">Total a cobrar por este egreso:</span>
+                    <span className="text-sm font-bold text-green-600">{formatARS(totalVendidos)}</span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{formatFecha(item.fecha)}</span>
-                    <button onClick={() => setLista((p) => p.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
-                      <Trash2 size={11} className="text-muted-foreground" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })()}
         </div>
 
-        <div className="flex justify-end gap-3 p-5 border-t border-border">
+        <div className="flex justify-end gap-3 p-5 border-t border-border flex-wrap">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">Cancelar</button>
+          {lista.some((i) => i.tipo === 'vendido') && (
+            <button
+              onClick={() => exportCobroPDF(lista, precios, negocioNombre)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
+            >
+              📄 Ver cobro
+            </button>
+          )}
           <button onClick={handleSubmit} disabled={isPending || lista.length === 0}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors">
             {isPending ? 'Guardando...' : `Registrar ${lista.length > 0 ? `(${lista.length})` : ''}`}
@@ -349,6 +432,9 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const { toast } = useToast()
 
   const productosNombres = stock.map((s) => s.nombre)
+  const precios: Record<string, number> = Object.fromEntries(
+    stock.map((s) => [s.nombre.toLowerCase().trim(), s.precio])
+  )
 
   async function handleDeleteEgreso(id: string) {
     const ok = await confirm('¿Eliminar este egreso?', { confirmLabel: 'Eliminar' })
@@ -374,7 +460,9 @@ function StockSection({ negocio }: { negocio: Negocio }) {
       {egresoProducto !== null && (
         <MultiEgresoModal
           negocioId={negocio.id}
+          negocioNombre={negocio.nombre}
           productosDisponibles={productosNombres}
+          precios={precios}
           productoInicial={egresoProducto || undefined}
           onClose={() => setEgresoProducto(null)}
         />
