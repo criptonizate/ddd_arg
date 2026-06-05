@@ -26,33 +26,5 @@ CREATE INDEX IF NOT EXISTS idx_transactions_tipo  ON transactions(tipo);
 -- orders: cliente_id (para la página de detalle de cliente)
 CREATE INDEX IF NOT EXISTS idx_orders_cliente_id ON orders(cliente_id) WHERE cliente_id IS NOT NULL;
 
--- Función RPC: stock bajo filtrado en BD (evita traer todas las variantes y filtrar en JS)
-CREATE OR REPLACE FUNCTION get_stock_bajo()
-RETURNS TABLE(
-  id             uuid,
-  product_id     uuid,
-  nombre_variante text,
-  precio          numeric,
-  stock           integer,
-  stock_minimo    integer,
-  created_at      timestamptz,
-  product_nombre  text
-)
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-AS $$
-  SELECT
-    pv.id,
-    pv.product_id,
-    pv.nombre_variante,
-    pv.precio,
-    pv.stock,
-    pv.stock_minimo,
-    pv.created_at,
-    p.nombre AS product_nombre
-  FROM product_variants pv
-  JOIN products p ON p.id = pv.product_id
-  WHERE pv.stock <= pv.stock_minimo
-  ORDER BY pv.stock ASC;
-$$;
+-- get_stock_bajo() movida a 016_product_variants_columns.sql
+-- (requiere columnas stock_minimo/color/tamaño que se agregan en esa migración)
