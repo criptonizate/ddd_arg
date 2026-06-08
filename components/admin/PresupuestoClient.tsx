@@ -125,6 +125,8 @@ export default function PresupuestoClient() {
     const validItems = items
       .filter(i => i.descripcion.trim() && i.unidades !== '' && i.precio !== '')
       .map(i => ({
+        product_id: '',
+        variant_id: '',
         nombre_producto: i.descripcion.trim(),
         nombre_variante: '',
         cantidad: Math.max(1, Number(i.unidades) || 1),
