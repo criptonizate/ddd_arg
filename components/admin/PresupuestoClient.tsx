@@ -1,13 +1,25 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Plus, Trash2, Printer } from 'lucide-react'
+import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle } from 'lucide-react'
+import { createManualSale } from '@/lib/actions/orders'
+import { formatARS } from '@/lib/utils'
 
 interface Item {
   descripcion: string
   unidades: number | ''
   precio: number | ''
+}
+
+interface PedidoForm {
+  cliente_nombre: string
+  cliente_telefono: string
+  cliente_email: string
+  entrega: 'retiro' | 'envio'
+  direccion_envio: string
+  metodo_pago: 'efectivo' | 'transferencia' | 'mercadopago' | 'whatsapp'
+  nota: string
 }
 
 const EMPRESA = {
@@ -30,6 +42,9 @@ function today(): string {
   return new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric', year: 'numeric' })
 }
 
+const INPUT_CLASS =
+  'w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring'
+
 export default function PresupuestoClient() {
   const [cliente, setCliente] = useState({
     nombre: '', direccion: '', cuit: '', telefono: '', email: '',
@@ -39,6 +54,19 @@ export default function PresupuestoClient() {
     { descripcion: '', unidades: '', precio: '' },
     { descripcion: '', unidades: '', precio: '' },
   ])
+
+  // Descuento mayorista
+  const [showDescuento, setShowDescuento] = useState(false)
+  const [descuentoPct, setDescuentoPct] = useState('')
+
+  // Modal generar pedido
+  const [showPedidoModal, setShowPedidoModal] = useState(false)
+  const [pedidoForm, setPedidoForm] = useState<PedidoForm>({
+    cliente_nombre: '', cliente_telefono: '', cliente_email: '',
+    entrega: 'retiro', direccion_envio: '', metodo_pago: 'efectivo', nota: '',
+  })
+  const [pedidoLoading, setPedidoLoading] = useState(false)
+  const [pedidoResult, setPedidoResult] = useState<{ orderId?: string; error?: string } | null>(null)
 
   function updateCliente(field: keyof typeof cliente, value: string) {
     setCliente(c => ({ ...c, [field]: value }))
@@ -58,10 +86,90 @@ export default function PresupuestoClient() {
   }
 
   const subtotal = items.reduce((s, i) => {
-    const u = Number(i.unidades) || 0
-    const p = Number(i.precio) || 0
-    return s + u * p
+    return s + (Number(i.unidades) || 0) * (Number(i.precio) || 0)
   }, 0)
+
+  function addDescuento() {
+    const pct = parseFloat(descuentoPct)
+    if (!pct || pct <= 0 || pct > 100) return
+    // Calcula sobre el subtotal de items positivos (excluye descuentos ya existentes)
+    const basePositiva = items.reduce((s, i) => {
+      const total = (Number(i.unidades) || 0) * (Number(i.precio) || 0)
+      return s + (total > 0 ? total : 0)
+    }, 0)
+    const monto = -Math.round(basePositiva * pct / 100)
+    setItems(prev => [...prev, {
+      descripcion: `Descuento Mayorista ${pct}%`,
+      unidades: 1,
+      precio: monto,
+    }])
+    setDescuentoPct('')
+    setShowDescuento(false)
+  }
+
+  function openPedidoModal() {
+    setPedidoForm({
+      cliente_nombre: cliente.nombre,
+      cliente_telefono: cliente.telefono,
+      cliente_email: cliente.email,
+      entrega: 'retiro',
+      direccion_envio: cliente.direccion,
+      metodo_pago: 'efectivo',
+      nota: '',
+    })
+    setPedidoResult(null)
+    setShowPedidoModal(true)
+  }
+
+  async function handleCrearPedido() {
+    const validItems = items
+      .filter(i => i.descripcion.trim() && i.unidades !== '' && i.precio !== '')
+      .map(i => ({
+        nombre_producto: i.descripcion.trim(),
+        nombre_variante: '',
+        cantidad: Math.max(1, Number(i.unidades) || 1),
+        precio_unitario: Number(i.precio) || 0,
+      }))
+
+    if (!validItems.length) {
+      setPedidoResult({ error: 'No hay ítems válidos en el presupuesto' })
+      return
+    }
+    const total = validItems.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+    if (total <= 0) {
+      setPedidoResult({ error: 'El total del pedido debe ser mayor a $0' })
+      return
+    }
+
+    setPedidoLoading(true)
+    try {
+      const result = await createManualSale({
+        cliente_nombre: pedidoForm.cliente_nombre,
+        cliente_telefono: pedidoForm.cliente_telefono,
+        cliente_email: pedidoForm.cliente_email || undefined,
+        entrega: pedidoForm.entrega,
+        direccion_envio: pedidoForm.direccion_envio,
+        metodo_pago: pedidoForm.metodo_pago,
+        nota: pedidoForm.nota,
+        sena: 0,
+        prioridad: false,
+        esLocal: false,
+        items: validItems,
+      })
+      if (result && 'error' in result && result.error) {
+        const msg = typeof result.error === 'string'
+          ? result.error
+          : Object.values(result.error).flat().join(', ')
+        setPedidoResult({ error: msg })
+      } else {
+        setPedidoResult({ orderId: (result as { orderId: string }).orderId })
+      }
+    } catch {
+      setPedidoResult({ error: 'Error inesperado al crear el pedido' })
+    } finally {
+      setPedidoLoading(false)
+    }
+  }
 
   const PREVIEW_ROWS = Math.max(8, items.length + 2)
 
@@ -88,14 +196,23 @@ export default function PresupuestoClient() {
       {/* ── Formulario (oculto al imprimir) ── */}
       <div className="print:hidden space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="text-2xl font-bold">ðŸ“‹ Presupuesto</h1>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Printer size={15} />
-            Generar PDF / Imprimir
-          </button>
+          <h1 className="text-2xl font-bold">📋 Presupuesto</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openPedidoModal}
+              className="flex items-center gap-2 border border-border hover:bg-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <ShoppingCart size={15} />
+              Generar pedido
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Printer size={15} />
+              Generar PDF / Imprimir
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -116,7 +233,7 @@ export default function PresupuestoClient() {
                 <input
                   value={cliente[field]}
                   onChange={(e) => updateCliente(field, e.target.value)}
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={INPUT_CLASS}
                 />
               </div>
             ))}
@@ -135,10 +252,6 @@ export default function PresupuestoClient() {
                 className="w-32 border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Usá precios negativos para agregar descuentos.<br />
-              Ej: precio <code className="bg-secondary px-1 rounded">-800</code> â†’ descuento
-            </p>
           </div>
         </div>
 
@@ -192,12 +305,51 @@ export default function PresupuestoClient() {
               </div>
             ))}
           </div>
-          <button
-            onClick={addItem}
-            className="mt-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Plus size={13} /> Agregar fila
-          </button>
+
+          {/* Acciones de fila */}
+          <div className="mt-3 flex items-center gap-4 flex-wrap">
+            <button
+              onClick={addItem}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus size={13} /> Agregar fila
+            </button>
+
+            {!showDescuento ? (
+              <button
+                onClick={() => setShowDescuento(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Percent size={13} /> Descuento Mayorista
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={descuentoPct}
+                  onChange={(e) => setDescuentoPct(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addDescuento(); if (e.key === 'Escape') setShowDescuento(false) }}
+                  placeholder="% descuento"
+                  min="1"
+                  max="100"
+                  autoFocus
+                  className="w-28 border border-input rounded-lg px-2.5 py-1 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button
+                  onClick={addDescuento}
+                  className="text-xs font-medium bg-foreground text-primary-foreground px-3 py-1 rounded-lg hover:bg-foreground/90 transition-colors"
+                >
+                  Aplicar
+                </button>
+                <button
+                  onClick={() => { setShowDescuento(false); setDescuentoPct('') }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground text-center">
@@ -334,6 +486,166 @@ export default function PresupuestoClient() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Modal: Generar Pedido ── */}
+      {showPedidoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="font-semibold text-base">Generar pedido desde presupuesto</h2>
+              <button onClick={() => setShowPedidoModal(false)} className="p-1 hover:bg-secondary rounded transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {pedidoResult?.orderId ? (
+              /* ── Éxito ── */
+              <div className="p-8 flex flex-col items-center gap-4 text-center">
+                <CheckCircle size={48} className="text-green-500" />
+                <p className="font-semibold text-lg">¡Pedido creado!</p>
+                <p className="text-sm text-muted-foreground">
+                  El pedido fue registrado correctamente en Ventas.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setShowPedidoModal(false)}
+                    className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                  <a
+                    href="/admin/ventas"
+                    className="px-4 py-2 text-sm font-medium bg-foreground text-primary-foreground rounded-lg hover:bg-foreground/90 transition-colors"
+                  >
+                    Ver en Ventas
+                  </a>
+                </div>
+              </div>
+            ) : (
+              /* ── Formulario ── */
+              <div className="p-5 space-y-4">
+                {/* Items resumen */}
+                <div className="bg-secondary/50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Ítems a incluir</p>
+                  {items
+                    .filter(i => i.descripcion.trim() && i.unidades !== '' && i.precio !== '')
+                    .map((i, idx) => {
+                      const total = (Number(i.unidades) || 0) * (Number(i.precio) || 0)
+                      return (
+                        <div key={idx} className="flex justify-between text-xs">
+                          <span className="text-muted-foreground truncate">{i.descripcion} × {i.unidades}</span>
+                          <span className={total < 0 ? 'text-red-500 font-medium' : 'font-medium'}>{formatARS(total)}</span>
+                        </div>
+                      )
+                    })}
+                  <div className="border-t border-border mt-2 pt-2 flex justify-between text-sm font-semibold">
+                    <span>Total</span>
+                    <span>{formatARS(subtotal)}</span>
+                  </div>
+                </div>
+
+                {/* Cliente */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-xs font-medium block mb-1">Nombre del cliente *</label>
+                    <input
+                      value={pedidoForm.cliente_nombre}
+                      onChange={e => setPedidoForm(f => ({ ...f, cliente_nombre: e.target.value }))}
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">Teléfono</label>
+                    <input
+                      value={pedidoForm.cliente_telefono}
+                      onChange={e => setPedidoForm(f => ({ ...f, cliente_telefono: e.target.value }))}
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">E-mail</label>
+                    <input
+                      type="email"
+                      value={pedidoForm.cliente_email}
+                      onChange={e => setPedidoForm(f => ({ ...f, cliente_email: e.target.value }))}
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+                </div>
+
+                {/* Entrega */}
+                <div>
+                  <label className="text-xs font-medium block mb-1">Entrega *</label>
+                  <select
+                    value={pedidoForm.entrega}
+                    onChange={e => setPedidoForm(f => ({ ...f, entrega: e.target.value as 'retiro' | 'envio' }))}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="retiro">Retiro en persona</option>
+                    <option value="envio">Envío a domicilio</option>
+                  </select>
+                </div>
+                {pedidoForm.entrega === 'envio' && (
+                  <div>
+                    <label className="text-xs font-medium block mb-1">Dirección de envío *</label>
+                    <input
+                      value={pedidoForm.direccion_envio}
+                      onChange={e => setPedidoForm(f => ({ ...f, direccion_envio: e.target.value }))}
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+                )}
+
+                {/* Método de pago */}
+                <div>
+                  <label className="text-xs font-medium block mb-1">Método de pago *</label>
+                  <select
+                    value={pedidoForm.metodo_pago}
+                    onChange={e => setPedidoForm(f => ({ ...f, metodo_pago: e.target.value as PedidoForm['metodo_pago'] }))}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+                </div>
+
+                {/* Nota */}
+                <div>
+                  <label className="text-xs font-medium block mb-1">Nota (opcional)</label>
+                  <textarea
+                    value={pedidoForm.nota}
+                    onChange={e => setPedidoForm(f => ({ ...f, nota: e.target.value }))}
+                    rows={2}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  />
+                </div>
+
+                {pedidoResult?.error && (
+                  <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{pedidoResult.error}</p>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setShowPedidoModal(false)}
+                    className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCrearPedido}
+                    disabled={pedidoLoading || !pedidoForm.cliente_nombre.trim()}
+                    className="flex-1 px-4 py-2 text-sm font-medium bg-foreground text-primary-foreground rounded-lg hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+                  >
+                    {pedidoLoading ? 'Creando...' : 'Confirmar pedido'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
