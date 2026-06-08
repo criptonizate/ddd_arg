@@ -10,6 +10,8 @@ interface Item {
   descripcion: string
   unidades: number | ''
   precio: number | ''
+  precioEspecial?: number | '' // precio con descuento; undefined = sin precio especial
+  descuentoPct?: string        // % que auto-calcula precioEspecial (solo UI)
 }
 
 interface PedidoForm {
@@ -85,8 +87,40 @@ export default function PresupuestoClient() {
     setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
+  function togglePrecioEspecial(idx: number) {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item
+      if (item.precioEspecial !== undefined) {
+        const next = { ...item }
+        delete next.precioEspecial
+        delete next.descuentoPct
+        return next
+      }
+      return { ...item, precioEspecial: '', descuentoPct: '' }
+    }))
+  }
+
+  function updatePrecioEspecialPct(idx: number, pct: string) {
+    const pctNum = parseFloat(pct)
+    const precioBase = Number(items[idx].precio) || 0
+    const calculado = precioBase > 0 && pctNum > 0 && pctNum <= 100
+      ? Math.round(precioBase * (1 - pctNum / 100))
+      : ('' as const)
+    setItems(prev => prev.map((item, i) =>
+      i === idx ? { ...item, descuentoPct: pct, precioEspecial: calculado } : item
+    ))
+  }
+
+  function updatePrecioEspecialDirecto(idx: number, val: number | '') {
+    setItems(prev => prev.map((item, i) =>
+      i === idx ? { ...item, precioEspecial: val, descuentoPct: '' } : item
+    ))
+  }
+
   const subtotal = items.reduce((s, i) => {
-    return s + (Number(i.unidades) || 0) * (Number(i.precio) || 0)
+    const u = Number(i.unidades) || 0
+    const p = i.precioEspecial !== undefined ? (Number(i.precioEspecial) || 0) : (Number(i.precio) || 0)
+    return s + u * p
   }, 0)
 
   function addDescuento() {
@@ -130,7 +164,7 @@ export default function PresupuestoClient() {
         nombre_producto: i.descripcion.trim(),
         nombre_variante: '',
         cantidad: Math.max(1, Number(i.unidades) || 1),
-        precio_unitario: Number(i.precio) || 0,
+        precio_unitario: i.precioEspecial !== undefined ? (Number(i.precioEspecial) || 0) : (Number(i.precio) || 0),
       }))
 
     if (!validItems.length) {
@@ -262,48 +296,86 @@ export default function PresupuestoClient() {
           <h3 className="font-semibold text-sm mb-4">Productos / servicios</h3>
           <div className="space-y-2">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
-              <div className="col-span-6">Descripción</div>
+              <div className="col-span-5">Descripción</div>
               <div className="col-span-2 text-center">Unidades</div>
               <div className="col-span-3">Precio unitario $</div>
-              <div className="col-span-1" />
+              <div className="col-span-2" />
             </div>
             {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-6">
-                  <input
-                    value={item.descripcion}
-                    onChange={(e) => updateItem(idx, 'descripcion', e.target.value)}
-                    placeholder="Ej: Escarapelas personalizadas"
-                    className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+              <div key={idx} className="space-y-1">
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5">
+                    <input
+                      value={item.descripcion}
+                      onChange={(e) => updateItem(idx, 'descripcion', e.target.value)}
+                      placeholder="Ej: Escarapelas personalizadas"
+                      className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      value={item.unidades}
+                      onChange={(e) => updateItem(idx, 'unidades', e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      value={item.precio}
+                      onChange={(e) => updateItem(idx, 'precio', e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="0"
+                      className={`w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${item.precioEspecial !== undefined ? 'line-through text-muted-foreground' : ''}`}
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-center gap-1">
+                    <button
+                      onClick={() => togglePrecioEspecial(idx)}
+                      title="Precio especial / descuento"
+                      className={`p-1.5 rounded transition-colors text-xs font-bold ${item.precioEspecial !== undefined ? 'bg-teal-100 text-teal-700 hover:bg-teal-200' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                    >
+                      <Percent size={12} />
+                    </button>
+                    <button
+                      onClick={() => removeItem(idx)}
+                      disabled={items.length <= 1}
+                      className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={item.unidades}
-                    onChange={(e) => updateItem(idx, 'unidades', e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="0"
-                    className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center"
-                  />
-                </div>
-                <div className="col-span-3">
-                  <input
-                    type="number"
-                    value={item.precio}
-                    onChange={(e) => updateItem(idx, 'precio', e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="0"
-                    className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <button
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length <= 1}
-                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+
+                {/* Sub-fila precio especial */}
+                {item.precioEspecial !== undefined && (
+                  <div className="flex items-center gap-2 pl-3 pb-0.5">
+                    <span className="text-xs text-teal-700 font-medium shrink-0">Precio especial:</span>
+                    <input
+                      type="number"
+                      value={item.descuentoPct ?? ''}
+                      onChange={(e) => updatePrecioEspecialPct(idx, e.target.value)}
+                      placeholder="% desc."
+                      min="1"
+                      max="100"
+                      className="w-20 border border-teal-300 rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">%  →</span>
+                    <input
+                      type="number"
+                      value={item.precioEspecial}
+                      onChange={(e) => updatePrecioEspecialDirecto(idx, e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="$0"
+                      className="w-28 border border-teal-300 rounded-lg px-2.5 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 font-medium text-teal-700"
+                    />
+                    <span className="text-xs text-muted-foreground italic">
+                      {item.precio !== '' && item.precioEspecial !== '' && Number(item.precio) > 0
+                        ? `(antes ${formatNum(Number(item.precio))})`
+                        : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -429,9 +501,13 @@ export default function PresupuestoClient() {
             {Array.from({ length: PREVIEW_ROWS }).map((_, idx) => {
               const item = items[idx]
               const u = item ? Number(item.unidades) || 0 : 0
-              const p = item ? Number(item.precio) || 0 : 0
-              const rowTotal = u * p
+              const precioLista = item ? Number(item.precio) || 0 : 0
+              const precioEfectivo = item?.precioEspecial !== undefined
+                ? (Number(item.precioEspecial) || 0)
+                : precioLista
+              const rowTotal = u * precioEfectivo
               const hasData = item?.descripcion && item.descripcion.trim() !== ''
+              const hasEspecial = hasData && item.precioEspecial !== undefined && item.precioEspecial !== ''
               return (
                 <tr key={idx} style={{ textAlign: 'center' }}>
                   <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'left', height: '26px' }}>
@@ -441,7 +517,18 @@ export default function PresupuestoClient() {
                     {hasData && item.unidades !== '' ? u : ''}
                   </td>
                   <td style={{ padding: '6px 12px', border: '1px solid #ccc' }}>
-                    {hasData && item.precio !== '' ? formatNum(p) : ''}
+                    {hasEspecial ? (
+                      <>
+                        <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '4px', fontSize: '11px' }}>
+                          {formatNum(precioLista)}
+                        </span>
+                        <span style={{ color: '#c00', fontWeight: 'bold' }}>
+                          {formatNum(precioEfectivo)}
+                        </span>
+                      </>
+                    ) : (
+                      hasData && item.precio !== '' ? formatNum(precioLista) : ''
+                    )}
                   </td>
                   <td style={{ padding: '6px 12px', border: '1px solid #ccc' }}>
                     {hasData && rowTotal !== 0 ? formatNum(rowTotal) : ''}
