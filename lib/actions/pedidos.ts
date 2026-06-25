@@ -75,6 +75,17 @@ export async function createPedido(data: CreatePedidoValues) {
     return { error: itemsError.message }
   }
 
+  // Auto-linkear cliente (best-effort)
+  try {
+    const { findOrCreateCliente } = await import('./clientes')
+    const clienteId = await findOrCreateCliente(
+      validated.data.cliente_nombre,
+      validated.data.cliente_telefono || null
+    )
+    await supabase.from('orders').update({ cliente_id: clienteId }).eq('id', order.id)
+  } catch { /* migración pendiente */ }
+
   revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/clientes')
   return { orderId: order.id }
 }

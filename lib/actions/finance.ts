@@ -85,17 +85,33 @@ export async function getBalance(desde?: string, hasta?: string) {
     .filter((t: any) => t.tipo === 'egreso')
     .reduce((sum: number, t: any) => sum + Number(t.monto), 0)
 
-  return { ingresos, egresos, balance: ingresos - egresos, transactions }
+  // Agrupar por día para gráfico
+  const porDia = new Map<string, { ingreso: number; egreso: number }>()
+  transactions.forEach((t: any) => {
+    const d = t.fecha.split('T')[0]
+    const prev = porDia.get(d) ?? { ingreso: 0, egreso: 0 }
+    if (t.tipo === 'ingreso') prev.ingreso += Number(t.monto)
+    else prev.egreso += Number(t.monto)
+    porDia.set(d, prev)
+  })
+  const chartData = Array.from(porDia.entries())
+    .map(([fecha, v]) => ({ fecha, ...v }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+
+  return { ingresos, egresos, balance: ingresos - egresos, transactions, chartData }
 }
 
 // Dashboard stats
-export async function getDashboardStats() {
+export async function getDashboardStats(params?: { desde?: string; hasta?: string }) {
   const supabase = createServiceClient()
 
   const now = new Date()
-  const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
   const hoy = now.toISOString().split('T')[0]
   const hace30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // Período para KPIs: usar params si existen, sino mes actual
+  const primerDiaMes = params?.desde ?? new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  const ultimoDiaMes = params?.hasta ?? hoy
 
   // Todas las queries en paralelo
   const [
@@ -108,14 +124,14 @@ export async function getDashboardStats() {
     { data: ventasHoy },
     { count: clientesNuevosMes },
   ] = await Promise.all([
-    supabase.from('orders').select('total, estado, created_at').gte('created_at', primerDiaMes).neq('estado', 'cancelada'),
-    supabase.from('transactions').select('tipo, monto').gte('fecha', primerDiaMes),
+    supabase.from('orders').select('total, estado, created_at').gte('created_at', primerDiaMes).lte('created_at', ultimoDiaMes + 'T23:59:59').neq('estado', 'cancelada'),
+    supabase.from('transactions').select('tipo, monto').gte('fecha', primerDiaMes).lte('fecha', ultimoDiaMes),
     supabase.from('orders').select('total, created_at, cantidad:id').gte('created_at', hace30).neq('estado', 'cancelada'),
     supabase.rpc('get_stock_bajo'),
-    supabase.from('orders').select('total, sena').in('estado', ['confirmada', 'listo']),
+    supabase.from('orders').select('total, sena').in('estado', ['confirmada', 'imprimiendo', 'listo']),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
     supabase.from('orders').select('total').gte('created_at', hoy).neq('estado', 'cancelada'),
-    supabase.from('clientes').select('*', { count: 'exact', head: true }).gte('created_at', primerDiaMes),
+    supabase.from('clientes').select('*', { count: 'exact', head: true }).gte('created_at', primerDiaMes).lte('created_at', ultimoDiaMes + 'T23:59:59'),
   ])
 
   // Calcular stats

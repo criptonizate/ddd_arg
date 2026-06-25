@@ -3,6 +3,7 @@ import { formatARS, formatDate, EGRESO_CATEGORIA_LABELS } from '@/lib/utils'
 import EgresoForm from '@/components/admin/EgresoForm'
 import ExportCSVButton from '@/components/admin/ExportCSVButton'
 import DeleteTransactionButton from '@/components/admin/DeleteTransactionButton'
+import FinanzasChart from '@/components/admin/FinanzasChart'
 import type { Transaction } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Finanzas' }
@@ -13,7 +14,7 @@ export default async function FinanzasPage({
   searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
   const { desde, hasta } = await searchParams
-  const { ingresos, egresos, balance, transactions } = await getBalance(desde, hasta)
+  const { ingresos, egresos, balance, transactions, chartData } = await getBalance(desde, hasta)
 
   return (
     <div className="space-y-8">
@@ -78,6 +79,9 @@ export default async function FinanzasPage({
           </div>
         ))}
       </div>
+
+      {/* Gráfico ingresos vs egresos */}
+      <FinanzasChart chartData={chartData} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Formulario egreso */}

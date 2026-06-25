@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen } from 'lucide-react'
 import { createManualSale } from '@/lib/actions/orders'
+import { savePresupuesto, getPresupuestos, deletePresupuesto } from '@/lib/actions/presupuestos'
+import type { PresupuestoRecord } from '@/lib/actions/presupuestos'
 import { formatARS } from '@/lib/utils'
 
 interface Item {
@@ -60,6 +62,66 @@ export default function PresupuestoClient() {
   // Descuento mayorista
   const [showDescuento, setShowDescuento] = useState(false)
   const [descuentoPct, setDescuentoPct] = useState('')
+
+  // Guardar / cargar presupuestos
+  const [savingPresupuesto, setSavingPresupuesto] = useState(false)
+  const [showPresupuestosModal, setShowPresupuestosModal] = useState(false)
+  const [presupuestosList, setPresupuestosList] = useState<PresupuestoRecord[]>([])
+  const [loadingList, setLoadingList] = useState(false)
+
+  async function handleSavePresupuesto() {
+    setSavingPresupuesto(true)
+    const validItems = items
+      .filter(i => i.descripcion.trim())
+      .map(i => ({
+        descripcion: i.descripcion.trim(),
+        unidades: Number(i.unidades) || 0,
+        precio: Number(i.precio) || 0,
+        ...(i.precioEspecial !== undefined ? { precioEspecial: Number(i.precioEspecial) || 0 } : {}),
+      }))
+    await savePresupuesto({
+      cliente_nombre: cliente.nombre,
+      cliente_direccion: cliente.direccion,
+      cliente_cuit: cliente.cuit,
+      cliente_telefono: cliente.telefono,
+      cliente_email: cliente.email,
+      items: validItems,
+      descuento_mayorista_pct: parseFloat(descuentoPct) || 0,
+      nota: '',
+    })
+    setSavingPresupuesto(false)
+  }
+
+  async function handleOpenPresupuestosModal() {
+    setShowPresupuestosModal(true)
+    setLoadingList(true)
+    const list = await getPresupuestos()
+    setPresupuestosList(list)
+    setLoadingList(false)
+  }
+
+  function handleLoadPresupuesto(p: PresupuestoRecord) {
+    setCliente({
+      nombre: p.cliente_nombre,
+      direccion: p.cliente_direccion,
+      cuit: p.cliente_cuit,
+      telefono: p.cliente_telefono,
+      email: p.cliente_email,
+    })
+    setItems(p.items.map(i => ({
+      descripcion: i.descripcion,
+      unidades: i.unidades,
+      precio: i.precio,
+      ...(i.precioEspecial !== undefined ? { precioEspecial: i.precioEspecial } : {}),
+    })))
+    if (p.descuento_mayorista_pct > 0) setDescuentoPct(String(p.descuento_mayorista_pct))
+    setShowPresupuestosModal(false)
+  }
+
+  async function handleDeletePresupuesto(id: string) {
+    await deletePresupuesto(id)
+    setPresupuestosList(prev => prev.filter(p => p.id !== id))
+  }
 
   // Modal generar pedido
   const [showPedidoModal, setShowPedidoModal] = useState(false)
@@ -234,6 +296,19 @@ export default function PresupuestoClient() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-2xl font-bold">📋 Presupuesto</h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenPresupuestosModal}
+              className="flex items-center gap-2 border border-border hover:bg-secondary px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <FolderOpen size={14} /> Cargar
+            </button>
+            <button
+              onClick={handleSavePresupuesto}
+              disabled={savingPresupuesto}
+              className="flex items-center gap-2 border border-border hover:bg-secondary px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Save size={14} /> {savingPresupuesto ? 'Guardando...' : 'Guardar'}
+            </button>
             <button
               onClick={openPedidoModal}
               className="flex items-center gap-2 border border-border hover:bg-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -732,6 +807,55 @@ export default function PresupuestoClient() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: cargar presupuesto guardado */}
+      {showPresupuestosModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="font-semibold">Presupuestos guardados</h2>
+              <button onClick={() => setShowPresupuestosModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {loadingList ? (
+                <p className="text-sm text-muted-foreground text-center py-10">Cargando...</p>
+              ) : presupuestosList.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-10">No hay presupuestos guardados</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {presupuestosList.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/20">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{p.cliente_nombre || '(sin nombre)'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.items.length} ítems ·{' '}
+                          {new Date(p.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleLoadPresupuesto(p)}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity"
+                        >
+                          Cargar
+                        </button>
+                        <button
+                          onClick={() => handleDeletePresupuesto(p.id)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

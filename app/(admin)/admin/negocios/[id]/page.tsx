@@ -18,10 +18,10 @@ export default async function NegocioDetallePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ mes?: string; desde?: string; hasta?: string }>
 }) {
   const { id } = await params
-  const { mes } = await searchParams
+  const { mes, desde, hasta } = await searchParams
   const negocio = await getNegocio(id)
   if (!negocio) notFound()
 
@@ -39,13 +39,20 @@ export default async function NegocioDetallePage({
   for (const e of negocio.negocio_egresos) mesesSet.add(e.fecha.slice(0, 7))
   const mesesDisponibles = Array.from(mesesSet).sort().reverse()
 
-  // Filtrar por mes si se seleccionó uno
+  // Filtrar por mes o rango de fechas
   const pedidosFiltrados = mes
     ? negocio.negocio_pedidos.filter((p) => p.fecha.startsWith(mes) || (p.entregado_at && p.entregado_at.startsWith(mes)))
+    : desde || hasta
+    ? negocio.negocio_pedidos.filter((p) => {
+        const f = p.fecha
+        return (!desde || f >= desde) && (!hasta || f <= hasta)
+      })
     : negocio.negocio_pedidos
 
   const egresosFiltrados = mes
     ? negocio.negocio_egresos.filter((e) => e.fecha.startsWith(mes))
+    : desde || hasta
+    ? negocio.negocio_egresos.filter((e) => (!desde || e.fecha >= desde) && (!hasta || e.fecha <= hasta))
     : negocio.negocio_egresos
 
   // Modelo consignación: se entrega primero, se cobra cuando el negocio vende
@@ -102,9 +109,9 @@ export default async function NegocioDetallePage({
         </div>
       </div>
 
-      {/* Filtro de mes */}
-      {mesesDisponibles.length > 1 && (
-        <FiltroMes meses={mesesDisponibles} mesActual={mes} />
+      {/* Filtro de mes / rango */}
+      {mesesDisponibles.length >= 1 && (
+        <FiltroMes meses={mesesDisponibles} mesActual={mes} desdeActual={desde} hastaActual={hasta} />
       )}
 
       {/* Stats */}

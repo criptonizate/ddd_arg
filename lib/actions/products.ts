@@ -230,7 +230,7 @@ export async function uploadProductImage(productId: string, formData: FormData) 
 
   const { error: dbError } = await supabase
     .from('product_images')
-    .insert({ product_id: productId, url: publicUrl, orden: nextOrder })
+    .insert({ product_id: productId, url: publicUrl, storage_path: path, orden: nextOrder })
 
   if (dbError) return { error: dbError.message }
 

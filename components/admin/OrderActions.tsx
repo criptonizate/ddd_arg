@@ -1,11 +1,11 @@
 'use client'
 
 import { useTransition } from 'react'
-import { confirmOrder, cancelOrder, markOrderListo, updateOrderStatus } from '@/lib/actions/orders'
+import { confirmOrder, cancelOrder, markOrderListo, markOrderImprimiendo, updateOrderStatus } from '@/lib/actions/orders'
 import { useConfirm } from './ConfirmModal'
 import { useToast } from './ToastProvider'
 import type { OrderEstado } from '@/lib/supabase/types'
-import { Check, X, Package, Boxes, Store } from 'lucide-react'
+import { Check, X, Package, Boxes, Store, Printer } from 'lucide-react'
 
 interface Props {
   orderId: string
@@ -26,6 +26,14 @@ export default function OrderActions({ orderId, estado }: Props) {
       const res = await confirmOrder(orderId)
       if (res?.error) toast(res.error, 'error')
       else toast('Pedido confirmado ✓')
+    })
+  }
+
+  function handleImprimiendo() {
+    startTransition(async () => {
+      const res = await markOrderImprimiendo(orderId)
+      if (res?.error) toast(res.error, 'error')
+      else toast('En impresión 🖨️')
     })
   }
 
@@ -81,6 +89,15 @@ export default function OrderActions({ orderId, estado }: Props) {
         )}
         {estado === 'confirmada' && (
           <button
+            onClick={handleImprimiendo}
+            disabled={isPending}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 transition-colors"
+          >
+            <Printer size={12} /> Imprimir
+          </button>
+        )}
+        {(estado === 'confirmada' || estado === 'imprimiendo') && (
+          <button
             onClick={handleListo}
             disabled={isPending}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
@@ -88,7 +105,7 @@ export default function OrderActions({ orderId, estado }: Props) {
             <Boxes size={12} /> Listo
           </button>
         )}
-        {(estado === 'confirmada' || estado === 'listo') && (
+        {(estado === 'confirmada' || estado === 'imprimiendo' || estado === 'listo') && (
           <button
             onClick={handleDeliver}
             disabled={isPending}
@@ -97,7 +114,7 @@ export default function OrderActions({ orderId, estado }: Props) {
             <Package size={12} /> Entregado
           </button>
         )}
-        {(estado === 'confirmada' || estado === 'listo') && (
+        {(estado === 'confirmada' || estado === 'imprimiendo' || estado === 'listo') && (
           <button
             onClick={handleLocal}
             disabled={isPending}

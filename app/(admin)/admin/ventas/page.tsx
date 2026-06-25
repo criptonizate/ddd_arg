@@ -6,7 +6,7 @@ export const metadata = { title: 'Ventas' }
 
 export default async function VentasPage() {
   const [listas, entregadas, local] = await Promise.all([
-    getOrders({ estados: ['confirmada', 'listo'], limit: 100 }),
+    getOrders({ estados: ['confirmada', 'imprimiendo', 'listo'], limit: 100 }),
     getOrders({ estados: ['entregada'], limit: 200 }),
     getOrders({ estados: ['local'], limit: 500 }),
   ])

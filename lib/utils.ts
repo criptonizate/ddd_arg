@@ -53,6 +53,7 @@ export function formatDateTime(date: string | Date): string {
 export const ESTADO_LABELS: Record<OrderEstado, string> = {
   pendiente: 'Pendiente',
   confirmada: 'Confirmada',
+  imprimiendo: 'Imprimiendo',
   listo: 'Listo para retirar',
   entregada: 'Entregada',
   cancelada: 'Cancelada',
@@ -62,6 +63,7 @@ export const ESTADO_LABELS: Record<OrderEstado, string> = {
 export const ESTADO_COLORS: Record<OrderEstado, string> = {
   pendiente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   confirmada: 'bg-blue-100 text-blue-800 border-blue-200',
+  imprimiendo: 'bg-cyan-100 text-cyan-800 border-cyan-200',
   listo: 'bg-purple-100 text-purple-800 border-purple-200',
   entregada: 'bg-green-100 text-green-800 border-green-200',
   cancelada: 'bg-red-100 text-red-800 border-red-200',

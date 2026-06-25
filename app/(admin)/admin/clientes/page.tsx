@@ -2,6 +2,7 @@ import { getClientes } from '@/lib/actions/clientes'
 import { formatARS } from '@/lib/utils'
 import NuevoClienteButton from '@/components/admin/NuevoClienteButton'
 import ClientesTable from '@/components/admin/ClientesTable'
+import ExportClientesCSV from '@/components/admin/ExportClientesCSV'
 import { Users, TrendingUp, Clock, Star } from 'lucide-react'
 
 export const metadata = { title: 'Clientes' }
@@ -24,7 +25,10 @@ export default async function ClientesPage() {
             {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} registrado{clientes.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <NuevoClienteButton />
+        <div className="flex items-center gap-2">
+          <ExportClientesCSV clientes={clientes} />
+          <NuevoClienteButton />
+        </div>
       </div>
 
       {/* Stats resumen */}

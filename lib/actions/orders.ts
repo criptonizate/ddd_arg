@@ -18,6 +18,19 @@ export async function createManualSale(data: ManualSaleValues) {
   const supabase = createServiceClient()
   const { items, sena, prioridad, esLocal, ...orderData } = validated.data
 
+  // Pre-validar stock para items con variant_id
+  for (const item of items) {
+    if (!item.variant_id) continue
+    const { data: variant } = await supabase
+      .from('product_variants')
+      .select('stock, nombre_variante')
+      .eq('id', item.variant_id)
+      .single()
+    if (!variant || variant.stock < item.cantidad) {
+      return { error: `Stock insuficiente para "${variant?.nombre_variante ?? item.nombre_producto}" (disponible: ${variant?.stock ?? 0})` }
+    }
+  }
+
   const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
 
   // Crear pedido + items en transacción via RPC
@@ -85,6 +98,16 @@ export async function updateOrderFechaEntrega(orderId: string, fecha: string | n
   await getAdminUser()
   const supabase = createServiceClient()
   const { error } = await supabase.from('orders').update({ fecha_entrega: fecha }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/pedidos')
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export async function markOrderImprimiendo(orderId: string) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ estado: 'imprimiendo' }).eq('id', orderId)
   if (error) return { error: error.message }
   revalidatePath('/admin/pedidos')
   revalidatePath('/admin/ventas')

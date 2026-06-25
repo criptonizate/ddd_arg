@@ -4,6 +4,47 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 
+export interface HistorialEntry {
+  id: string
+  nombre_pieza: string
+  horas: number
+  minutos: number
+  gramos: number
+  insumos: number
+  multiplicador: number
+  resultado_total: number
+  resultado_ml: number
+  created_at: string
+}
+
+export async function saveCalculoHistorial(entry: Omit<HistorialEntry, 'id' | 'created_at'>): Promise<{ ok: boolean; error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('calculadora_historial').insert(entry)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/admin/calculadora')
+  return { ok: true }
+}
+
+export async function getCalculoHistorial(): Promise<HistorialEntry[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('calculadora_historial')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  return (data ?? []) as HistorialEntry[]
+}
+
+export async function deleteCalculoHistorial(id: string): Promise<{ ok: boolean }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  await supabase.from('calculadora_historial').delete().eq('id', id)
+  revalidatePath('/admin/calculadora')
+  return { ok: true }
+}
+
 export interface CalculadoraConfig {
   precio_filamento_kg: number
   precio_kwh: number

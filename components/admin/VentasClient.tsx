@@ -2,13 +2,14 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
-import { ChevronDown, ChevronUp, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
 import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
 import { updateOrderSena } from '@/lib/actions/orders'
 import OrderNotaInternaInput from './OrderNotaInternaInput'
 import EditOrderItemsButton from './EditOrderItemsButton'
+import OrderEventLog from './OrderEventLog'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -50,6 +51,10 @@ export default function VentasClient({
   const [tab, setTab] = useState<Tab>('listas')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterMetodo, setFilterMetodo] = useState('')
+  const [filterDesde, setFilterDesde] = useState('')
+  const [filterHasta, setFilterHasta] = useState('')
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -79,17 +84,25 @@ export default function VentasClient({
 
   const baseOrders = tab === 'listas' ? listas : tab === 'entregadas' ? sortedEntregadas : local
 
-  // Filtro de búsqueda
+  // Filtros combinados
   const orders = useMemo(() => {
-    if (!search.trim()) return baseOrders
-    const q = search.toLowerCase()
-    return baseOrders.filter(
-      (o) =>
-        o.cliente_nombre.toLowerCase().includes(q) ||
-        o.cliente_telefono?.toLowerCase().includes(q) ||
-        o.nota?.toLowerCase().includes(q)
-    )
-  }, [baseOrders, search])
+    let result = baseOrders
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (o) =>
+          o.cliente_nombre.toLowerCase().includes(q) ||
+          o.cliente_telefono?.toLowerCase().includes(q) ||
+          o.nota?.toLowerCase().includes(q)
+      )
+    }
+    if (filterMetodo) result = result.filter((o) => o.metodo_pago === filterMetodo)
+    if (filterDesde) result = result.filter((o) => o.created_at >= filterDesde)
+    if (filterHasta) result = result.filter((o) => o.created_at <= filterHasta + 'T23:59:59')
+    return result
+  }, [baseOrders, search, filterMetodo, filterDesde, filterHasta])
+
+  const hasActiveFilters = filterMetodo || filterDesde || filterHasta
 
   const total = useMemo(() => orders.reduce((sum, o) => sum + Number(o.total), 0), [orders])
 
@@ -145,7 +158,7 @@ export default function VentasClient({
             </span>
           )}
         </button>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
           {total > 0 && (
             <span className="text-sm font-semibold text-muted-foreground">{formatARS(total)}</span>
           )}
@@ -164,6 +177,50 @@ export default function VentasClient({
               </button>
             )}
           </div>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${showFilters || hasActiveFilters ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            <SlidersHorizontal size={12} />
+            Filtros{hasActiveFilters ? ' ●' : ''}
+          </button>
+        </div>
+      </div>
+
+      {/* Panel de filtros avanzados */}
+      {showFilters && (
+        <div className="flex items-end gap-3 flex-wrap p-3 bg-secondary/30 rounded-xl border border-border">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Método de pago</label>
+            <select
+              value={filterMetodo}
+              onChange={(e) => setFilterMetodo(e.target.value)}
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background"
+            >
+              <option value="">Todos</option>
+              {Object.entries(METODO_PAGO_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Desde</label>
+            <input type="date" value={filterDesde} onChange={(e) => setFilterDesde(e.target.value)}
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Hasta</label>
+            <input type="date" value={filterHasta} onChange={(e) => setFilterHasta(e.target.value)}
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background" />
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setFilterMetodo(''); setFilterDesde(''); setFilterHasta('') }}
+              className="text-xs text-muted-foreground hover:text-foreground underline pb-1.5"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -295,6 +352,7 @@ function FullCard({ order }: { order: Order }) {
         </div>
         <OrderActions orderId={order.id} estado={order.estado} />
       </div>
+      <OrderEventLog orderId={order.id} />
     </div>
   )
 }

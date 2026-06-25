@@ -6,12 +6,48 @@ import { TrendingUp, ShoppingCart, Users, DollarSign, AlertTriangle, Clock, Inbo
 
 export const metadata = { title: 'Dashboard' }
 
-export default async function DashboardPage() {
-  const stats = await getDashboardStats()
+const PERIODOS = [
+  { label: 'Esta semana', value: 'semana' },
+  { label: 'Este mes', value: 'mes' },
+  { label: 'Mes anterior', value: 'mes-anterior' },
+  { label: 'Personalizado', value: 'custom' },
+]
+
+function getPeriodo(p: string | undefined, desde: string | undefined, hasta: string | undefined) {
+  const now = new Date()
+  if (p === 'semana') {
+    const lun = new Date(now)
+    lun.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+    return { desde: lun.toISOString().split('T')[0], hasta: now.toISOString().split('T')[0] }
+  }
+  if (p === 'mes-anterior') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const last = new Date(now.getFullYear(), now.getMonth(), 0)
+    return { desde: first.toISOString().split('T')[0], hasta: last.toISOString().split('T')[0] }
+  }
+  if (p === 'custom' && (desde || hasta)) {
+    return { desde, hasta }
+  }
+  // default: mes actual
+  return {
+    desde: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+    hasta: now.toISOString().split('T')[0],
+  }
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>
+}) {
+  const { periodo, desde, hasta } = await searchParams
+  const range = getPeriodo(periodo, desde, hasta)
+  const stats = await getDashboardStats({ desde: range.desde, hasta: range.hasta })
+  const activePeriodo = periodo ?? 'mes'
 
   const kpis = [
     {
-      label: '💰 Ingresos del mes',
+      label: '💰 Ingresos del período',
       value: formatARS(stats.ingresosMes),
       sub: 'ventas cobradas',
       icon: TrendingUp,
@@ -19,7 +55,7 @@ export default async function DashboardPage() {
       bg: 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800',
     },
     {
-      label: '🛒 Pedidos del mes',
+      label: '🛒 Pedidos del período',
       value: stats.ventasMes.toString(),
       sub: stats.montoHoy > 0 ? `Hoy: ${formatARS(stats.montoHoy)}` : `Hoy: sin ventas`,
       icon: ShoppingCart,
@@ -29,13 +65,13 @@ export default async function DashboardPage() {
     {
       label: '👥 Clientes nuevos',
       value: stats.clientesNuevosMes.toString(),
-      sub: 'registrados este mes',
+      sub: 'registrados en el período',
       icon: Users,
       color: 'text-purple-600',
       bg: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
     },
     {
-      label: '📊 Balance del mes',
+      label: '📊 Balance del período',
       value: formatARS(stats.balanceMes),
       sub: 'ingresos − egresos',
       icon: DollarSign,
@@ -62,9 +98,39 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">🚀 Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Cómo viene el negocio hoy</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">🚀 Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Cómo viene el negocio</p>
+        </div>
+
+        {/* Filtro período */}
+        <form method="GET" className="flex items-center gap-2 flex-wrap">
+          {PERIODOS.map((p) => (
+            <button
+              key={p.value}
+              type="submit"
+              name="periodo"
+              value={p.value}
+              className={`px-3 py-1.5 text-xs rounded-full border transition-colors font-medium ${
+                activePeriodo === p.value
+                  ? 'bg-foreground text-primary-foreground border-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          {activePeriodo === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input type="date" name="desde" defaultValue={desde} className="border border-border rounded-lg px-2 py-1 text-xs bg-background" />
+              <span className="text-xs text-muted-foreground">→</span>
+              <input type="date" name="hasta" defaultValue={hasta} className="border border-border rounded-lg px-2 py-1 text-xs bg-background" />
+              <input type="hidden" name="periodo" value="custom" />
+              <button type="submit" className="px-3 py-1 text-xs rounded-lg bg-foreground text-primary-foreground">OK</button>
+            </div>
+          )}
+        </form>
       </div>
 
       {/* KPIs */}
