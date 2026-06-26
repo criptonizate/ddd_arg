@@ -4,7 +4,20 @@ import Link from 'next/link'
 
 export const metadata = { title: 'Agenda' }
 
-async function getOrdersConFechaEntrega() {
+interface AgendaOrder {
+  id: string
+  cliente_nombre: string
+  cliente_telefono: string | null
+  total: number
+  sena: number | null
+  estado: string
+  fecha_entrega: string | null
+  nota: string | null
+  nota_interna: string | null
+  order_items: Array<{ nombre_producto: string; cantidad: number; precio_unitario: number }>
+}
+
+async function getOrdersConFechaEntrega(): Promise<AgendaOrder[]> {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('orders')
@@ -12,7 +25,7 @@ async function getOrdersConFechaEntrega() {
     .not('fecha_entrega', 'is', null)
     .not('estado', 'in', '(cancelada,entregada)')
     .order('fecha_entrega', { ascending: true })
-  return data ?? []
+  return (data ?? []) as AgendaOrder[]
 }
 
 function parseFecha(f: string) {
