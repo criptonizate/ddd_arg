@@ -106,7 +106,7 @@ export default function ProveedoresClient({ initialProveedores }: { initialProve
   }
 
   const FormFields = () => (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div className="col-span-2">
         <label className="text-xs font-medium text-muted-foreground block mb-1">Nombre *</label>
         <input className={inputCls} value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Proveedor S.A." />
@@ -132,7 +132,7 @@ export default function ProveedoresClient({ initialProveedores }: { initialProve
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">🏭 Proveedores</h1>
           <p className="text-sm text-muted-foreground mt-1">{proveedores.length} proveedor{proveedores.length !== 1 ? 'es' : ''} registrado{proveedores.length !== 1 ? 's' : ''}</p>

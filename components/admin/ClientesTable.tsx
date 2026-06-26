@@ -53,9 +53,9 @@ export default function ClientesTable({ clientes }: { clientes: ClienteStats[] }
                 <tr className="border-b border-border text-xs text-muted-foreground">
                   <th className="text-left px-5 py-3 font-medium">Cliente</th>
                   <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Teléfono</th>
-                  <th className="text-right px-4 py-3 font-medium">Pedidos</th>
+                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Pedidos</th>
                   <th className="text-right px-4 py-3 font-medium">Total pagado</th>
-                  <th className="text-right px-4 py-3 font-medium">Pendiente</th>
+                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Pendiente</th>
                   <th className="text-right px-4 py-3 font-medium hidden md:table-cell">Última compra</th>
                   <th className="px-4 py-3 w-10" />
                 </tr>
@@ -85,7 +85,7 @@ export default function ClientesTable({ clientes }: { clientes: ClienteStats[] }
                         <span className="text-xs italic opacity-50">sin teléfono</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">
                       {c.totalPedidos > 0 ? (
                         <span className="font-medium">{c.totalPedidos}</span>
                       ) : (
@@ -99,7 +99,7 @@ export default function ClientesTable({ clientes }: { clientes: ClienteStats[] }
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">
                       {c.totalPendiente > 0 ? (
                         <span className="font-semibold text-orange-600">{formatARS(c.totalPendiente)}</span>
                       ) : c.totalPedidos > 0 ? (

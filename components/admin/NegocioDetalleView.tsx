@@ -681,26 +681,20 @@ function AgregarItemsModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
         </div>
         <div className="p-5 space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-12">
-              <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Nombre del producto" onKeyDown={(e) => e.key === 'Enter' && addItem()} />
-            </div>
-            <div className="col-span-5">
+          <div className="space-y-2">
+            <input value={nombre} onChange={(e) => setNombre(e.target.value)}
+              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Nombre del producto" onKeyDown={(e) => e.key === 'Enter' && addItem()} />
+            <div className="grid grid-cols-2 gap-2">
               <input type="number" min="0" value={precio || ''} onChange={(e) => setPrecio(Number(e.target.value))}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Precio mayorista" />
-            </div>
-            <div className="col-span-4">
               <input type="number" min="1" value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Cantidad" />
             </div>
-            <div className="col-span-3 flex">
-              <button onClick={addItem} disabled={!nombre.trim()}
-                className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 flex items-center justify-center gap-1 text-sm">
-                <Plus size={13} /> Agregar
-              </button>
-            </div>
+            <button onClick={addItem} disabled={!nombre.trim()}
+              className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 flex items-center justify-center gap-1 text-sm">
+              <Plus size={13} /> Agregar producto
+            </button>
           </div>
           {items.length > 0 && (
             <div className="space-y-1.5">
@@ -790,32 +784,30 @@ function EditarPedidoModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Productos</p>
               <div className="space-y-2">
-                <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-medium px-1 mb-1">
-                  <div className="col-span-5">Producto</div>
-                  <div className="col-span-3">Precio may.</div>
-                  <div className="col-span-2">Cant.</div>
-                  <div className="col-span-2 text-right">Subtotal</div>
-                </div>
                 {items.map((item, idx) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-5 text-sm font-medium truncate" title={item.nombre_producto}>{item.nombre_producto}</div>
-                    <div className="col-span-3">
-                      <input
-                        type="number" min="0" value={item.precio_mayorista || ''}
-                        onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
-                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                        placeholder="Precio"
-                      />
+                  <div key={item.id} className="bg-secondary/20 rounded-lg p-3 space-y-2">
+                    <p className="text-sm font-medium truncate" title={item.nombre_producto}>{item.nombre_producto}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Precio may.</label>
+                        <input
+                          type="number" min="0" value={item.precio_mayorista || ''}
+                          onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          placeholder="Precio"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Cantidad</label>
+                        <input
+                          type="number" min="1" value={item.cantidad}
+                          onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
                     </div>
-                    <div className="col-span-2">
-                      <input
-                        type="number" min="1" value={item.cantidad}
-                        onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
-                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                    <div className="col-span-2 text-right text-sm font-semibold">
-                      {formatARS(item.precio_mayorista * item.cantidad)}
+                    <div className="text-right text-sm font-semibold">
+                      Subtotal: {formatARS(item.precio_mayorista * item.cantidad)}
                     </div>
                   </div>
                 ))}
@@ -891,29 +883,31 @@ function ClonarPedidoModal({ pedido, negocioId, onClose }: { pedido: NegocioPedi
           </div>
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Productos (editables)</p>
-            <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-medium px-1 mb-1">
-              <div className="col-span-5">Producto</div>
-              <div className="col-span-3">Precio</div>
-              <div className="col-span-2">Cant.</div>
-              <div className="col-span-2 text-right">Subtotal</div>
+            <div className="space-y-2">
+              {items.map((item, idx) => (
+                <div key={idx} className="bg-secondary/20 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium truncate">{item.nombre_producto}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Precio</label>
+                      <input type="number" min="0" value={item.precio_mayorista || ''}
+                        onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Cantidad</label>
+                      <input type="number" min="1" value={item.cantidad}
+                        onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+                    </div>
+                  </div>
+                  <div className="text-right text-sm font-semibold">
+                    Subtotal: {formatARS(item.precio_mayorista * item.cantidad)}
+                  </div>
+                </div>
+              ))}
             </div>
-            {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center mb-2">
-                <div className="col-span-5 text-sm font-medium truncate">{item.nombre_producto}</div>
-                <div className="col-span-3">
-                  <input type="number" min="0" value={item.precio_mayorista || ''}
-                    onChange={(e) => setItemField(idx, 'precio_mayorista', Number(e.target.value))}
-                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-                </div>
-                <div className="col-span-2">
-                  <input type="number" min="1" value={item.cantidad}
-                    onChange={(e) => setItemField(idx, 'cantidad', Math.max(1, Number(e.target.value)))}
-                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-                </div>
-                <div className="col-span-2 text-right text-sm font-semibold">{formatARS(item.precio_mayorista * item.cantidad)}</div>
-              </div>
-            ))}
-            <div className="flex justify-end pt-2 border-t border-border">
+            <div className="flex justify-end pt-2 mt-2 border-t border-border">
               <span className="text-sm font-bold">Total: {formatARS(total)}</span>
             </div>
           </div>
@@ -1014,7 +1008,8 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
             {pedido.negocio_items.length === 0 ? (
               <p className="text-sm text-muted-foreground py-1">Sin productos — usá "+ Items" para agregar.</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead>
                   <tr className="text-xs text-muted-foreground">
                     <th className="text-left pb-2 font-medium">Producto</th>
@@ -1048,6 +1043,7 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
                   </tr>
                 </tfoot>
               </table>
+              </div>
             )}
           </div>
         )}

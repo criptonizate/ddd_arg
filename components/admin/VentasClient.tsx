@@ -108,8 +108,8 @@ export default function VentasClient({
 
   return (
     <div className="space-y-5">
-      {/* Tabs */}
-      <div className="flex items-center gap-2">
+      {/* Tabs + controles */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setTab('listas')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
@@ -140,7 +140,7 @@ export default function VentasClient({
             </span>
           )}
           {totalDeuda > 0 && tab !== 'entregadas' && (
-            <span className="ml-1.5 text-xs font-semibold text-orange-600">· Deben {formatARS(totalDeuda)}</span>
+            <span className="ml-1.5 text-xs font-semibold text-orange-600 hidden sm:inline">· Deben {formatARS(totalDeuda)}</span>
           )}
         </button>
         <button
@@ -158,18 +158,19 @@ export default function VentasClient({
             </span>
           )}
         </button>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
+
+        {/* Controles: total + búsqueda + filtros */}
+        <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
           {total > 0 && (
-            <span className="text-sm font-semibold text-muted-foreground">{formatARS(total)}</span>
+            <span className="text-sm font-semibold text-muted-foreground mr-auto sm:mr-0">{formatARS(total)}</span>
           )}
-          {/* Búsqueda */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar cliente..."
-              className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-40"
+              className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-44"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -179,10 +180,11 @@ export default function VentasClient({
           </div>
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${showFilters || hasActiveFilters ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors shrink-0 ${showFilters || hasActiveFilters ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}
           >
             <SlidersHorizontal size={12} />
-            Filtros{hasActiveFilters ? ' ●' : ''}
+            <span className="hidden sm:inline">Filtros{hasActiveFilters ? ' ●' : ''}</span>
+            {hasActiveFilters && <span className="sm:hidden">●</span>}
           </button>
         </div>
       </div>

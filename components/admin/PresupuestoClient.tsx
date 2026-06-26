@@ -370,7 +370,8 @@ export default function PresupuestoClient() {
         <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="font-semibold text-sm mb-4">Productos / servicios</h3>
           <div className="space-y-2">
-            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
+            {/* Header — solo desktop */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
               <div className="col-span-5">Descripción</div>
               <div className="col-span-2 text-center">Unidades</div>
               <div className="col-span-3">Precio unitario $</div>
@@ -378,8 +379,10 @@ export default function PresupuestoClient() {
             </div>
             {items.map((item, idx) => (
               <div key={idx} className="space-y-1">
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5">
+                {/* Mobile: col-2 grid (descripción full, unidades+precio en 2 cols, botones full) */}
+                {/* Desktop: col-12 grid con proporciones originales */}
+                <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center">
+                  <div className="col-span-2 sm:col-span-5">
                     <input
                       value={item.descripcion}
                       onChange={(e) => updateItem(idx, 'descripcion', e.target.value)}
@@ -387,25 +390,25 @@ export default function PresupuestoClient() {
                       className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <input
                       type="number"
                       value={item.unidades}
                       onChange={(e) => updateItem(idx, 'unidades', e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
+                      placeholder="Unid."
                       className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center"
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="sm:col-span-3">
                     <input
                       type="number"
                       value={item.precio}
                       onChange={(e) => updateItem(idx, 'precio', e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
+                      placeholder="Precio $"
                       className={`w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${item.precioEspecial !== undefined ? 'line-through text-muted-foreground' : ''}`}
                     />
                   </div>
-                  <div className="col-span-2 flex justify-center gap-1">
+                  <div className="sm:col-span-2 flex justify-end gap-1">
                     <button
                       onClick={() => togglePrecioEspecial(idx)}
                       title="Precio especial / descuento"

@@ -124,7 +124,7 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
   const labelCls = 'block text-xs font-medium text-muted-foreground mb-1'
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Calculadora de costos</h1>
 
       {/* Gastos fijos */}
@@ -150,7 +150,7 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
           )}
         </div>
         {saveError && <p className="text-xs text-red-500">{saveError}</p>}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             { label: 'Precio del filamento ($/kg)', field: 'precio_filamento_kg' as const },
             { label: 'Precio del kWh ($)', field: 'precio_kwh' as const },
@@ -270,7 +270,7 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
 
       {/* Total general si hay más de 1 pieza */}
       {piezas.length > 1 && (
-        <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-2 gap-4">
+        <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="rounded-lg p-4" style={{ background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.3)' }}>
             <p className="text-xs font-bold text-red-500 uppercase tracking-wide mb-1">Total general ({piezas.length} piezas)</p>
             <p className="text-3xl font-bold">$ {fmtARS(totalGeneral)}</p>
