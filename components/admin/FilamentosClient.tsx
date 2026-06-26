@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus } from 'lucide-react'
+import { MATERIALES } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
   updateFilamento,
@@ -9,7 +10,6 @@ import {
   registrarCompra,
   deleteMovimiento,
   getMovimientos,
-  MATERIALES,
   type Filamento,
   type FilamentoMovimiento,
   type Material,
