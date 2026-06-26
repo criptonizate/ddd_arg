@@ -89,7 +89,7 @@ export default function AdminSidebar({
                 {item.showBadge && pendingCount > 0 && (
                   <span className={cn(
                     'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
-                    active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'
+                    active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
                   )}>
                     {pendingCount}
                   </span>

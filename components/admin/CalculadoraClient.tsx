@@ -254,8 +254,8 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
                   <p className="font-bold text-base">$ {fmtARS(r.total)}</p>
                 </div>
                 <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(180,150,0,0.10)', border: '1px solid rgba(180,150,0,0.25)' }}>
-                  <p className="text-xs font-bold text-yellow-500">Precio ML (+20%)</p>
-                  <p className="font-bold text-base text-yellow-400">$ {fmtARS(r.ml)}</p>
+                  <p className="text-xs font-bold text-yellow-500 dark:text-yellow-300">Precio ML (+20%)</p>
+                  <p className="font-bold text-base text-yellow-400 dark:text-yellow-300">$ {fmtARS(r.ml)}</p>
                 </div>
               </div>
             </div>
@@ -276,8 +276,8 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
             <p className="text-3xl font-bold">$ {fmtARS(totalGeneral)}</p>
           </div>
           <div className="rounded-lg p-4" style={{ background: 'rgba(180,150,0,0.12)', border: '1px solid rgba(180,150,0,0.3)' }}>
-            <p className="text-xs font-bold text-yellow-500 uppercase tracking-wide mb-1">Total ML (+20%)</p>
-            <p className="text-3xl font-bold text-yellow-400">$ {fmtARS(totalGeneralML)}</p>
+            <p className="text-xs font-bold text-yellow-500 dark:text-yellow-300 uppercase tracking-wide mb-1">Total ML (+20%)</p>
+            <p className="text-3xl font-bold text-yellow-400 dark:text-yellow-300">$ {fmtARS(totalGeneralML)}</p>
           </div>
         </div>
       )}
@@ -320,7 +320,7 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
                         <td className="px-4 py-2.5 text-right text-muted-foreground">{e.gramos}g</td>
                         <td className="px-4 py-2.5 text-right text-muted-foreground">{e.multiplicador}×</td>
                         <td className="px-4 py-2.5 text-right font-semibold">$ {fmtARS(e.resultado_total)}</td>
-                        <td className="px-4 py-2.5 text-right text-yellow-500">$ {fmtARS(e.resultado_ml)}</td>
+                        <td className="px-4 py-2.5 text-right text-yellow-500 dark:text-yellow-300">$ {fmtARS(e.resultado_ml)}</td>
                         <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
                           {new Date(e.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                         </td>

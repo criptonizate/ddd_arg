@@ -268,7 +268,7 @@ function MultiEgresoModal({
                   return (
                     <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2.5 bg-secondary/30 rounded-lg text-sm">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${item.tipo === 'vendido' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${item.tipo === 'vendido' ? 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}>
                           {item.tipo === 'vendido' ? '📤' : '↩'} {item.tipo}
                         </span>
                         <span className="font-medium truncate">{item.producto}</span>
@@ -554,8 +554,8 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                   <div className="flex items-center gap-3 min-w-0">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
                       e.tipo === 'vendido'
-                        ? 'bg-orange-100 text-orange-800 border-orange-200'
-                        : 'bg-blue-100 text-blue-800 border-blue-200'
+                        ? 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700'
+                        : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
                     }`}>
                       {e.tipo === 'vendido' ? '📤 Vendido' : '↩ Devuelto'}
                     </span>
@@ -965,7 +965,7 @@ function PedidoCard({ pedido, negocioId }: { pedido: NegocioPedido; negocioId: s
           <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
             <span className="text-sm font-semibold">{formatDate(pedido.fecha)}</span>
             {entregado ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
                 <Check size={10} /> Entregado {formatDate(pedido.entregado_at!.split('T')[0])}
               </span>
             ) : (

@@ -65,12 +65,12 @@ export default async function FinanzasPage({
       {/* KPIs de balance */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Ingresos', value: ingresos, color: 'text-green-600' },
-          { label: 'Egresos', value: egresos, color: 'text-red-600' },
+          { label: 'Ingresos', value: ingresos, color: 'text-green-600 dark:text-green-400' },
+          { label: 'Egresos', value: egresos, color: 'text-red-600 dark:text-red-400' },
           {
             label: 'Balance',
             value: balance,
-            color: balance >= 0 ? 'text-green-600' : 'text-red-600',
+            color: balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
           },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-card border border-border rounded-xl p-5 shadow-sm">
@@ -127,8 +127,8 @@ export default async function FinanzasPage({
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
                               tx.tipo === 'ingreso'
-                                ? 'bg-green-50 text-green-700 border-green-200'
-                                : 'bg-red-50 text-red-700 border-red-200'
+                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                                : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700'
                             }`}
                           >
                             {tx.tipo === 'ingreso' ? '↑' : '↓'} {tx.tipo}
@@ -143,7 +143,7 @@ export default async function FinanzasPage({
                         </td>
                         <td
                           className={`px-4 py-3 text-right font-semibold ${
-                            tx.tipo === 'ingreso' ? 'text-green-700' : 'text-red-700'
+                            tx.tipo === 'ingreso' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
                           }`}
                         >
                           {tx.tipo === 'ingreso' ? '+' : '-'}{formatARS(tx.monto)}

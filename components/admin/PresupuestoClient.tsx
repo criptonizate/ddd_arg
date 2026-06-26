@@ -412,7 +412,7 @@ export default function PresupuestoClient() {
                     <button
                       onClick={() => togglePrecioEspecial(idx)}
                       title="Precio especial / descuento"
-                      className={`p-1.5 rounded transition-colors text-xs font-bold ${item.precioEspecial !== undefined ? 'bg-teal-100 text-teal-700 hover:bg-teal-200' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                      className={`p-1.5 rounded transition-colors text-xs font-bold ${item.precioEspecial !== undefined ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:hover:bg-teal-900/50' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
                     >
                       <Percent size={12} />
                     </button>
@@ -429,7 +429,7 @@ export default function PresupuestoClient() {
                 {/* Sub-fila precio especial */}
                 {item.precioEspecial !== undefined && (
                   <div className="flex items-center gap-2 pl-3 pb-0.5">
-                    <span className="text-xs text-teal-700 font-medium shrink-0">Precio especial:</span>
+                    <span className="text-xs text-teal-700 dark:text-teal-300 font-medium shrink-0">Precio especial:</span>
                     <input
                       type="number"
                       value={item.descuentoPct ?? ''}
@@ -437,7 +437,7 @@ export default function PresupuestoClient() {
                       placeholder="% desc."
                       min="1"
                       max="100"
-                      className="w-20 border border-teal-300 rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 text-center"
+                      className="w-20 border border-teal-300 dark:border-teal-700 rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 dark:focus:ring-teal-600 text-center"
                     />
                     <span className="text-xs text-muted-foreground">%  →</span>
                     <input
@@ -445,7 +445,7 @@ export default function PresupuestoClient() {
                       value={item.precioEspecial}
                       onChange={(e) => updatePrecioEspecialDirecto(idx, e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="$0"
-                      className="w-28 border border-teal-300 rounded-lg px-2.5 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 font-medium text-teal-700"
+                      className="w-28 border border-teal-300 dark:border-teal-700 rounded-lg px-2.5 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-teal-400 dark:focus:ring-teal-600 font-medium text-teal-700 dark:text-teal-300"
                     />
                     <span className="text-xs text-muted-foreground italic">
                       {item.precio !== '' && item.precioEspecial !== '' && Number(item.precio) > 0

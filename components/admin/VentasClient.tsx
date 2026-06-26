@@ -224,7 +224,7 @@ export default function VentasClient({
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* Lista de órdenes */}
       {orders.length === 0 ? (

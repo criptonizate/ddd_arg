@@ -41,10 +41,10 @@ const URGENCIA_STYLE = {
 }
 
 const URGENCIA_BADGE = {
-  pasado: 'bg-red-100 text-red-700 border-red-300',
-  hoy: 'bg-orange-100 text-orange-700 border-orange-300',
-  manana: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  semana: 'bg-blue-100 text-blue-700 border-blue-200',
+  pasado: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+  hoy: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+  manana: 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+  semana: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
   futuro: 'bg-secondary text-muted-foreground border-border',
 }
 

@@ -101,8 +101,8 @@ export default async function ProductosPage() {
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
                             product.estado === 'activo'
-                              ? 'bg-green-50 text-green-700 border-green-200'
-                              : 'bg-gray-100 text-gray-600 border-gray-200'
+                              ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                              : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
                           }`}
                         >
                           {PRODUCT_ESTADO_LABELS[product.estado as 'activo' | 'pausado']}

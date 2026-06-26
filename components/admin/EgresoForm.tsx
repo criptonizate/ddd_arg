@@ -23,7 +23,7 @@ export default function EgresoForm() {
   return (
     <form action={formAction} className="space-y-4 bg-card border border-border rounded-xl p-5 shadow-sm">
       {state?.success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300">
           Egreso registrado correctamente
         </div>
       )}

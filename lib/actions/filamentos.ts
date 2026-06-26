@@ -30,10 +30,6 @@ export interface FilamentoMovimiento {
   created_at: string
 }
 
-export function totalGramos(f: Filamento): number {
-  return f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos
-}
-
 // ── Filamentos ────────────────────────────────────────────────────────────────
 
 export async function getFilamentos(): Promise<Filamento[]> {
