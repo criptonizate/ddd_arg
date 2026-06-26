@@ -37,7 +37,7 @@ export default function FinanzasChart({ chartData }: Props) {
             tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
           />
           <Tooltip
-            formatter={(value: any, name: string | undefined) => [
+            formatter={(value: any, name: string | number | undefined) => [
               formatARS(Number(value)),
               name === 'ingreso' ? 'Ingresos' : 'Egresos',
             ]}
