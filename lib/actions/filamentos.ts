@@ -5,8 +5,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import type { Material, Filamento, FilamentoMovimiento } from '@/lib/filamentos-helpers'
 
-export type { Material, Filamento, FilamentoMovimiento }
-
 // ── Filamentos ────────────────────────────────────────────────────────────────
 
 export async function getFilamentos(): Promise<Filamento[]> {
