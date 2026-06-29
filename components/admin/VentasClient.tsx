@@ -10,6 +10,7 @@ import { updateOrderSena } from '@/lib/actions/orders'
 import OrderNotaInternaInput from './OrderNotaInternaInput'
 import EditOrderItemsButton from './EditOrderItemsButton'
 import OrderEventLog from './OrderEventLog'
+import OrderItemCheck from './OrderItemCheck'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
@@ -34,6 +35,7 @@ interface Order {
     nombre_variante?: string
     cantidad: number
     precio_unitario: number
+    impreso?: boolean
   }[]
 }
 
@@ -269,6 +271,10 @@ export default function VentasClient({
 }
 
 function FullCard({ order }: { order: Order }) {
+  const isImprimiendo = order.estado === 'imprimiendo'
+  const items = order.order_items ?? []
+  const impresos = items.filter((i) => i.impreso).length
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
       {/* Header */}
@@ -277,6 +283,11 @@ function FullCard({ order }: { order: Order }) {
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
+          {isImprimiendo && items.length > 0 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-400 dark:border-cyan-800">
+              🖨️ {impresos}/{items.length} impresos
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">{ORIGEN_LABELS[order.origen] ?? order.origen}</span>
           {order.metodo_pago && (
             <span className="text-xs text-muted-foreground">{METODO_PAGO_LABELS[order.metodo_pago] ?? order.metodo_pago}</span>
@@ -325,7 +336,7 @@ function FullCard({ order }: { order: Order }) {
           />
         </div>
         <div className="space-y-1.5">
-          {order.order_items?.map((item) => (
+          {items.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1 text-sm">
                 <span className="font-medium">{item.products?.nombre ?? item.nombre_producto}</span>
@@ -334,7 +345,12 @@ function FullCard({ order }: { order: Order }) {
                 )}
                 <span className="text-muted-foreground"> × {item.cantidad}</span>
               </div>
-              <span className="text-sm font-semibold shrink-0">{formatARS(item.precio_unitario * item.cantidad)}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                {isImprimiendo && (
+                  <OrderItemCheck itemId={item.id} impreso={item.impreso ?? false} />
+                )}
+                <span className="text-sm font-semibold">{formatARS(item.precio_unitario * item.cantidad)}</span>
+              </div>
             </div>
           ))}
         </div>

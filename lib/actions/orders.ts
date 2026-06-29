@@ -84,6 +84,16 @@ export async function toggleOrderPriority(orderId: string, prioridad: boolean) {
   return { success: true }
 }
 
+export async function toggleOrderItemImpreso(itemId: string, impreso: boolean) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('order_items').update({ impreso }).eq('id', itemId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  revalidatePath('/admin/pedidos')
+  return { success: true }
+}
+
 export async function updateOrderNotaInterna(orderId: string, nota: string | null) {
   await getAdminUser()
   const supabase = createServiceClient()
