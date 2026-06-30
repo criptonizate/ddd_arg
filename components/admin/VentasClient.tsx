@@ -39,18 +39,45 @@ interface Order {
   }[]
 }
 
-type Tab = 'listas' | 'entregadas' | 'local'
+type Tab = 'activas' | 'entregadas' | 'local'
+
+const GRUPO = {
+  imprimiendo: {
+    label: '🖨️ Imprimiendo',
+    accent: 'text-cyan-700 dark:text-cyan-400',
+    badge: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700',
+    border: 'border-l-cyan-500',
+  },
+  listo: {
+    label: '📦 Listo para entregar',
+    accent: 'text-purple-700 dark:text-purple-400',
+    badge: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
+    border: 'border-l-purple-500',
+  },
+  confirmada: {
+    label: '✅ Confirmadas',
+    accent: 'text-blue-700 dark:text-blue-400',
+    badge: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+    border: 'border-l-blue-400',
+  },
+  pendiente: {
+    label: '⏳ Pendientes de confirmar',
+    accent: 'text-yellow-700 dark:text-yellow-400',
+    badge: 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+    border: 'border-l-yellow-400',
+  },
+}
 
 export default function VentasClient({
-  listas,
+  activas,
   entregadas,
   local,
 }: {
-  listas: Order[]
+  activas: Order[]
   entregadas: Order[]
   local: Order[]
 }) {
-  const [tab, setTab] = useState<Tab>('listas')
+  const [tab, setTab] = useState<Tab>('activas')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -66,7 +93,6 @@ export default function VentasClient({
     })
   }
 
-  // Entregadas: primero las que tienen saldo pendiente — memoizado
   const sortedEntregadas = useMemo(() =>
     [...entregadas].sort((a, b) => {
       const pendA = a.total - (a.sena ?? 0)
@@ -78,15 +104,13 @@ export default function VentasClient({
     [entregadas]
   )
 
-  // Total deuda pendiente en entregadas
   const totalDeuda = useMemo(
     () => entregadas.reduce((sum, o) => sum + Math.max(0, o.total - (o.sena ?? 0)), 0),
     [entregadas]
   )
 
-  const baseOrders = tab === 'listas' ? listas : tab === 'entregadas' ? sortedEntregadas : local
+  const baseOrders = tab === 'activas' ? activas : tab === 'entregadas' ? sortedEntregadas : local
 
-  // Filtros combinados
   const orders = useMemo(() => {
     let result = baseOrders
     if (search.trim()) {
@@ -105,28 +129,40 @@ export default function VentasClient({
   }, [baseOrders, search, filterMetodo, filterDesde, filterHasta])
 
   const hasActiveFilters = filterMetodo || filterDesde || filterHasta
-
   const total = useMemo(() => orders.reduce((sum, o) => sum + Number(o.total), 0), [orders])
+
+  // Grupos para la tab activas
+  const grupos = useMemo(() => ({
+    imprimiendo: orders.filter((o) => o.estado === 'imprimiendo'),
+    listo: orders.filter((o) => o.estado === 'listo'),
+    confirmada: orders.filter((o) => o.estado === 'confirmada'),
+    pendiente: orders.filter((o) => o.estado === 'pendiente'),
+  }), [orders])
+
+  const hayActivas = tab === 'activas' && (
+    grupos.imprimiendo.length + grupos.listo.length + grupos.confirmada.length + grupos.pendiente.length > 0
+  )
 
   return (
     <div className="space-y-5">
       {/* Tabs + controles */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => setTab('listas')}
+          onClick={() => setTab('activas')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-            tab === 'listas'
+            tab === 'activas'
               ? 'bg-foreground text-primary-foreground border-foreground'
               : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
           }`}
         >
-          📦 Listas
-          {listas.length > 0 && (
-            <span className={`ml-2 text-xs font-bold ${tab === 'listas' ? 'opacity-70' : 'text-muted-foreground'}`}>
-              {listas.length}
+          📋 En proceso
+          {activas.length > 0 && (
+            <span className={`ml-2 text-xs font-bold ${tab === 'activas' ? 'opacity-70' : 'text-muted-foreground'}`}>
+              {activas.length}
             </span>
           )}
         </button>
+
         <button
           onClick={() => setTab('entregadas')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
@@ -145,6 +181,7 @@ export default function VentasClient({
             <span className="ml-1.5 text-xs font-semibold text-orange-600 hidden sm:inline">· Deben {formatARS(totalDeuda)}</span>
           )}
         </button>
+
         <button
           onClick={() => setTab('local')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
@@ -161,7 +198,7 @@ export default function VentasClient({
           )}
         </button>
 
-        {/* Controles: total + búsqueda + filtros */}
+        {/* Búsqueda + filtros */}
         <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
           {total > 0 && (
             <span className="text-sm font-semibold text-muted-foreground mr-auto sm:mr-0">{formatARS(total)}</span>
@@ -191,7 +228,7 @@ export default function VentasClient({
         </div>
       </div>
 
-      {/* Panel de filtros avanzados */}
+      {/* Panel filtros */}
       {showFilters && (
         <div className="flex items-end gap-3 flex-wrap p-3 bg-secondary/30 rounded-xl border border-border">
           <div>
@@ -228,66 +265,160 @@ export default function VentasClient({
         </div>
       )}
 
-      {/* Lista de órdenes */}
-      {orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center bg-card border border-border rounded-xl">
-          <p className="font-medium">{search ? 'Sin resultados' : 'Sin órdenes'}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {search
-              ? `No se encontró "${search}" — probá con otro término`
-              : tab === 'listas' ? 'No hay ventas listas para entregar'
-              : tab === 'entregadas' ? 'No hay ventas entregadas'
-              : 'No hay ventas registradas en el local'}
-          </p>
-          {search && (
-            <button onClick={() => setSearch('')} className="mt-3 text-xs text-muted-foreground hover:text-foreground underline">
-              Limpiar búsqueda
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {orders.map((order) =>
-            tab === 'listas' ? (
-              <FullCard key={order.id} order={order} />
-            ) : (
+      {/* ── TAB: EN PROCESO (agrupado por estado) ── */}
+      {tab === 'activas' && (
+        hayActivas ? (
+          <div className="space-y-7">
+            {/* Imprimiendo — siempre expandido con checkboxes */}
+            {grupos.imprimiendo.length > 0 && (
+              <section>
+                <GrupoHeader cfg={GRUPO.imprimiendo} count={grupos.imprimiendo.length} />
+                <div className="space-y-3">
+                  {grupos.imprimiendo.map((o) => <FullCard key={o.id} order={o} />)}
+                </div>
+              </section>
+            )}
+
+            {/* Listo para entregar */}
+            {grupos.listo.length > 0 && (
+              <section>
+                <GrupoHeader cfg={GRUPO.listo} count={grupos.listo.length} />
+                <div className="space-y-2">
+                  {grupos.listo.map((o) => (
+                    <ActiveCard
+                      key={o.id}
+                      order={o}
+                      expanded={expandedIds.has(o.id)}
+                      onToggle={() => toggleExpanded(o.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Confirmadas */}
+            {grupos.confirmada.length > 0 && (
+              <section>
+                <GrupoHeader cfg={GRUPO.confirmada} count={grupos.confirmada.length} />
+                <div className="space-y-2">
+                  {grupos.confirmada.map((o) => (
+                    <ActiveCard
+                      key={o.id}
+                      order={o}
+                      expanded={expandedIds.has(o.id)}
+                      onToggle={() => toggleExpanded(o.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Pendientes de confirmar */}
+            {grupos.pendiente.length > 0 && (
+              <section>
+                <GrupoHeader cfg={GRUPO.pendiente} count={grupos.pendiente.length} />
+                <div className="space-y-2">
+                  {grupos.pendiente.map((o) => (
+                    <ActiveCard
+                      key={o.id}
+                      order={o}
+                      expanded={expandedIds.has(o.id)}
+                      onToggle={() => toggleExpanded(o.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : (
+          <EmptyState search={search} onClear={() => setSearch('')} message="No hay pedidos en proceso" />
+        )
+      )}
+
+      {/* ── TAB: ENTREGADAS ── */}
+      {tab === 'entregadas' && (
+        orders.length === 0 ? (
+          <EmptyState search={search} onClear={() => setSearch('')} message="No hay ventas entregadas" />
+        ) : (
+          <div className="space-y-2">
+            {orders.map((order) => (
               <CollapsibleCard
                 key={order.id}
                 order={order}
                 expanded={expandedIds.has(order.id)}
                 onToggle={() => toggleExpanded(order.id)}
               />
-            )
-          )}
-          {tab === 'local' && orders.length > 0 && (
+            ))}
+          </div>
+        )
+      )}
+
+      {/* ── TAB: LOCAL ── */}
+      {tab === 'local' && (
+        orders.length === 0 ? (
+          <EmptyState search={search} onClear={() => setSearch('')} message="No hay ventas en el local" />
+        ) : (
+          <div className="space-y-2">
+            {orders.map((order) => (
+              <CollapsibleCard
+                key={order.id}
+                order={order}
+                expanded={expandedIds.has(order.id)}
+                onToggle={() => toggleExpanded(order.id)}
+              />
+            ))}
             <p className="text-xs text-muted-foreground text-center pt-1">
-              {orders.length} venta{orders.length !== 1 ? 's' : ''} en el local · {formatARS(total)} total
+              {orders.length} venta{orders.length !== 1 ? 's' : ''} · {formatARS(total)} total
             </p>
-          )}
-        </div>
+          </div>
+        )
       )}
     </div>
   )
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function EmptyState({ search, onClear, message }: { search: string; onClear: () => void; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center bg-card border border-border rounded-xl">
+      <p className="font-medium">{search ? 'Sin resultados' : message}</p>
+      {search && (
+        <>
+          <p className="text-sm text-muted-foreground mt-1">No se encontró &ldquo;{search}&rdquo;</p>
+          <button onClick={onClear} className="mt-3 text-xs text-muted-foreground hover:text-foreground underline">
+            Limpiar búsqueda
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function GrupoHeader({ cfg, count }: { cfg: typeof GRUPO[keyof typeof GRUPO]; count: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <h2 className={`text-sm font-semibold ${cfg.accent}`}>{cfg.label}</h2>
+      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${cfg.badge}`}>{count}</span>
+    </div>
+  )
+}
+
+// ── Card: Imprimiendo (expandida con checkboxes) ───────────────────────────────
+
 function FullCard({ order }: { order: Order }) {
-  const isImprimiendo = order.estado === 'imprimiendo'
   const items = order.order_items ?? []
   const impresos = items.filter((i) => i.impreso).length
+  const todosImpresos = items.length > 0 && impresos === items.length
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
+    <div className={`bg-card border rounded-xl p-4 shadow-sm space-y-3 border-l-4 ${todosImpresos ? 'border-l-green-500 border-green-200 dark:border-green-800' : 'border-l-cyan-500 border-border'}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
-          {isImprimiendo && items.length > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-400 dark:border-cyan-800">
-              🖨️ {impresos}/{items.length} impresos
-            </span>
-          )}
           <span className="text-xs text-muted-foreground">{ORIGEN_LABELS[order.origen] ?? order.origen}</span>
           {order.metodo_pago && (
             <span className="text-xs text-muted-foreground">{METODO_PAGO_LABELS[order.metodo_pago] ?? order.metodo_pago}</span>
@@ -295,6 +426,24 @@ function FullCard({ order }: { order: Order }) {
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(order.created_at)}</span>
       </div>
+
+      {/* Progreso impresión */}
+      {items.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className={`font-semibold ${todosImpresos ? 'text-green-600 dark:text-green-400' : 'text-cyan-700 dark:text-cyan-400'}`}>
+              {todosImpresos ? '✓ Todo impreso — listo para mover' : `🖨️ ${impresos} de ${items.length} impresos`}
+            </span>
+            <span className="text-muted-foreground">{Math.round((impresos / items.length) * 100)}%</span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-1.5">
+            <div
+              className={`h-1.5 rounded-full transition-all ${todosImpresos ? 'bg-green-500' : 'bg-cyan-500'}`}
+              style={{ width: `${(impresos / items.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Cliente */}
       <div className="flex items-start gap-6 flex-wrap">
@@ -321,10 +470,10 @@ function FullCard({ order }: { order: Order }) {
         )}
       </div>
 
-      {/* Productos */}
+      {/* Productos con checkboxes */}
       <div className="border-t border-border pt-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📦 Productos</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</span>
           <EditOrderItemsButton
             orderId={order.id}
             items={(order.order_items ?? []).map((i) => ({
@@ -335,20 +484,20 @@ function FullCard({ order }: { order: Order }) {
             }))}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-2">
+            <div key={item.id} className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg ${item.impreso ? 'bg-green-50 dark:bg-green-900/10' : 'bg-secondary/30'}`}>
               <div className="min-w-0 flex-1 text-sm">
-                <span className="font-medium">{item.products?.nombre ?? item.nombre_producto}</span>
+                <span className={`font-medium ${item.impreso ? 'line-through text-muted-foreground' : ''}`}>
+                  {item.products?.nombre ?? item.nombre_producto}
+                </span>
                 {(item.product_variants?.nombre_variante || item.nombre_variante) && (
                   <span className="text-muted-foreground"> — {item.product_variants?.nombre_variante ?? item.nombre_variante}</span>
                 )}
                 <span className="text-muted-foreground"> × {item.cantidad}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                {isImprimiendo && (
-                  <OrderItemCheck itemId={item.id} impreso={item.impreso ?? false} />
-                )}
+                <OrderItemCheck itemId={item.id} impreso={item.impreso ?? false} />
                 <span className="text-sm font-semibold">{formatARS(item.precio_unitario * item.cantidad)}</span>
               </div>
             </div>
@@ -374,6 +523,115 @@ function FullCard({ order }: { order: Order }) {
     </div>
   )
 }
+
+// ── Card: Listo / Confirmada / Pendiente (compacta, expandible) ───────────────
+
+function ActiveCard({
+  order,
+  expanded,
+  onToggle,
+}: {
+  order: Order
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const borderByEstado: Record<string, string> = {
+    listo: 'border-l-purple-500',
+    confirmada: 'border-l-blue-400',
+    pendiente: 'border-l-yellow-400',
+  }
+  const border = borderByEstado[order.estado] ?? 'border-l-border'
+  const items = order.order_items ?? []
+
+  return (
+    <div className={`bg-card border border-border rounded-xl overflow-hidden shadow-sm border-l-4 ${border}`}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${ESTADO_COLORS[order.estado]}`}>
+            {ESTADO_LABELS[order.estado]}
+          </span>
+          <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          {order.nota && (
+            <span className="text-xs text-muted-foreground italic truncate hidden sm:block">— {order.nota}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {items.length > 0 && (
+            <span className="text-xs text-muted-foreground hidden sm:block">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+          )}
+          <span className="font-bold text-sm">{formatARS(order.total)}</span>
+          {expanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+          {/* Productos */}
+          {items.length > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</span>
+                <EditOrderItemsButton
+                  orderId={order.id}
+                  items={items.map((i) => ({
+                    nombre_producto: i.products?.nombre ?? i.nombre_producto,
+                    nombre_variante: i.product_variants?.nombre_variante ?? i.nombre_variante ?? null,
+                    cantidad: i.cantidad,
+                    precio_unitario: i.precio_unitario,
+                  }))}
+                />
+              </div>
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="font-medium">{item.products?.nombre ?? item.nombre_producto}</span>
+                    {(item.product_variants?.nombre_variante || item.nombre_variante) && (
+                      <span className="text-muted-foreground"> — {item.product_variants?.nombre_variante ?? item.nombre_variante}</span>
+                    )}
+                    <span className="text-muted-foreground"> × {item.cantidad}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold">{formatARS(item.precio_unitario * item.cantidad)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {order.nota && <p className="text-xs text-muted-foreground italic">📝 {order.nota}</p>}
+
+          {order.cliente_telefono && (
+            <div className="flex items-center gap-1">
+              <a href={`tel:${order.cliente_telefono}`} className="text-sm text-muted-foreground hover:underline">
+                {order.cliente_telefono}
+              </a>
+              <CopyButton text={order.cliente_telefono} />
+            </div>
+          )}
+
+          {order.entrega === 'envio' && order.direccion_envio && (
+            <p className="text-xs text-muted-foreground">📦 {order.direccion_envio}</p>
+          )}
+
+          <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Total:</span>
+                <span className="font-bold">{formatARS(order.total)}</span>
+              </div>
+              <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
+              <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
+            </div>
+            <OrderActions orderId={order.id} estado={order.estado} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Card: Entregadas / Local (compacta con cobro inline) ──────────────────────
 
 function CollapsibleCard({
   order,
@@ -414,7 +672,6 @@ function CollapsibleCard({
 
   return (
     <div className={`bg-card rounded-xl shadow-sm overflow-hidden border-l-4 ${tienePendiente ? 'border-l-orange-500 border-t border-r border-b border-orange-500/40' : 'border-l-transparent border border-border'}`}>
-      {/* Cabecera siempre visible */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
@@ -424,9 +681,7 @@ function CollapsibleCard({
             {ESTADO_LABELS[order.estado]}
           </span>
           <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
-          {pagado && (
-            <span className="text-xs font-medium text-green-600 shrink-0">✓ Pagado</span>
-          )}
+          {pagado && <span className="text-xs font-medium text-green-600 shrink-0">✓ Pagado</span>}
           {tienePendiente && !showCobrar && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 shrink-0 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800">
               Debe {formatARS(pendiente)}
@@ -435,22 +690,15 @@ function CollapsibleCard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-          {/* Cobrar inline */}
           {tienePendiente && !showCobrar && (
-            <button
-              onClick={abrirCobrar}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
-            >
+            <button onClick={abrirCobrar} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors">
               💰 Cobrar
             </button>
           )}
           {tienePendiente && showCobrar && (
             <div className="flex items-center gap-1.5">
               <input
-                type="number"
-                min="1"
-                max={pendiente}
-                value={valorCobro || ''}
+                type="number" min="1" max={pendiente} value={valorCobro || ''}
                 onChange={(e) => setValorCobro(Number(e.target.value))}
                 className="w-24 text-xs border border-orange-400 rounded-lg px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-500"
                 autoFocus
@@ -459,19 +707,11 @@ function CollapsibleCard({
                   if (e.key === 'Escape') cancelarCobro(e as any)
                 }}
               />
-              <button
-                onClick={confirmarCobro}
-                disabled={isPending || valorCobro <= 0}
-                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-              >
+              <button onClick={confirmarCobro} disabled={isPending || valorCobro <= 0}
+                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
                 {isPending ? '...' : 'OK'}
               </button>
-              <button
-                onClick={cancelarCobro}
-                className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-secondary transition-colors"
-              >
-                ✕
-              </button>
+              <button onClick={cancelarCobro} className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-secondary transition-colors">✕</button>
             </div>
           )}
         </div>
@@ -483,10 +723,8 @@ function CollapsibleCard({
         </div>
       </button>
 
-      {/* Detalle expandible */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-          {/* Productos */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</span>
@@ -516,7 +754,6 @@ function CollapsibleCard({
 
           {order.nota && <p className="text-xs text-muted-foreground italic">📝 {order.nota}</p>}
 
-          {/* Total + Seña + teléfono */}
           <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">

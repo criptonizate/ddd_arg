@@ -20,7 +20,6 @@ const NAV_ITEMS = [
   { href: '/admin/presupuesto', label: '📋 Presupuesto' },
   { href: '/admin/calculadora', label: '🧮 Calculadora' },
   { href: '/admin/filamentos', label: '🧵 Filamentos' },
-  { href: '/admin/proveedores', label: '🏭 Proveedores' },
   { href: '/admin/agenda', label: '📅 Agenda' },
 ]
 
