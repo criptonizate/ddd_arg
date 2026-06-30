@@ -6,10 +6,10 @@ import { getActiveProducts } from '@/lib/actions/products'
 import { getClienteNames } from '@/lib/actions/clientes'
 import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
-import { Plus, X, Trash2, Loader2 } from 'lucide-react'
+import { Plus, X, Trash2, Loader2, Minus } from 'lucide-react'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
-// ── Autocomplete de clientes ───────────────────────────────────────────────
+// ── Autocomplete de clientes ───────────────────────────────────────────────────
 
 function ClienteAutocomplete({
   value,
@@ -26,17 +26,13 @@ function ClienteAutocomplete({
   const [highlighted, setHighlighted] = useState(0)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // Filtrar por lo que el usuario escribe
   const filtered = value.trim()
     ? clientes.filter((c) => c.nombre.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
-    : clientes.slice(0, 6) // últimos 6 cuando el campo está vacío
+    : clientes.slice(0, 6)
 
-  // Cerrar al hacer click fuera
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
@@ -82,9 +78,7 @@ function ClienteAutocomplete({
               }`}
             >
               <span className="font-medium">{c.nombre}</span>
-              {c.telefono && (
-                <span className="text-xs text-muted-foreground shrink-0">{c.telefono}</span>
-              )}
+              {c.telefono && <span className="text-xs text-muted-foreground shrink-0">{c.telefono}</span>}
             </button>
           ))}
         </div>
@@ -92,6 +86,38 @@ function ClienteAutocomplete({
     </div>
   )
 }
+
+// ── Selector de cantidad con botones rápidos ───────────────────────────────────
+
+function CantidadSelector({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {[1, 2, 3].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          className={`w-9 h-9 rounded-lg text-sm font-bold border transition-colors ${
+            value === n
+              ? 'bg-foreground text-primary-foreground border-foreground'
+              : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+          }`}
+        >
+          {n}
+        </button>
+      ))}
+      <input
+        type="number"
+        min="1"
+        value={value}
+        onChange={(e) => onChange(Math.max(1, Number(e.target.value) || 1))}
+        className="w-14 h-9 border border-input rounded-lg px-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center font-semibold"
+      />
+    </div>
+  )
+}
+
+// ── Tipos ──────────────────────────────────────────────────────────────────────
 
 interface CartItem {
   product_id: string
@@ -116,6 +142,8 @@ const EMPTY_FORM = {
   esLocal: false,
 }
 
+// ── Componente principal ───────────────────────────────────────────────────────
+
 export default function ManualSaleButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -135,10 +163,7 @@ export default function ManualSaleButton() {
 
   async function openModal() {
     setLoading(true)
-    const [prods, clients] = await Promise.all([
-      getActiveProducts(),
-      getClienteNames(),
-    ])
+    const [prods, clients] = await Promise.all([getActiveProducts(), getClienteNames()])
     setProducts(prods as ProductWithVariants[])
     setPastClients(clients)
     setLoading(false)
@@ -152,17 +177,13 @@ export default function ManualSaleButton() {
     setError(null)
     setSelProductId('')
     setSelVariantId('')
+    setSelCantidad(1)
     setModoLibre(false)
     setItemLibre({ nombre: '', variante: '', precio: '' })
   }
 
   function handleClienteSelect(nombre: string, telefono: string) {
-    setForm((f) => ({
-      ...f,
-      cliente_nombre: nombre,
-      // Solo pisa el teléfono si el autocomplete trajo uno (no borrar lo que el usuario escribió)
-      cliente_telefono: telefono || f.cliente_telefono,
-    }))
+    setForm((f) => ({ ...f, cliente_nombre: nombre, cliente_telefono: telefono || f.cliente_telefono }))
   }
 
   function addItem() {
@@ -177,7 +198,10 @@ export default function ManualSaleButton() {
           i.variant_id === selVariantId ? { ...i, cantidad: i.cantidad + selCantidad } : i
         )
       }
-      return [...prev, { product_id: selProductId, variant_id: selVariantId, cantidad: selCantidad, precio_unitario: precio, nombre: product.nombre, variante: variant.nombre_variante }]
+      return [...prev, {
+        product_id: selProductId, variant_id: selVariantId, cantidad: selCantidad,
+        precio_unitario: precio, nombre: product.nombre, variante: variant.nombre_variante,
+      }]
     })
     setSelCantidad(1)
   }
@@ -187,19 +211,23 @@ export default function ManualSaleButton() {
     const precio = parseFloat(itemLibre.precio)
     if (isNaN(precio) || precio <= 0) return
     setCart((prev) => [...prev, {
-      product_id: '',
-      variant_id: '',
-      cantidad: selCantidad,
+      product_id: '', variant_id: '', cantidad: selCantidad,
       precio_unitario: precio,
-      nombre: itemLibre.nombre.trim(),
-      variante: itemLibre.variante.trim(),
-      esLibre: true,
+      nombre: itemLibre.nombre.trim(), variante: itemLibre.variante.trim(), esLibre: true,
     }])
     setItemLibre({ nombre: '', variante: '', precio: '' })
     setSelCantidad(1)
   }
 
+  function updateCartCantidad(idx: number, delta: number) {
+    setCart((prev) => prev.map((item, i) => i === idx
+      ? { ...item, cantidad: Math.max(1, item.cantidad + delta) }
+      : item
+    ))
+  }
+
   const total = cart.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+  const selectedProduct = products.find((p) => p.id === selProductId)
 
   function handleSubmit() {
     setError(null)
@@ -234,8 +262,6 @@ export default function ManualSaleButton() {
     })
   }
 
-  const selectedProduct = products.find((p) => p.id === selProductId)
-
   return (
     <>
       <button
@@ -248,27 +274,29 @@ export default function ManualSaleButton() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <h2 className="text-lg font-semibold">Registrar venta manual</h2>
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border sticky top-0 bg-card z-10">
+              <h2 className="text-lg font-semibold">Registrar venta</h2>
               <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-secondary">
                 <X size={16} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               {error && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
                   {error}
                 </div>
               )}
 
-              {/* Datos del cliente */}
+              {/* ── Datos del cliente ── */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Datos del cliente</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium mb-1 block">Nombre *</label>
                     <ClienteAutocomplete
@@ -305,13 +333,13 @@ export default function ManualSaleButton() {
                       onChange={(e) => setForm({ ...form, metodo_pago: e.target.value })}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="mercadopago">Mercado Pago</option>
+                      <option value="efectivo">💵 Efectivo</option>
+                      <option value="transferencia">🏦 Transferencia</option>
+                      <option value="mercadopago">💙 Mercado Pago</option>
                     </select>
                   </div>
                   {form.entrega === 'envio' && (
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="text-xs font-medium mb-1 block">Dirección *</label>
                       <input
                         value={form.direccion_envio}
@@ -320,7 +348,7 @@ export default function ManualSaleButton() {
                       />
                     </div>
                   )}
-                  <div className="col-span-2">
+                  <div className="col-span-1 sm:col-span-2">
                     <label className="text-xs font-medium mb-1 block">Nota (opcional)</label>
                     <input
                       value={form.nota}
@@ -345,7 +373,7 @@ export default function ManualSaleButton() {
                         onChange={(e) => setForm({ ...form, prioridad: e.target.checked })}
                         className="w-4 h-4 rounded border-input accent-red-600"
                       />
-                      <span className="text-xs font-medium">Marcar como urgente</span>
+                      <span className="text-xs font-medium">🔥 Urgente</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -353,13 +381,13 @@ export default function ManualSaleButton() {
                         onChange={(e) => setForm({ ...form, esLocal: e.target.checked })}
                         className="w-4 h-4 rounded border-input accent-orange-500"
                       />
-                      <span className="text-xs font-medium">🏪 Venta en el local</span>
+                      <span className="text-xs font-medium">🏪 Venta local</span>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Agregar productos */}
+              {/* ── Agregar productos ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold">Agregar productos</h3>
@@ -382,124 +410,144 @@ export default function ManualSaleButton() {
                 </div>
 
                 {!modoLibre ? (
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      <label className="text-xs font-medium mb-1 block">Producto</label>
-                      <select
-                        value={selProductId}
-                        onChange={(e) => { setSelProductId(e.target.value); setSelVariantId('') }}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <option value="">Seleccionar...</option>
-                        {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                      </select>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Producto</label>
+                        <select
+                          value={selProductId}
+                          onChange={(e) => { setSelProductId(e.target.value); setSelVariantId('') }}
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="">Seleccionar producto...</option>
+                          {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Variante</label>
+                        <select
+                          value={selVariantId}
+                          onChange={(e) => setSelVariantId(e.target.value)}
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          disabled={!selProductId}
+                        >
+                          <option value="">Elegir variante...</option>
+                          {selectedProduct?.product_variants.map((v) => (
+                            <option key={v.id} value={v.id}>{v.nombre_variante} ({v.stock} disp.)</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    <div className="col-span-4">
-                      <label className="text-xs font-medium mb-1 block">Variante</label>
-                      <select
-                        value={selVariantId}
-                        onChange={(e) => setSelVariantId(e.target.value)}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                        disabled={!selProductId}
-                      >
-                        <option value="">Variante...</option>
-                        {selectedProduct?.product_variants.map((v) => (
-                          <option key={v.id} value={v.id}>{v.nombre_variante} ({v.stock} disp.)</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block">Cant.</label>
-                      <input
-                        type="number" min="1" value={selCantidad}
-                        onChange={(e) => setSelCantidad(Number(e.target.value))}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                    <div className="col-span-1">
+                    <div className="flex items-end gap-3 flex-wrap">
+                      <div>
+                        <label className="text-xs font-medium mb-1.5 block">Cantidad</label>
+                        <CantidadSelector value={selCantidad} onChange={setSelCantidad} />
+                      </div>
                       <button
-                        onClick={addItem} disabled={!selVariantId}
-                        className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
+                        onClick={addItem}
+                        disabled={!selVariantId}
+                        className="h-9 px-5 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center gap-2 text-sm font-medium"
                       >
-                        <Plus size={16} />
+                        <Plus size={15} /> Agregar
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      <label className="text-xs font-medium mb-1 block">Nombre</label>
-                      <input
-                        value={itemLibre.nombre}
-                        onChange={(e) => setItemLibre((l) => ({ ...l, nombre: e.target.value }))}
-                        placeholder="Ej: Llavero personalizado"
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
-                      />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Nombre</label>
+                        <input
+                          value={itemLibre.nombre}
+                          onChange={(e) => setItemLibre((l) => ({ ...l, nombre: e.target.value }))}
+                          placeholder="Ej: Llavero personalizado"
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Variante <span className="text-muted-foreground font-normal">(opc.)</span></label>
+                        <input
+                          value={itemLibre.variante}
+                          onChange={(e) => setItemLibre((l) => ({ ...l, variante: e.target.value }))}
+                          placeholder="Ej: Azul"
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Precio $</label>
+                        <input
+                          type="number" min="0" step="any"
+                          value={itemLibre.precio}
+                          onChange={(e) => setItemLibre((l) => ({ ...l, precio: e.target.value }))}
+                          placeholder="0"
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                        />
+                      </div>
                     </div>
-                    <div className="col-span-3">
-                      <label className="text-xs font-medium mb-1 block">Variante <span className="text-muted-foreground font-normal">(opc.)</span></label>
-                      <input
-                        value={itemLibre.variante}
-                        onChange={(e) => setItemLibre((l) => ({ ...l, variante: e.target.value }))}
-                        placeholder="Ej: Azul"
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block">Precio $</label>
-                      <input
-                        type="number" min="0" step="any"
-                        value={itemLibre.precio}
-                        onChange={(e) => setItemLibre((l) => ({ ...l, precio: e.target.value }))}
-                        placeholder="0"
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                        onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="text-xs font-medium mb-1 block">Cant.</label>
-                      <input
-                        type="number" min="1" value={selCantidad}
-                        onChange={(e) => setSelCantidad(Number(e.target.value))}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                    <div className="col-span-1">
+                    <div className="flex items-end gap-3 flex-wrap">
+                      <div>
+                        <label className="text-xs font-medium mb-1.5 block">Cantidad</label>
+                        <CantidadSelector value={selCantidad} onChange={setSelCantidad} />
+                      </div>
                       <button
                         onClick={addItemLibre}
                         disabled={!itemLibre.nombre.trim() || !itemLibre.precio}
-                        className="w-full py-2 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center justify-center"
+                        className="h-9 px-5 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-40 transition-colors flex items-center gap-2 text-sm font-medium"
                       >
-                        <Plus size={16} />
+                        <Plus size={15} /> Agregar
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Carrito */}
+              {/* ── Carrito ── */}
               {cart.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold mb-2">Pedido</h3>
                   <div className="space-y-2">
                     {cart.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg text-sm">
-                        <div>
-                          <span className="font-medium">{item.nombre}</span>
-                          <span className="text-muted-foreground"> — {item.variante}</span>
-                          <span className="text-muted-foreground"> × {item.cantidad}</span>
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl text-sm">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium leading-tight">{item.nombre}</p>
+                          {item.variante && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.variante}</p>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{formatARS(item.cantidad * item.precio_unitario)}</span>
-                          <button onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-secondary">
-                            <Trash2 size={12} className="text-muted-foreground" />
+                        {/* Controles de cantidad */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateCartCantidad(idx, -1)}
+                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-8 text-center font-bold text-sm">{item.cantidad}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateCartCantidad(idx, +1)}
+                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                          >
+                            <Plus size={12} />
                           </button>
                         </div>
+                        <span className="font-semibold text-sm w-20 text-right shrink-0">
+                          {formatARS(item.cantidad * item.precio_unitario)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     ))}
-                    <div className="flex justify-between pt-1 items-center">
+                    <div className="flex justify-between pt-2 items-center border-t border-border">
                       <span className="text-xs text-muted-foreground">{cart.length} producto{cart.length > 1 ? 's' : ''}</span>
                       <span className="text-base font-bold">Total: {formatARS(total)}</span>
                     </div>
@@ -508,8 +556,12 @@ export default function ManualSaleButton() {
               )}
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t border-border">
-              <button onClick={closeModal} className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors">
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-border sticky bottom-0 bg-card">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
+              >
                 Cancelar
               </button>
               <button
