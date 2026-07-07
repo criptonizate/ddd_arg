@@ -25,13 +25,23 @@ export default async function NegocioDetallePage({
   const negocio = await getNegocio(id)
   if (!negocio) notFound()
 
-  // Mapa de precio mayorista por producto (último precio encontrado)
-  const precioMap = new Map<string, number>()
+  // Historial de productos: deduped por nombre, precio más reciente primero
+  // (negocio_pedidos ya viene ordenado newest-first por sortPedidos)
+  const productoHistorialMap = new Map<string, { nombre: string; precio: number }>()
   for (const pedido of negocio.negocio_pedidos) {
     for (const item of pedido.negocio_items) {
-      precioMap.set(item.nombre_producto.toLowerCase().trim(), Number(item.precio_mayorista))
+      const key = item.nombre_producto.toLowerCase().trim()
+      if (!productoHistorialMap.has(key)) {
+        productoHistorialMap.set(key, { nombre: item.nombre_producto, precio: Number(item.precio_mayorista) })
+      }
     }
   }
+  const productoHistorial = Array.from(productoHistorialMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+
+  // Mapa de precio mayorista por producto (último precio encontrado)
+  const precioMap = new Map<string, number>(
+    productoHistorial.map((p) => [p.nombre.toLowerCase().trim(), p.precio])
+  )
 
   // Meses disponibles (de pedidos y egresos)
   const mesesSet = new Set<string>()
@@ -105,7 +115,7 @@ export default async function NegocioDetallePage({
               <p className="text-sm text-muted-foreground mt-0.5">{negocio.contacto}</p>
             )}
           </div>
-          <NuevoPedidoNegocioButton negocioId={negocio.id} negocioNombre={negocio.nombre} />
+          <NuevoPedidoNegocioButton negocioId={negocio.id} negocioNombre={negocio.nombre} historialProductos={productoHistorial} />
         </div>
       </div>
 
