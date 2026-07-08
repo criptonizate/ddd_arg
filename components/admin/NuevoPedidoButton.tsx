@@ -2,13 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { createPedido } from '@/lib/actions/pedidos'
-import { getActiveProducts } from '@/lib/actions/products'
 import { formatARS } from '@/lib/utils'
 import { Plus, X, Trash2 } from 'lucide-react'
-import type { ProductWithVariants } from '@/lib/supabase/types'
 
 interface CartItem {
-  product_id?: string
   nombre: string
   observacion: string
   cantidad: number
@@ -17,7 +14,6 @@ interface CartItem {
 
 export default function NuevoPedidoButton() {
   const [open, setOpen] = useState(false)
-  const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [form, setForm] = useState({
     cliente_nombre: '',
@@ -33,32 +29,16 @@ export default function NuevoPedidoButton() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Estado del selector de ítem
   const [itemNombre, setItemNombre] = useState('')
   const [itemObservacion, setItemObservacion] = useState('')
   const [itemCantidad, setItemCantidad] = useState(1)
   const [itemPrecio, setItemPrecio] = useState(0)
 
-  async function openModal() {
-    const prods = await getActiveProducts()
-    setProducts(prods as ProductWithVariants[])
-    setOpen(true)
-  }
-
-  function selectExistingProduct(nombre: string, precio: number) {
-    setItemNombre(nombre)
-    setItemPrecio(precio)
-  }
-
   function addItem() {
     if (!itemNombre.trim()) return
-    const matched = products.find(
-      (p) => p.nombre.toLowerCase() === itemNombre.toLowerCase()
-    )
     setCart((prev) => [
       ...prev,
       {
-        product_id: matched?.id,
         nombre: itemNombre.trim(),
         observacion: itemObservacion.trim(),
         cantidad: itemCantidad,
@@ -87,7 +67,6 @@ export default function NuevoPedidoButton() {
       const res = await createPedido({
         ...form,
         items: cart.map((i) => ({
-          product_id: i.product_id,
           nombre_producto: i.nombre,
           observacion: i.observacion,
           cantidad: i.cantidad,
@@ -121,7 +100,7 @@ export default function NuevoPedidoButton() {
   return (
     <>
       <button
-        onClick={openModal}
+        onClick={() => setOpen(true)}
         className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-lg px-4 py-2 text-sm font-medium"
       >
         <Plus size={16} />
@@ -246,43 +225,16 @@ export default function NuevoPedidoButton() {
               {/* Agregar producto */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">📦 Agregar producto</h3>
-
-                {/* Productos existentes como sugerencias rápidas */}
-                {products.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {products.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selectExistingProduct(p.nombre, p.precio_base)}
-                        className="text-xs px-2 py-1 rounded-full border border-border hover:border-foreground/40 hover:bg-secondary transition-colors"
-                      >
-                        {p.nombre}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 <div className="grid grid-cols-12 gap-2">
                   <div className="col-span-12">
                     <label className="text-xs font-medium mb-1 block">Nombre del producto</label>
                     <input
                       value={itemNombre}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setItemNombre(val)
-                        const matched = products.find((p) => p.nombre.toLowerCase() === val.toLowerCase())
-                        if (matched) setItemPrecio(matched.precio_base)
-                      }}
-                      list="productos-list"
+                      onChange={(e) => setItemNombre(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addItem()}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Nombre del producto (existente o nuevo)"
+                      placeholder="Ej: Llavero Toy Story - Woody"
                     />
-                    <datalist id="productos-list">
-                      {products.map((p) => (
-                        <option key={p.id} value={p.nombre} />
-                      ))}
-                    </datalist>
                   </div>
                   <div className="col-span-12">
                     <label className="text-xs font-medium mb-1 block">Observación (color, tamaño, detalle...)</label>
@@ -298,7 +250,7 @@ export default function NuevoPedidoButton() {
                     <input
                       type="number"
                       min="0"
-                      value={itemPrecio}
+                      value={itemPrecio || ''}
                       onChange={(e) => setItemPrecio(Number(e.target.value))}
                       className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                       placeholder="0"
