@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
 import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
@@ -84,6 +84,19 @@ export default function VentasClient({
   const [filterMetodo, setFilterMetodo] = useState('')
   const [filterDesde, setFilterDesde] = useState('')
   const [filterHasta, setFilterHasta] = useState('')
+  const [soloDeuda, setSoloDeuda] = useState(false)
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set())
+
+  // Al cambiar de tab, auto-expandir el mes más reciente
+  const mostRecentMes = useMemo(() => {
+    const src = tab === 'entregadas' ? entregadas : tab === 'local' ? local : []
+    if (!src.length) return null
+    return src.reduce((max, o) => (o.created_at > max ? o.created_at : max), '').slice(0, 7)
+  }, [tab, entregadas, local])
+
+  useEffect(() => {
+    setExpandedMonths(mostRecentMes ? new Set([mostRecentMes]) : new Set())
+  }, [tab, mostRecentMes])
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -93,23 +106,30 @@ export default function VentasClient({
     })
   }
 
-  const sortedEntregadas = useMemo(() =>
-    [...entregadas].sort((a, b) => {
-      const pendA = a.total - (a.sena ?? 0)
-      const pendB = b.total - (b.sena ?? 0)
-      if (pendA > 0 && pendB <= 0) return -1
-      if (pendA <= 0 && pendB > 0) return 1
-      return 0
-    }),
-    [entregadas]
-  )
+  function toggleMonth(mes: string) {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev)
+      next.has(mes) ? next.delete(mes) : next.add(mes)
+      return next
+    })
+  }
 
   const totalDeuda = useMemo(
     () => entregadas.reduce((sum, o) => sum + Math.max(0, o.total - (o.sena ?? 0)), 0),
     [entregadas]
   )
+  const deudoresCount = useMemo(
+    () => entregadas.filter((o) => o.total - (o.sena ?? 0) > 0).length,
+    [entregadas]
+  )
 
-  const baseOrders = tab === 'activas' ? activas : tab === 'entregadas' ? sortedEntregadas : local
+  const baseOrders = useMemo(() => {
+    const raw = tab === 'activas' ? activas : tab === 'entregadas' ? entregadas : local
+    if ((tab === 'entregadas' || tab === 'local') && soloDeuda) {
+      return raw.filter((o) => o.total - (o.sena ?? 0) > 0)
+    }
+    return raw
+  }, [tab, activas, entregadas, local, soloDeuda])
 
   const orders = useMemo(() => {
     let result = baseOrders
@@ -130,6 +150,27 @@ export default function VentasClient({
 
   const hasActiveFilters = filterMetodo || filterDesde || filterHasta
   const total = useMemo(() => orders.reduce((sum, o) => sum + Number(o.total), 0), [orders])
+
+  // Grupos por mes para entregadas / local
+  const meses = useMemo(() => {
+    if (tab === 'activas') return []
+    const map = new Map<string, Order[]>()
+    for (const o of orders) {
+      const key = o.created_at.slice(0, 7)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(o)
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([mes, items]) => ({
+        mes,
+        label: formatMes(mes),
+        items,
+        isOpen: expandedMonths.has(mes),
+        deuda: items.reduce((s, o) => s + Math.max(0, o.total - (o.sena ?? 0)), 0),
+        total: items.reduce((s, o) => s + Number(o.total), 0),
+      }))
+  }, [tab, orders, expandedMonths])
 
   // Grupos para la tab activas
   const grupos = useMemo(() => ({
@@ -197,6 +238,25 @@ export default function VentasClient({
             </span>
           )}
         </button>
+
+        {/* Filtro solo deudores (visible en entregadas/local) */}
+        {(tab === 'entregadas' || tab === 'local') && (
+          <button
+            onClick={() => setSoloDeuda((v) => !v)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              soloDeuda
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'border-border text-muted-foreground hover:border-orange-400 hover:text-orange-600'
+            }`}
+          >
+            💰 Solo deudores
+            {tab === 'entregadas' && deudoresCount > 0 && (
+              <span className={`ml-1.5 font-bold ${soloDeuda ? 'opacity-80' : 'text-orange-600'}`}>
+                {deudoresCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Búsqueda + filtros */}
         <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
@@ -335,41 +395,47 @@ export default function VentasClient({
         )
       )}
 
-      {/* ── TAB: ENTREGADAS ── */}
-      {tab === 'entregadas' && (
-        orders.length === 0 ? (
-          <EmptyState search={search} onClear={() => setSearch('')} message="No hay ventas entregadas" />
+      {/* ── TAB: ENTREGADAS / LOCAL (agrupado por mes) ── */}
+      {(tab === 'entregadas' || tab === 'local') && (
+        meses.length === 0 ? (
+          <EmptyState search={search} onClear={() => setSearch('')} message={soloDeuda ? 'Nadie debe plata 🎉' : tab === 'entregadas' ? 'No hay ventas entregadas' : 'No hay ventas en el local'} />
         ) : (
-          <div className="space-y-2">
-            {orders.map((order) => (
-              <CollapsibleCard
-                key={order.id}
-                order={order}
-                expanded={expandedIds.has(order.id)}
-                onToggle={() => toggleExpanded(order.id)}
-              />
+          <div className="space-y-3">
+            {meses.map(({ mes, label, items, isOpen, deuda, total: mesTotal }) => (
+              <div key={mes} className="bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleMonth(mes)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3 flex-wrap min-w-0">
+                    <span className="font-semibold text-sm capitalize">{label}</span>
+                    <span className="text-xs text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+                      {items.length} pedido{items.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">{formatARS(mesTotal)}</span>
+                    {deuda > 0 && (
+                      <span className="text-xs font-semibold text-orange-600 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-full px-2 py-0.5">
+                        Deben {formatARS(deuda)}
+                      </span>
+                    )}
+                  </div>
+                  {isOpen ? <ChevronUp size={14} className="text-muted-foreground shrink-0" /> : <ChevronDown size={14} className="text-muted-foreground shrink-0" />}
+                </button>
+                {isOpen && (
+                  <div className="border-t border-border divide-y divide-border/50">
+                    {items.map((order) => (
+                      <CollapsibleCard
+                        key={order.id}
+                        order={order}
+                        expanded={expandedIds.has(order.id)}
+                        onToggle={() => toggleExpanded(order.id)}
+                        flat
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
-          </div>
-        )
-      )}
-
-      {/* ── TAB: LOCAL ── */}
-      {tab === 'local' && (
-        orders.length === 0 ? (
-          <EmptyState search={search} onClear={() => setSearch('')} message="No hay ventas en el local" />
-        ) : (
-          <div className="space-y-2">
-            {orders.map((order) => (
-              <CollapsibleCard
-                key={order.id}
-                order={order}
-                expanded={expandedIds.has(order.id)}
-                onToggle={() => toggleExpanded(order.id)}
-              />
-            ))}
-            <p className="text-xs text-muted-foreground text-center pt-1">
-              {orders.length} venta{orders.length !== 1 ? 's' : ''} · {formatARS(total)} total
-            </p>
           </div>
         )
       )}
@@ -378,6 +444,11 @@ export default function VentasClient({
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function formatMes(mes: string): string {
+  const [y, m] = mes.split('-')
+  return new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date(Number(y), Number(m) - 1, 1))
+}
 
 function EmptyState({ search, onClear, message }: { search: string; onClear: () => void; message: string }) {
   return (
@@ -637,10 +708,12 @@ function CollapsibleCard({
   order,
   expanded,
   onToggle,
+  flat = false,
 }: {
   order: Order
   expanded: boolean
   onToggle: () => void
+  flat?: boolean
 }) {
   const pendiente = order.total - (order.sena ?? 0)
   const pagado = (order.sena ?? 0) >= order.total && order.total > 0
@@ -671,7 +744,7 @@ function CollapsibleCard({
   }
 
   return (
-    <div className={`bg-card rounded-xl shadow-sm overflow-hidden border-l-4 ${tienePendiente ? 'border-l-orange-500 border-t border-r border-b border-orange-500/40' : 'border-l-transparent border border-border'}`}>
+    <div className={`bg-card overflow-hidden border-l-4 ${flat ? '' : 'rounded-xl shadow-sm'} ${tienePendiente ? 'border-l-orange-500' + (flat ? '' : ' border-t border-r border-b border-orange-500/40') : 'border-l-transparent' + (flat ? '' : ' border border-border')}`}>
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
