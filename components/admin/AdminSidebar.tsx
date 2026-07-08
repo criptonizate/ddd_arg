@@ -11,9 +11,8 @@ import { useTheme } from './AdminThemeWrapper'
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: '🚀 Dashboard' },
-  { href: '/admin/pedidos', label: '📥 Pedidos', showBadge: true },
-  { href: '/admin/ventas', label: '💸 Ventas' },
-  { href: '/admin/productos', label: '📦 Productos' },
+  { href: '/admin/ventas', label: '📦 Pedidos', showBadge: true },
+  { href: '/admin/productos', label: '🛒 Productos' },
   { href: '/admin/finanzas', label: '💰 Finanzas' },
   { href: '/admin/negocios', label: '🏪 Negocios' },
   { href: '/admin/clientes', label: '👥 Clientes' },

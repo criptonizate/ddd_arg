@@ -267,7 +267,7 @@ export default function ManualSaleButton() {
       <button
         onClick={openModal}
         disabled={loading}
-        className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-70"
+        className="inline-flex items-center gap-2 border border-border hover:bg-secondary hover:border-foreground/30 transition-colors rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-70"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
         {loading ? 'Cargando...' : 'Venta manual'}

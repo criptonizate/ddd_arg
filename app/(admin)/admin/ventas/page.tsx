@@ -1,8 +1,9 @@
 import { getOrders } from '@/lib/actions/orders'
 import ManualSaleButton from '@/components/admin/ManualSaleButton'
+import NuevoPedidoButton from '@/components/admin/NuevoPedidoButton'
 import VentasClient from '@/components/admin/VentasClient'
 
-export const metadata = { title: 'Ventas' }
+export const metadata = { title: 'Pedidos' }
 
 export default async function VentasPage() {
   const [activas, entregadas, local] = await Promise.all([
@@ -14,8 +15,11 @@ export default async function VentasPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">💸 Ventas</h1>
-        <ManualSaleButton />
+        <h1 className="text-2xl font-bold">📦 Pedidos</h1>
+        <div className="flex items-center gap-2">
+          <NuevoPedidoButton />
+          <ManualSaleButton />
+        </div>
       </div>
       <VentasClient activas={activas as any} entregadas={entregadas as any} local={local as any} />
     </div>
