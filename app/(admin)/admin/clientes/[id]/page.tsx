@@ -85,13 +85,33 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
                         </div>
                       </div>
                       {/* Ítems del pedido */}
-                      <div className="space-y-0.5">
-                        {p.items.map((item, idx) => (
-                          <p key={idx} className="text-xs text-muted-foreground">
-                            {item.nombre_producto} × {item.cantidad}
-                            <span className="ml-2">{formatARS(item.precio_unitario * item.cantidad)}</span>
-                          </p>
-                        ))}
+                      <div className="space-y-1">
+                        {p.items.map((item, idx) => {
+                          const tieneDescuento = item.precio_original != null && item.precio_original > item.precio_unitario
+                          const pct = tieneDescuento
+                            ? Math.round((1 - item.precio_unitario / item.precio_original!) * 100)
+                            : 0
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-3">
+                              <div className="text-xs text-muted-foreground min-w-0">
+                                <span>{item.nombre_producto} × {item.cantidad}</span>
+                                <span className="ml-2 text-foreground/70">
+                                  {tieneDescuento ? (
+                                    <>
+                                      <span className="line-through text-muted-foreground/60 mr-1">{formatARS(item.precio_original!)}</span>
+                                      <span className="font-medium">{formatARS(item.precio_unitario)}</span>
+                                      <span className="ml-1 text-green-600 font-semibold">−{pct}%</span>
+                                    </>
+                                  ) : (
+                                    <span>{formatARS(item.precio_unitario)}</span>
+                                  )}
+                                  <span className="text-muted-foreground"> c/u</span>
+                                </span>
+                              </div>
+                              <span className="text-xs font-semibold shrink-0">{formatARS(item.precio_unitario * item.cantidad)}</span>
+                            </div>
+                          )
+                        })}
                       </div>
                       {p.nota && <p className="text-xs text-muted-foreground italic mt-1">📝 {p.nota}</p>}
                     </div>

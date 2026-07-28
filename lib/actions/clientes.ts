@@ -28,7 +28,7 @@ export interface ClienteDetalle extends ClienteStats {
     created_at: string
     origen: string
     nota: string | null
-    items: { nombre_producto: string; cantidad: number; precio_unitario: number }[]
+    items: { nombre_producto: string; cantidad: number; precio_unitario: number; precio_original: number | null }[]
   }[]
 }
 
@@ -106,7 +106,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
     supabase.from('clientes').select('*').eq('id', id).maybeSingle(),
     supabase
       .from('orders')
-      .select('id, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, cantidad, precio_unitario)')
+      .select('id, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, cantidad, precio_unitario, precio_original)')
       .eq('cliente_id', id)
       .order('created_at', { ascending: false }),
   ])
@@ -136,6 +136,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
         nombre_producto: i.nombre_producto,
         cantidad: i.cantidad,
         precio_unitario: Number(i.precio_unitario),
+        precio_original: i.precio_original != null ? Number(i.precio_original) : null,
       })),
     })),
   }

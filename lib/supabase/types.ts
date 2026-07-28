@@ -79,6 +79,7 @@ export interface OrderItem {
   nombre_variante: string | null
   cantidad: number
   precio_unitario: number
+  precio_original: number | null
   impreso: boolean
   created_at: string
 }

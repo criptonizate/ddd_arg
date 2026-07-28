@@ -14,6 +14,7 @@ const AdminOrderItemSchema = z.object({
   variant_id: z.string().optional().default(''),
   cantidad: z.number().int().min(1, 'La cantidad mínima es 1'),
   precio_unitario: z.number(),
+  precio_original: z.number().nullable().optional(),
   nombre_producto: z.string().optional().default(''),
   nombre_variante: z.string().optional().default(''),
 })

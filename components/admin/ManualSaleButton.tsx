@@ -6,7 +6,7 @@ import { getActiveProducts } from '@/lib/actions/products'
 import { getClienteNames } from '@/lib/actions/clientes'
 import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
-import { Plus, X, Trash2, Loader2, Minus } from 'lucide-react'
+import { Plus, X, Trash2, Loader2, Minus, Percent } from 'lucide-react'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
 // ── Autocomplete de clientes ───────────────────────────────────────────────────
@@ -124,6 +124,7 @@ interface CartItem {
   variant_id: string
   cantidad: number
   precio_unitario: number
+  precio_original: number   // precio de lista sin descuento
   nombre: string
   variante: string
   esLibre?: boolean
@@ -200,7 +201,8 @@ export default function ManualSaleButton() {
       }
       return [...prev, {
         product_id: selProductId, variant_id: selVariantId, cantidad: selCantidad,
-        precio_unitario: precio, nombre: product.nombre, variante: variant.nombre_variante,
+        precio_unitario: precio, precio_original: precio,
+        nombre: product.nombre, variante: variant.nombre_variante,
       }]
     })
     setSelCantidad(1)
@@ -212,7 +214,7 @@ export default function ManualSaleButton() {
     if (isNaN(precio) || precio <= 0) return
     setCart((prev) => [...prev, {
       product_id: '', variant_id: '', cantidad: selCantidad,
-      precio_unitario: precio,
+      precio_unitario: precio, precio_original: precio,
       nombre: itemLibre.nombre.trim(), variante: itemLibre.variante.trim(), esLibre: true,
     }])
     setItemLibre({ nombre: '', variante: '', precio: '' })
@@ -224,6 +226,21 @@ export default function ManualSaleButton() {
       ? { ...item, cantidad: Math.max(1, item.cantidad + delta) }
       : item
     ))
+  }
+
+  function updateCartPrecio(idx: number, nuevoPrecio: number) {
+    setCart((prev) => prev.map((item, i) => i === idx
+      ? { ...item, precio_unitario: Math.max(0, nuevoPrecio) }
+      : item
+    ))
+  }
+
+  function updateCartDescuentoPct(idx: number, pct: number) {
+    setCart((prev) => prev.map((item, i) => {
+      if (i !== idx) return item
+      const nuevo = Math.round(item.precio_original * (1 - pct / 100))
+      return { ...item, precio_unitario: Math.max(0, nuevo) }
+    }))
   }
 
   const total = cart.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
@@ -244,6 +261,7 @@ export default function ManualSaleButton() {
           variant_id: i.variant_id || '',
           cantidad: i.cantidad,
           precio_unitario: i.precio_unitario,
+          precio_original: i.precio_unitario < i.precio_original ? i.precio_original : null,
           nombre_producto: i.nombre,
           nombre_variante: i.variante,
         })),
@@ -509,44 +527,68 @@ export default function ManualSaleButton() {
                 <div>
                   <h3 className="text-sm font-semibold mb-2">Pedido</h3>
                   <div className="space-y-2">
-                    {cart.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl text-sm">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium leading-tight">{item.nombre}</p>
-                          {item.variante && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{item.variante}</p>
-                          )}
+                    {cart.map((item, idx) => {
+                      const tieneDescuento = item.precio_unitario < item.precio_original
+                      const descPct = tieneDescuento
+                        ? Math.round((1 - item.precio_unitario / item.precio_original) * 100)
+                        : 0
+                      return (
+                        <div key={idx} className="p-3 bg-secondary/30 rounded-xl text-sm space-y-2">
+                          {/* Fila 1: nombre + cantidad + eliminar */}
+                          <div className="flex items-center gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium leading-tight">{item.nombre}</p>
+                              {item.variante && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{item.variante}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button type="button" onClick={() => updateCartCantidad(idx, -1)}
+                                className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+                                <Minus size={12} />
+                              </button>
+                              <span className="w-8 text-center font-bold text-sm">{item.cantidad}</span>
+                              <button type="button" onClick={() => updateCartCantidad(idx, +1)}
+                                className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                            <button type="button" onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}
+                              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          {/* Fila 2: precio unitario + descuento + total */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-foreground">$ c/u</span>
+                              <input
+                                type="number" min="0"
+                                value={item.precio_unitario || ''}
+                                onChange={(e) => updateCartPrecio(idx, Number(e.target.value))}
+                                className="w-24 h-7 border border-input rounded-lg px-2 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-semibold"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Percent size={11} />
+                              <input
+                                type="number" min="0" max="99"
+                                value={descPct || ''}
+                                onChange={(e) => updateCartDescuentoPct(idx, Number(e.target.value))}
+                                placeholder="desc."
+                                className="w-14 h-7 border border-input rounded-lg px-2 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                              />
+                            </div>
+                            {tieneDescuento && (
+                              <span className="text-xs text-green-600 font-semibold">−{descPct}% desc.</span>
+                            )}
+                            <span className="ml-auto font-bold text-sm">
+                              {formatARS(item.cantidad * item.precio_unitario)}
+                            </span>
+                          </div>
                         </div>
-                        {/* Controles de cantidad */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateCartCantidad(idx, -1)}
-                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="w-8 text-center font-bold text-sm">{item.cantidad}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateCartCantidad(idx, +1)}
-                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                          >
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                        <span className="font-semibold text-sm w-20 text-right shrink-0">
-                          {formatARS(item.cantidad * item.precio_unitario)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
+                      )
+                    })}
                     <div className="flex justify-between pt-2 items-center border-t border-border">
                       <span className="text-xs text-muted-foreground">{cart.length} producto{cart.length > 1 ? 's' : ''}</span>
                       <span className="text-base font-bold">Total: {formatARS(total)}</span>
