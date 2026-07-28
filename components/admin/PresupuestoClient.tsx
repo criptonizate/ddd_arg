@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen } from 'lucide-react'
+import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen, ImageDown, Search } from 'lucide-react'
 import { createManualSale } from '@/lib/actions/orders'
 import { savePresupuesto, getPresupuestos, deletePresupuesto } from '@/lib/actions/presupuestos'
 import type { PresupuestoRecord } from '@/lib/actions/presupuestos'
+import { getClientesBasic } from '@/lib/actions/clientes'
 import { formatARS } from '@/lib/utils'
 
 interface Item {
@@ -49,10 +50,48 @@ function today(): string {
 const INPUT_CLASS =
   'w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring'
 
+type ClienteBasic = { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }
+
 export default function PresupuestoClient() {
   const [cliente, setCliente] = useState({
     nombre: '', direccion: '', cuit: '', telefono: '', email: '',
   })
+
+  // Autocomplete clientes existentes
+  const [clientesAll, setClientesAll] = useState<ClienteBasic[]>([])
+  const [clienteSearch, setClienteSearch] = useState('')
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const clienteDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    getClientesBasic().then(setClientesAll)
+  }, [])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (clienteDropdownRef.current && !clienteDropdownRef.current.contains(e.target as Node)) {
+        setShowClienteDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const clientesFiltrados = clienteSearch.trim().length >= 1
+    ? clientesAll.filter(c => c.nombre.toLowerCase().includes(clienteSearch.toLowerCase())).slice(0, 8)
+    : []
+
+  function seleccionarCliente(c: ClienteBasic) {
+    setCliente(prev => ({
+      ...prev,
+      nombre: c.nombre,
+      telefono: c.telefono ?? '',
+      email: c.email ?? '',
+      direccion: c.direccion ?? '',
+    }))
+    setClienteSearch('')
+    setShowClienteDropdown(false)
+  }
   const [validez, setValidez] = useState(10)
   const [items, setItems] = useState<Item[]>([
     { descripcion: '', unidades: '', precio: '' },
@@ -269,6 +308,17 @@ export default function PresupuestoClient() {
     }
   }
 
+  async function handleExportPNG() {
+    const el = document.getElementById('presupuesto-preview')
+    if (!el) return
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
+    const link = document.createElement('a')
+    link.download = `presupuesto-${cliente.nombre || 'sin-nombre'}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
+
   const PREVIEW_ROWS = Math.max(8, items.length + 2)
 
   return (
@@ -317,6 +367,13 @@ export default function PresupuestoClient() {
               Generar pedido
             </button>
             <button
+              onClick={handleExportPNG}
+              className="flex items-center gap-2 border border-border hover:bg-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <ImageDown size={15} />
+              Exportar PNG
+            </button>
+            <button
               onClick={() => window.print()}
               className="flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
@@ -330,6 +387,35 @@ export default function PresupuestoClient() {
           {/* Datos del cliente */}
           <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <h3 className="font-semibold text-sm">Datos del cliente</h3>
+
+            {/* Buscar cliente existente */}
+            <div className="relative" ref={clienteDropdownRef}>
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <input
+                  value={clienteSearch}
+                  onChange={e => { setClienteSearch(e.target.value); setShowClienteDropdown(true) }}
+                  onFocus={() => clienteSearch.trim() && setShowClienteDropdown(true)}
+                  placeholder="Buscar cliente existente..."
+                  className="w-full border border-dashed border-input rounded-lg pl-8 pr-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              {showClienteDropdown && clientesFiltrados.length > 0 && (
+                <div className="absolute z-20 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                  {clientesFiltrados.map(c => (
+                    <button
+                      key={c.id}
+                      onMouseDown={e => { e.preventDefault(); seleccionarCliente(c) }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                    >
+                      <span className="font-medium">{c.nombre}</span>
+                      {c.telefono && <span className="text-muted-foreground text-xs ml-2">{c.telefono}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {(
               [
                 { field: 'nombre', label: 'Nombre' },

@@ -106,7 +106,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
     supabase.from('clientes').select('*').eq('id', id).maybeSingle(),
     supabase
       .from('orders')
-      .select('id, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, cantidad, precio_unitario)')
+      .select('id, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, cantidad, precio_unitario, precio_original)')
       .eq('cliente_id', id)
       .order('created_at', { ascending: false }),
   ])
@@ -136,7 +136,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
         nombre_producto: i.nombre_producto,
         cantidad: i.cantidad,
         precio_unitario: Number(i.precio_unitario),
-        precio_original: null,
+        precio_original: i.precio_original != null ? Number(i.precio_original) : null,
       })),
     })),
   }
@@ -211,4 +211,11 @@ export async function getClienteNames(): Promise<{ nombre: string; telefono: str
   const supabase = createServiceClient()
   const { data } = await supabase.from('clientes').select('nombre, telefono').order('nombre')
   return (data ?? []) as { nombre: string; telefono: string | null }[]
+}
+
+export async function getClientesBasic(): Promise<{ id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase.from('clientes').select('id, nombre, telefono, email, direccion').order('nombre')
+  return (data ?? []) as { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }[]
 }
