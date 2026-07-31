@@ -5,9 +5,14 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
-import { LogOut, Menu, X, Sun, Moon } from 'lucide-react'
+import { LogOut, Menu, X, Sun, Moon, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from './AdminThemeWrapper'
+import type { CalculadoraConfig } from '@/lib/actions/calculadora'
+
+function fmtARS(v: number) {
+  return v.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: '🚀 Dashboard' },
@@ -24,13 +29,28 @@ const NAV_ITEMS = [
 export default function AdminSidebar({
   userEmail,
   pendingCount = 0,
+  calculadoraConfig,
 }: {
   userEmail: string
   pendingCount?: number
+  calculadoraConfig?: CalculadoraConfig
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { dark, toggle } = useTheme()
+  const [showQuick, setShowQuick] = useState(false)
+  const [quickHrs, setQuickHrs] = useState(0)
+  const [quickGramos, setQuickGramos] = useState(0)
+
+  function calcQuick(): number {
+    if (!calculadoraConfig) return 0
+    const { precio_filamento_kg, precio_kwh, consumo_w, vida_util_horas, costo_repuestos, margen_error_pct } = calculadoraConfig
+    const material = (quickGramos / 1000) * precio_filamento_kg
+    const luz = quickHrs * (consumo_w / 1000) * precio_kwh
+    const desgaste = vida_util_horas > 0 ? (quickHrs / vida_util_horas) * costo_repuestos : 0
+    const margen = (material + luz + desgaste) * (margen_error_pct / 100)
+    return (material + luz + desgaste + margen) * 3
+  }
 
   return (
     <>
@@ -95,6 +115,57 @@ export default function AdminSidebar({
             )
           })}
         </nav>
+
+        {/* Cotización rápida */}
+        <div className="border-t border-border p-3">
+          <button
+            onClick={() => setShowQuick((v) => !v)}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Zap size={14} />
+              Cotización rápida
+            </span>
+            {showQuick ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+
+          {showQuick && (
+            <div className="mt-2 px-1 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-medium text-muted-foreground block mb-1">Horas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={quickHrs || ''}
+                    onChange={(e) => setQuickHrs(Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-muted-foreground block mb-1">Gramos</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quickGramos || ''}
+                    onChange={(e) => setQuickGramos(Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {(quickHrs > 0 || quickGramos > 0) && (
+                <div className="rounded-lg px-3 py-2.5" style={{ background: 'rgba(200,0,0,0.10)', border: '1px solid rgba(200,0,0,0.25)' }}>
+                  <p className="text-[10px] font-bold text-red-500 uppercase tracking-wide">Total a cobrar</p>
+                  <p className="font-bold text-lg leading-tight">$ {fmtARS(calcQuick())}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="p-3 border-t border-border space-y-1">
