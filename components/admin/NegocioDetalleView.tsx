@@ -417,7 +417,8 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const stock = computeStock(negocio)
   const [egresoProducto, setEgresoProducto] = useState<string | null>(null)
   const [cargaProducto, setCargaProducto] = useState<string | null>(null)
-  const [showHistorial, setShowHistorial] = useState(false)
+  const [soloAgotados, setSoloAgotados] = useState(false)
+  const [showHistorialCompleto, setShowHistorialCompleto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const { confirm, ConfirmDialog } = useConfirm()
   const { toast } = useToast()
@@ -426,6 +427,13 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const precios: Record<string, number> = Object.fromEntries(
     stock.map((s) => [s.nombre.toLowerCase().trim(), s.precio])
   )
+
+  const stockFiltrado = soloAgotados ? stock.filter((s) => s.stock <= 0) : stock
+  const egresosOrdenados = [...negocio.negocio_egresos].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  )
+  const EGRESOS_PREVIEW = 8
+  const egresosVisibles = showHistorialCompleto ? egresosOrdenados : egresosOrdenados.slice(0, EGRESOS_PREVIEW)
 
   async function handleDeleteEgreso(id: string) {
     const ok = await confirm('¿Eliminar este egreso?', { confirmLabel: 'Eliminar' })
@@ -469,14 +477,18 @@ function StockSection({ negocio }: { negocio: Negocio }) {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-wrap gap-2">
-          <h2 className="font-semibold">📦 Stock actual</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold">📦 Stock actual</h2>
+            {stock.some((s) => s.stock <= 0) && (
+              <button
+                onClick={() => setSoloAgotados(!soloAgotados)}
+                className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${soloAgotados ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+              >
+                {soloAgotados ? '✕ Todos' : `⚠ Agotados (${stock.filter(s => s.stock <= 0).length})`}
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowHistorial(!showHistorial)}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showHistorial ? 'Ocultar historial' : 'Ver historial'}
-            </button>
             <button
               onClick={() => exportStockPDF(stock, negocio.nombre)}
               className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
@@ -501,15 +513,22 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                 <th className="text-right px-3 py-3 font-medium">Vendido</th>
                 <th className="text-right px-3 py-3 font-medium">Devuelto</th>
                 <th className="text-right px-3 py-3 font-medium">En stock</th>
+                <th className="text-right px-3 py-3 font-medium">Último precio</th>
                 <th className="px-3 py-3 w-32" />
               </tr>
             </thead>
             <tbody>
-              {stock.map((row) => {
+              {stockFiltrado.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-6 text-center text-sm text-muted-foreground">
+                    No hay productos agotados
+                  </td>
+                </tr>
+              ) : stockFiltrado.map((row) => {
                 const agotado = row.stock <= 0
                 const bajo = row.stock > 0 && row.stock <= 3
                 return (
-                  <tr key={row.nombre} className="border-b border-border/50 last:border-0">
+                  <tr key={row.nombre} className={`border-b border-border/50 last:border-0 ${agotado ? 'bg-red-50/50 dark:bg-red-950/20' : ''}`}>
                     <td className="px-5 py-3 font-medium">{row.nombre}</td>
                     <td className="px-3 py-3 text-right text-muted-foreground">{row.recibido}</td>
                     <td className="px-3 py-3 text-right text-muted-foreground">{row.vendido > 0 ? row.vendido : '—'}</td>
@@ -518,6 +537,9 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                       <span className={`font-bold ${agotado ? 'text-red-600' : bajo ? 'text-orange-600' : 'text-green-600'}`}>
                         {agotado ? '0 ⚠ agotado' : row.stock}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 text-right text-muted-foreground text-xs">
+                      {row.precio > 0 ? formatARS(row.precio) : '—'}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1.5 justify-end">
@@ -544,15 +566,29 @@ function StockSection({ negocio }: { negocio: Negocio }) {
           </table>
         </div>
 
-        {/* Historial de egresos */}
-        {showHistorial && negocio.negocio_egresos.length > 0 && (
-          <div className="border-t border-border px-5 py-4">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Historial de egresos</h3>
+        {/* Últimos egresos — siempre visibles */}
+        <div className="border-t border-border px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Últimos egresos {egresosOrdenados.length > 0 && `(${egresosOrdenados.length})`}
+            </h3>
+            {egresosOrdenados.length > EGRESOS_PREVIEW && (
+              <button
+                onClick={() => setShowHistorialCompleto(!showHistorialCompleto)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showHistorialCompleto ? 'Ver menos' : `Ver todos (${egresosOrdenados.length})`}
+              </button>
+            )}
+          </div>
+          {egresosOrdenados.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin egresos registrados aún.</p>
+          ) : (
             <div className="space-y-1.5">
-              {negocio.negocio_egresos.map((e) => (
+              {egresosVisibles.map((e) => (
                 <div key={e.id} className="flex items-center justify-between gap-3 text-sm py-1">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${
                       e.tipo === 'vendido'
                         ? 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700'
                         : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
@@ -560,7 +596,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                       {e.tipo === 'vendido' ? '📤 Vendido' : '↩ Devuelto'}
                     </span>
                     <span className="font-medium truncate">{e.nombre_producto}</span>
-                    <span className="text-muted-foreground">× {e.cantidad}</span>
+                    <span className="text-muted-foreground shrink-0">× {e.cantidad}</span>
                     {e.nota && <span className="text-xs text-muted-foreground italic truncate">— {e.nota}</span>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -576,13 +612,8 @@ function StockSection({ negocio }: { negocio: Negocio }) {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-        {showHistorial && negocio.negocio_egresos.length === 0 && (
-          <div className="border-t border-border px-5 py-4">
-            <p className="text-sm text-muted-foreground">Sin egresos registrados aún.</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </>
   )
