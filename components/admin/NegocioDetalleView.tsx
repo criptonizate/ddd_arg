@@ -417,7 +417,7 @@ function StockSection({ negocio }: { negocio: Negocio }) {
   const stock = computeStock(negocio)
   const [egresoProducto, setEgresoProducto] = useState<string | null>(null)
   const [cargaProducto, setCargaProducto] = useState<string | null>(null)
-  const [soloAgotados, setSoloAgotados] = useState(false)
+  const [filtroStock, setFiltroStock] = useState<'todos' | 'agotados' | 'con-stock'>('todos')
   const [showHistorialCompleto, setShowHistorialCompleto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const { confirm, ConfirmDialog } = useConfirm()
@@ -428,7 +428,11 @@ function StockSection({ negocio }: { negocio: Negocio }) {
     stock.map((s) => [s.nombre.toLowerCase().trim(), s.precio])
   )
 
-  const stockFiltrado = soloAgotados ? stock.filter((s) => s.stock <= 0) : stock
+  const stockFiltrado = filtroStock === 'agotados'
+    ? stock.filter((s) => s.stock <= 0)
+    : filtroStock === 'con-stock'
+      ? stock.filter((s) => s.stock > 0)
+      : stock
   const egresosOrdenados = [...negocio.negocio_egresos].sort(
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   )
@@ -480,12 +484,27 @@ function StockSection({ negocio }: { negocio: Negocio }) {
           <div className="flex items-center gap-3">
             <h2 className="font-semibold">📦 Stock actual</h2>
             {stock.some((s) => s.stock <= 0) && (
-              <button
-                onClick={() => setSoloAgotados(!soloAgotados)}
-                className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${soloAgotados ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
-              >
-                {soloAgotados ? '✕ Todos' : `⚠ Agotados (${stock.filter(s => s.stock <= 0).length})`}
-              </button>
+              <div className="flex items-center gap-1 border border-border rounded-full overflow-hidden text-xs font-medium">
+                {([
+                  { value: 'todos', label: 'Todos' },
+                  { value: 'con-stock', label: '✓ Con stock' },
+                  { value: 'agotados', label: '⚠ Agotados' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFiltroStock(opt.value)}
+                    className={`px-2.5 py-1 transition-colors ${filtroStock === opt.value
+                      ? opt.value === 'agotados'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        : opt.value === 'con-stock'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                          : 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
