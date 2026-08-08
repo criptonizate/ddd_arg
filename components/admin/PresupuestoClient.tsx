@@ -308,15 +308,25 @@ export default function PresupuestoClient() {
     }
   }
 
+  const [exportingPNG, setExportingPNG] = useState(false)
+
   async function handleExportPNG() {
     const el = document.getElementById('presupuesto-preview')
     if (!el) return
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
-    const link = document.createElement('a')
-    link.download = `presupuesto-${cliente.nombre || 'sin-nombre'}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    setExportingPNG(true)
+    try {
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff', skipFonts: true })
+      const link = document.createElement('a')
+      link.download = `presupuesto-${cliente.nombre || 'sin-nombre'}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (e) {
+      console.error('PNG export error:', e)
+      alert('No se pudo exportar la imagen. Intentá de nuevo.')
+    } finally {
+      setExportingPNG(false)
+    }
   }
 
   const PREVIEW_ROWS = Math.max(8, items.length + 2)
@@ -368,10 +378,11 @@ export default function PresupuestoClient() {
             </button>
             <button
               onClick={handleExportPNG}
-              className="flex items-center gap-2 border border-border hover:bg-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              disabled={exportingPNG}
+              className="flex items-center gap-2 border border-border hover:bg-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
             >
               <ImageDown size={15} />
-              Exportar PNG
+              {exportingPNG ? 'Generando...' : 'Exportar PNG'}
             </button>
             <button
               onClick={() => window.print()}
