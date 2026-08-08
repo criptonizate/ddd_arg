@@ -13,6 +13,7 @@ export interface PresupuestoItem {
 
 export interface PresupuestoRecord {
   id: string
+  numero?: number
   cliente_nombre: string
   cliente_direccion: string
   cliente_cuit: string
@@ -21,6 +22,7 @@ export interface PresupuestoRecord {
   items: PresupuestoItem[]
   descuento_mayorista_pct: number
   nota: string
+  condiciones_pago?: string
   created_at: string
 }
 
@@ -62,6 +64,21 @@ export async function deletePresupuesto(id: string): Promise<{ ok: boolean }> {
   await getAdminUser()
   const supabase = createServiceClient()
   await supabase.from('presupuestos').delete().eq('id', id)
+  revalidatePath('/admin/presupuesto')
+  return { ok: true }
+}
+
+export async function duplicatePresupuesto(id: string): Promise<{ ok: boolean; error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data: original } = await supabase.from('presupuestos').select('*').eq('id', id).single()
+  if (!original) return { ok: false, error: 'No encontrado' }
+  const { id: _id, created_at: _ca, numero: _n, ...rest } = original
+  const { error } = await supabase.from('presupuestos').insert({
+    ...rest,
+    cliente_nombre: rest.cliente_nombre ? `${rest.cliente_nombre} (copia)` : '(copia)',
+  })
+  if (error) return { ok: false, error: error.message }
   revalidatePath('/admin/presupuesto')
   return { ok: true }
 }

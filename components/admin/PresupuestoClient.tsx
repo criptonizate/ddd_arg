@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen, ImageDown, Search } from 'lucide-react'
 import { createManualSale } from '@/lib/actions/orders'
-import { savePresupuesto, getPresupuestos, deletePresupuesto } from '@/lib/actions/presupuestos'
+import { savePresupuesto, getPresupuestos, deletePresupuesto, duplicatePresupuesto } from '@/lib/actions/presupuestos'
 import type { PresupuestoRecord } from '@/lib/actions/presupuestos'
 import { getClientesBasic } from '@/lib/actions/clientes'
 import { formatARS } from '@/lib/utils'
@@ -102,6 +102,28 @@ export default function PresupuestoClient() {
   const [showDescuento, setShowDescuento] = useState(false)
   const [descuentoPct, setDescuentoPct] = useState('')
 
+  // Condiciones de pago
+  const [condicionesPago, setCondicionesPago] = useState('30% adelanto, saldo contra entrega')
+
+  // Importar desde calculadora (via localStorage)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('presupuesto_importar')
+      if (raw) {
+        const importados: { descripcion: string; unidades: number; precio: number }[] = JSON.parse(raw)
+        if (importados.length > 0) {
+          setItems((prev) => {
+            const vacias = prev.filter((i) => !i.descripcion.trim())
+            const sinVacias = prev.filter((i) => i.descripcion.trim())
+            const nuevos: Item[] = importados.map((i) => ({ descripcion: i.descripcion, unidades: i.unidades as number | '', precio: i.precio as number | '' }))
+            return [...sinVacias, ...nuevos, ...(vacias.length > 0 ? [] : [{ descripcion: '', unidades: '' as const, precio: '' as const }])]
+          })
+        }
+        localStorage.removeItem('presupuesto_importar')
+      }
+    } catch { /* silent */ }
+  }, [])
+
   // Guardar / cargar presupuestos
   const [savingPresupuesto, setSavingPresupuesto] = useState(false)
   const [showPresupuestosModal, setShowPresupuestosModal] = useState(false)
@@ -127,6 +149,7 @@ export default function PresupuestoClient() {
       items: validItems,
       descuento_mayorista_pct: parseFloat(descuentoPct) || 0,
       nota: '',
+      condiciones_pago: condicionesPago,
     })
     setSavingPresupuesto(false)
   }
@@ -154,7 +177,14 @@ export default function PresupuestoClient() {
       ...(i.precioEspecial !== undefined ? { precioEspecial: i.precioEspecial } : {}),
     })))
     if (p.descuento_mayorista_pct > 0) setDescuentoPct(String(p.descuento_mayorista_pct))
+    if (p.condiciones_pago) setCondicionesPago(p.condiciones_pago)
     setShowPresupuestosModal(false)
+  }
+
+  async function handleDuplicarPresupuesto(id: string) {
+    await duplicatePresupuesto(id)
+    const list = await getPresupuestos()
+    setPresupuestosList(list)
   }
 
   async function handleDeletePresupuesto(id: string) {
@@ -316,9 +346,16 @@ export default function PresupuestoClient() {
     setExportingPNG(true)
     try {
       const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff', skipFonts: true })
+      const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+      const nombre = cliente.nombre.trim() || 'sin nombre'
+      const dataUrl = await toPng(el, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        skipFonts: true,
+        style: { backgroundColor: '#ffffff', color: '#000000' },
+      })
       const link = document.createElement('a')
-      link.download = `presupuesto-${cliente.nombre || 'sin-nombre'}.png`
+      link.download = `Presupuesto ${nombre} - ${fecha}.png`
       link.href = dataUrl
       link.click()
     } catch (e) {
@@ -458,6 +495,26 @@ export default function PresupuestoClient() {
                 value={validez}
                 onChange={(e) => setValidez(Number(e.target.value))}
                 className="w-32 border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1">Condiciones de pago</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {['30% adelanto, saldo contra entrega', '50% adelanto, saldo contra entrega', 'Pago total anticipado', 'A convenir'].map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setCondicionesPago(opt)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${condicionesPago === opt ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={condicionesPago}
+                onChange={(e) => setCondicionesPago(e.target.value)}
+                placeholder="O escribí las condiciones..."
+                className={INPUT_CLASS}
               />
             </div>
           </div>
@@ -609,8 +666,8 @@ export default function PresupuestoClient() {
       {/* ── Preview / Template de impresión ── */}
       <div
         id="presupuesto-preview"
-        className="mt-8 print:mt-0 bg-white text-black border border-gray-200 rounded-xl overflow-hidden max-w-4xl mx-auto"
-        style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px' }}
+        className="mt-8 print:mt-0 rounded-xl overflow-hidden max-w-4xl mx-auto"
+        style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', backgroundColor: '#ffffff', color: '#000000', border: '1px solid #e5e7eb' }}
       >
         {/* Logo */}
         <div style={{ backgroundColor: '#f0f0f0', textAlign: 'center', padding: '24px 0' }}>
@@ -656,8 +713,8 @@ export default function PresupuestoClient() {
             <tr style={{ fontSize: '12px' }}>
               <td style={{ padding: '8px 16px', width: '25%' }}>Fecha presupuesto:</td>
               <td style={{ padding: '8px 16px', width: '25%', borderRight: '1px solid #ccc' }}>{today()}</td>
-              <td style={{ padding: '8px 16px', width: '25%' }} />
-              <td style={{ padding: '8px 16px', width: '25%' }}>Validez: {validez} días</td>
+              <td style={{ padding: '8px 16px', width: '25%' }}>Validez:</td>
+              <td style={{ padding: '8px 16px', width: '25%' }}>{validez} días</td>
             </tr>
           </tbody>
         </table>
@@ -733,6 +790,14 @@ export default function PresupuestoClient() {
                 {formatNum(subtotal)}
               </td>
             </tr>
+            {/* Condiciones de pago */}
+            {condicionesPago.trim() && (
+              <tr>
+                <td colSpan={4} style={{ padding: '6px 12px', border: '1px solid #ccc', fontSize: '11px', color: '#555' }}>
+                  <strong>Condiciones de pago:</strong> {condicionesPago}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -931,10 +996,14 @@ export default function PresupuestoClient() {
                   {presupuestosList.map((p) => (
                     <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/20">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">{p.cliente_nombre || '(sin nombre)'}</p>
+                        <div className="flex items-center gap-2">
+                          {p.numero && <span className="text-xs font-bold text-muted-foreground">#{p.numero}</span>}
+                          <p className="font-medium text-sm truncate">{p.cliente_nombre || '(sin nombre)'}</p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {p.items.length} ítems ·{' '}
                           {new Date(p.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          {p.condiciones_pago && <span className="ml-1 italic">· {p.condiciones_pago}</span>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -943,6 +1012,13 @@ export default function PresupuestoClient() {
                           className="text-xs px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity"
                         >
                           Cargar
+                        </button>
+                        <button
+                          onClick={() => handleDuplicarPresupuesto(p.id)}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
+                          title="Duplicar"
+                        >
+                          📋
                         </button>
                         <button
                           onClick={() => handleDeletePresupuesto(p.id)}

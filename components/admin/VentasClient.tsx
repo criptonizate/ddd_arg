@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
-import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
+import { formatARS, formatDateTime, formatDate, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
 import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
 import OrderSenaInput from '@/components/admin/OrderSenaInput'
@@ -19,6 +19,8 @@ interface Order {
   origen: string
   metodo_pago?: string
   created_at: string
+  fecha_entrega?: string | null
+  prioridad?: boolean
   cliente_nombre: string
   cliente_telefono?: string
   entrega: string
@@ -121,6 +123,14 @@ export default function VentasClient({
   const deudoresCount = useMemo(
     () => entregadas.filter((o) => o.total - (o.sena ?? 0) > 0).length,
     [entregadas]
+  )
+  const pendienteActivas = useMemo(
+    () => activas.reduce((sum, o) => sum + Math.max(0, o.total - (o.sena ?? 0)), 0),
+    [activas]
+  )
+  const pendienteActivasCount = useMemo(
+    () => activas.filter((o) => o.total - (o.sena ?? 0) > 0).length,
+    [activas]
   )
 
   const baseOrders = useMemo(() => {
@@ -287,6 +297,17 @@ export default function VentasClient({
           </button>
         </div>
       </div>
+
+      {/* Banner cobro pendiente en activas */}
+      {tab === 'activas' && pendienteActivas > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl text-sm">
+          <span className="text-orange-600 dark:text-orange-400">💰</span>
+          <span className="text-orange-700 dark:text-orange-300 font-medium">
+            {pendienteActivasCount} pedido{pendienteActivasCount !== 1 ? 's' : ''} con cobro pendiente
+          </span>
+          <span className="text-orange-600 dark:text-orange-400 font-bold ml-auto">{formatARS(pendienteActivas)}</span>
+        </div>
+      )}
 
       {/* Panel filtros */}
       {showFilters && (
@@ -475,6 +496,68 @@ function GrupoHeader({ cfg, count }: { cfg: typeof GRUPO[keyof typeof GRUPO]; co
   )
 }
 
+// ── Helper: cobro rápido inline ────────────────────────────────────────────────
+
+function CobrarInline({ orderId, total, sena }: { orderId: string; total: number; sena: number }) {
+  const pendiente = total - sena
+  const [showInput, setShowInput] = useState(false)
+  const [valor, setValor] = useState(pendiente)
+  const [isPending, startTransition] = useTransition()
+
+  if (pendiente <= 0) return <span className="text-xs font-medium text-green-600">✓ Pagado</span>
+
+  function confirmar() {
+    const nuevoSena = Math.min(total, sena + valor)
+    startTransition(async () => {
+      await updateOrderSena(orderId, nuevoSena)
+      setShowInput(false)
+    })
+  }
+
+  if (!showInput) return (
+    <button
+      onClick={() => { setValor(pendiente); setShowInput(true) }}
+      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+    >
+      💰 Cobrar {formatARS(pendiente)}
+    </button>
+  )
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="number" min="1" max={pendiente} value={valor || ''}
+        onChange={(e) => setValor(Number(e.target.value))}
+        className="w-24 text-xs border border-orange-400 rounded-lg px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-500"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === 'Enter') confirmar(); if (e.key === 'Escape') setShowInput(false) }}
+      />
+      <button onClick={confirmar} disabled={isPending || valor <= 0}
+        className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
+        {isPending ? '...' : 'OK'}
+      </button>
+      <button onClick={() => setShowInput(false)} className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-secondary transition-colors">✕</button>
+    </div>
+  )
+}
+
+// ── Helper: badge fecha de entrega ─────────────────────────────────────────────
+
+function FechaEntregaBadge({ fecha }: { fecha: string }) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const d = new Date(fecha + 'T12:00:00')
+  const diff = Math.floor((d.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
+  const label = diff < 0 ? `⚠ Venció hace ${-diff}d` : diff === 0 ? '⚡ Hoy' : diff === 1 ? '📅 Mañana' : `📅 ${formatDate(fecha)}`
+  const cls = diff < 0
+    ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800'
+    : diff === 0
+      ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800'
+      : diff <= 2
+        ? 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950/40 dark:text-yellow-400 dark:border-yellow-800'
+        : 'bg-secondary text-muted-foreground border-border'
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${cls}`}>{label}</span>
+}
+
 // ── Card: Imprimiendo (expandida con checkboxes) ───────────────────────────────
 
 function FullCard({ order }: { order: Order }) {
@@ -490,6 +573,7 @@ function FullCard({ order }: { order: Order }) {
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
+          {order.fecha_entrega && <FechaEntregaBadge fecha={order.fecha_entrega} />}
           <span className="text-xs text-muted-foreground">{ORIGEN_LABELS[order.origen] ?? order.origen}</span>
           {order.metodo_pago && (
             <span className="text-xs text-muted-foreground">{METODO_PAGO_LABELS[order.metodo_pago] ?? order.metodo_pago}</span>
@@ -581,11 +665,13 @@ function FullCard({ order }: { order: Order }) {
       {/* Total + Seña + Acciones */}
       <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Total:</span>
-            <span className="text-base font-bold">{formatARS(order.total)}</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Total:</span>
+              <span className="text-base font-bold">{formatARS(order.total)}</span>
+            </div>
+            <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
           </div>
-          <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
           <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
         </div>
         <OrderActions orderId={order.id} estado={order.estado} />
@@ -624,6 +710,7 @@ function ActiveCard({
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
+          {order.fecha_entrega && <FechaEntregaBadge fecha={order.fecha_entrega} />}
           <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
           {order.nota && (
             <span className="text-xs text-muted-foreground italic truncate hidden sm:block">— {order.nota}</span>
@@ -687,11 +774,13 @@ function ActiveCard({
 
           <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Total:</span>
-                <span className="font-bold">{formatARS(order.total)}</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Total:</span>
+                  <span className="font-bold">{formatARS(order.total)}</span>
+                </div>
+                <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
               </div>
-              <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
               <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
             </div>
             <OrderActions orderId={order.id} estado={order.estado} />

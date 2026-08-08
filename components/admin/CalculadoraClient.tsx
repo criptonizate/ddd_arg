@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { CalculadoraConfig, HistorialEntry } from '@/lib/actions/calculadora'
 import { updateCalculadoraConfig, saveCalculoHistorial, deleteCalculoHistorial } from '@/lib/actions/calculadora'
-import { Plus, Trash2, Save, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, Save, ChevronDown, ChevronUp, Send, RotateCcw } from 'lucide-react'
 
 const PRINTER_MODELS: { label: string; consumo: number }[] = [
   { label: 'Ender 3 / Pro', consumo: 120 },
@@ -57,6 +58,7 @@ interface Props {
 }
 
 export default function CalculadoraClient({ initialConfig, initialHistorial }: Props) {
+  const router = useRouter()
   const [config, setConfig] = useState<CalculadoraConfig>(initialConfig)
   const [editando, setEditando] = useState(false)
   const [draft, setDraft] = useState<Omit<CalculadoraConfig, 'updated_at'>>(initialConfig)
@@ -89,6 +91,31 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
       setConfig({ ...draft, updated_at: new Date().toISOString() })
       setEditando(false)
     })
+  }
+
+  function handleEnviarAPresupuesto(idx: number) {
+    const p = piezas[idx]
+    const c = calcPieza(p, config)
+    const item = {
+      descripcion: p.nombre.trim() || `Pieza ${idx + 1}`,
+      unidades: 1,
+      precio: Math.round(c.total),
+    }
+    const existing = JSON.parse(localStorage.getItem('presupuesto_importar') ?? '[]')
+    localStorage.setItem('presupuesto_importar', JSON.stringify([...existing, item]))
+    router.push('/admin/presupuesto')
+  }
+
+  function handleRecargarDesdeHistorial(e: HistorialEntry) {
+    setPiezas((prev) => [...prev, {
+      nombre: e.nombre_pieza,
+      horas: String(e.horas),
+      minutos: String(e.minutos),
+      gramos: String(e.gramos),
+      insumos: String(e.insumos),
+      multiplicador: String(e.multiplicador),
+    }])
+    setShowHistorial(false)
   }
 
   async function handleGuardarHistorial(idx: number) {
@@ -201,6 +228,13 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
                     className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors">
                     <Save size={13} />
                   </button>
+                  <button
+                    onClick={() => handleEnviarAPresupuesto(idx)}
+                    title="Enviar al presupuesto"
+                    className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
+                  >
+                    <Send size={11} /> Presupuesto
+                  </button>
                   {piezas.length > 1 && (
                     <button onClick={() => removePieza(idx)}
                       className="p-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors">
@@ -306,32 +340,58 @@ export default function CalculadoraClient({ initialConfig, initialHistorial }: P
                       <th className="text-right px-4 py-3">Horas</th>
                       <th className="text-right px-4 py-3">Gramos</th>
                       <th className="text-right px-4 py-3">×</th>
-                      <th className="text-right px-4 py-3">Total</th>
+                      <th className="text-right px-4 py-3">Guardado</th>
+                      <th className="text-right px-4 py-3">Precio actual</th>
                       <th className="text-right px-4 py-3">ML</th>
                       <th className="text-right px-4 py-3">Fecha</th>
                       <th className="px-2 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {historial.map((e) => (
-                      <tr key={e.id} className="hover:bg-secondary/10">
-                        <td className="px-4 py-2.5 font-medium">{e.nombre_pieza || '—'}</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">{e.horas}h {e.minutos}m</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">{e.gramos}g</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">{e.multiplicador}×</td>
-                        <td className="px-4 py-2.5 text-right font-semibold">$ {fmtARS(e.resultado_total)}</td>
-                        <td className="px-4 py-2.5 text-right text-yellow-500 dark:text-yellow-300">$ {fmtARS(e.resultado_ml)}</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
-                          {new Date(e.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                        </td>
-                        <td className="px-2 py-2.5">
-                          <button onClick={() => handleDeleteHistorial(e.id)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 size={12} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {historial.map((e) => {
+                      const precioActual = calcPieza({
+                        nombre: e.nombre_pieza,
+                        horas: String(e.horas),
+                        minutos: String(e.minutos),
+                        gramos: String(e.gramos),
+                        insumos: String(e.insumos),
+                        multiplicador: String(e.multiplicador),
+                      }, config).total
+                      const delta = e.resultado_total > 0 ? Math.round((precioActual - e.resultado_total) / e.resultado_total * 100) : 0
+                      return (
+                        <tr key={e.id} className="hover:bg-secondary/10">
+                          <td className="px-4 py-2.5 font-medium">{e.nombre_pieza || '—'}</td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">{e.horas}h {e.minutos}m</td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">{e.gramos}g</td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">{e.multiplicador}×</td>
+                          <td className="px-4 py-2.5 text-right font-semibold">$ {fmtARS(e.resultado_total)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            <span className="font-semibold">$ {fmtARS(precioActual)}</span>
+                            {delta !== 0 && (
+                              <span className={`ml-1.5 text-xs font-semibold ${delta > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                {delta > 0 ? `+${delta}%` : `${delta}%`}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-yellow-500 dark:text-yellow-300">$ {fmtARS(e.resultado_ml)}</td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
+                            {new Date(e.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleRecargarDesdeHistorial(e)} title="Cargar en calculadora"
+                                className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+                                <RotateCcw size={12} />
+                              </button>
+                              <button onClick={() => handleDeleteHistorial(e.id)}
+                                className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
