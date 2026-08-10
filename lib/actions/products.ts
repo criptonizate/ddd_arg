@@ -255,3 +255,32 @@ export async function deleteProductImage(imageId: string, url: string, productId
   revalidatePath(`/admin/productos/${productId}`)
   return { success: true }
 }
+
+export interface VentaProducto {
+  nombre_producto: string
+  nombre_variante: string | null
+  cantidad: number
+  precio_unitario: number
+  created_at: string
+  cliente_nombre: string
+  order_id: string
+}
+
+export async function getHistorialVentasProductos(): Promise<VentaProducto[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('order_items')
+    .select('nombre_producto, nombre_variante, cantidad, precio_unitario, orders!inner(id, created_at, cliente_nombre, estado)')
+    .not('orders.estado', 'eq', 'cancelada')
+    .order('nombre_producto', { ascending: true })
+  if (!data) return []
+  return data.map((row: any) => ({
+    nombre_producto: row.nombre_producto,
+    nombre_variante: row.nombre_variante ?? null,
+    cantidad: row.cantidad,
+    precio_unitario: row.precio_unitario,
+    created_at: row.orders.created_at,
+    cliente_nombre: row.orders.cliente_nombre,
+    order_id: row.orders.id,
+  }))
+}
