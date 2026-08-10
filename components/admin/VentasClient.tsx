@@ -8,6 +8,7 @@ import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
 import { updateOrderSena } from '@/lib/actions/orders'
 import OrderNotaInternaInput from './OrderNotaInternaInput'
+import FechaEntregaInput from './FechaEntregaInput'
 import EditOrderItemsButton from './EditOrderItemsButton'
 import OrderEventLog from './OrderEventLog'
 import OrderItemCheck from './OrderItemCheck'
@@ -183,11 +184,18 @@ export default function VentasClient({
   }, [tab, orders, expandedMonths])
 
   // Grupos para la tab activas
+  function byFechaEntrega(a: Order, b: Order) {
+    if (!a.fecha_entrega && !b.fecha_entrega) return 0
+    if (!a.fecha_entrega) return 1
+    if (!b.fecha_entrega) return -1
+    return a.fecha_entrega.localeCompare(b.fecha_entrega)
+  }
+
   const grupos = useMemo(() => ({
-    imprimiendo: orders.filter((o) => o.estado === 'imprimiendo'),
-    listo: orders.filter((o) => o.estado === 'listo'),
-    confirmada: orders.filter((o) => o.estado === 'confirmada'),
-    pendiente: orders.filter((o) => o.estado === 'pendiente'),
+    imprimiendo: orders.filter((o) => o.estado === 'imprimiendo').sort(byFechaEntrega),
+    listo: orders.filter((o) => o.estado === 'listo').sort(byFechaEntrega),
+    confirmada: orders.filter((o) => o.estado === 'confirmada').sort(byFechaEntrega),
+    pendiente: orders.filter((o) => o.estado === 'pendiente').sort(byFechaEntrega),
   }), [orders])
 
   const hayActivas = tab === 'activas' && (
@@ -662,6 +670,8 @@ function FullCard({ order }: { order: Order }) {
 
       {order.nota && <p className="text-xs text-muted-foreground italic">📝 {order.nota}</p>}
 
+      <FechaEntregaInput orderId={order.id} fechaEntrega={order.fecha_entrega ?? null} />
+
       {/* Total + Seña + Acciones */}
       <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-1.5">
@@ -670,6 +680,18 @@ function FullCard({ order }: { order: Order }) {
               <span className="text-xs text-muted-foreground">Total:</span>
               <span className="text-base font-bold">{formatARS(order.total)}</span>
             </div>
+            {(order.sena ?? 0) > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span>Seña: <span className="font-medium text-foreground">{formatARS(order.sena ?? 0)}</span></span>
+                {order.total - (order.sena ?? 0) > 0 && (
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">
+                    · Pendiente: {formatARS(order.total - (order.sena ?? 0))}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
             <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
           </div>
           <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
@@ -715,6 +737,16 @@ function ActiveCard({
           {order.nota && (
             <span className="text-xs text-muted-foreground italic truncate hidden sm:block">— {order.nota}</span>
           )}
+          {(() => {
+            const pend = order.total - (order.sena ?? 0)
+            if (pend > 0) return (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 shrink-0 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800">
+                Debe {formatARS(pend)}
+              </span>
+            )
+            if (order.total > 0) return <span className="text-xs font-medium text-green-600 shrink-0">✓ Pagado</span>
+            return null
+          })()}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {items.length > 0 && (
@@ -772,6 +804,8 @@ function ActiveCard({
             <p className="text-xs text-muted-foreground">📦 {order.direccion_envio}</p>
           )}
 
+          <FechaEntregaInput orderId={order.id} fechaEntrega={order.fecha_entrega ?? null} />
+
           <div className="border-t border-border pt-3 flex items-end justify-between gap-3 flex-wrap">
             <div className="space-y-1.5">
               <div className="flex items-center gap-3 flex-wrap">
@@ -779,8 +813,18 @@ function ActiveCard({
                   <span className="text-xs text-muted-foreground">Total:</span>
                   <span className="font-bold">{formatARS(order.total)}</span>
                 </div>
-                <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
+                {(order.sena ?? 0) > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>Seña: <span className="font-medium text-foreground">{formatARS(order.sena ?? 0)}</span></span>
+                    {order.total - (order.sena ?? 0) > 0 && (
+                      <span className="font-semibold text-orange-600 dark:text-orange-400">
+                        · Pendiente: {formatARS(order.total - (order.sena ?? 0))}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+              <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
               <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
             </div>
             <OrderActions orderId={order.id} estado={order.estado} />
