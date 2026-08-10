@@ -111,6 +111,7 @@ export async function updateOrderFechaEntrega(orderId: string, fecha: string | n
   if (error) return { error: error.message }
   revalidatePath('/admin/pedidos')
   revalidatePath('/admin/ventas')
+  revalidatePath('/admin/agenda')
   return { success: true }
 }
 
