@@ -9,7 +9,7 @@ const MATERIALES = ['PLA', 'PETG', 'TPU (flexible)', 'No sé / que me recomiende
 export default function ContactoWhatsapp() {
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [material, setMaterial] = useState('')
+  const [material, setMaterial] = useState('PLA')
   const [cantidad, setCantidad] = useState('1')
 
   function handleEnviar() {
@@ -63,7 +63,6 @@ export default function ContactoWhatsapp() {
                 onChange={(e) => setMaterial(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Sin preferencia</option>
                 {MATERIALES.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
