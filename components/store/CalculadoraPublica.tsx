@@ -122,12 +122,10 @@ export default function CalculadoraPublica({ config }: { config: CalculadoraConf
               <div className="bg-card border border-border rounded-xl p-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">Precio mayorista</p>
                 <p className="text-2xl font-bold">{fmtARS(resultado.x3)}</p>
-                <p className="text-xs text-muted-foreground mt-1 opacity-70">× 3</p>
               </div>
               <div className="bg-foreground text-primary-foreground rounded-xl p-4 text-center">
                 <p className="text-xs opacity-70 mb-1">Precio minorista</p>
                 <p className="text-2xl font-bold">{fmtARS(resultado.x4)}</p>
-                <p className="text-xs opacity-70 mt-1">× 4</p>
               </div>
             </div>
 
