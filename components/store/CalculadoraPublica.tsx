@@ -8,13 +8,19 @@ function fmtARS(v: number) {
   return v.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
 }
 
+function multMinorista(gramos: number): number {
+  if (gramos <= 50) return 4
+  if (gramos <= 200) return 3.5
+  return 3.2
+}
+
 function calcular(gramos: number, horas: number, config: CalculadoraConfig) {
   const material = (gramos / 1000) * config.precio_filamento_kg
   const luz = horas * (config.consumo_w / 1000) * config.precio_kwh
   const desgaste = config.vida_util_horas > 0 ? (horas / config.vida_util_horas) * config.costo_repuestos : 0
   const margen = (material + luz + desgaste) * (config.margen_error_pct / 100)
   const costoBase = material + luz + desgaste + margen
-  return { costoBase, x3: costoBase * 3, x4: costoBase * 4 }
+  return { costoBase, x3: costoBase * 3, x4: costoBase * multMinorista(gramos) }
 }
 
 export default function CalculadoraPublica({ config }: { config: CalculadoraConfig }) {
