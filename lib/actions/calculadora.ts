@@ -92,3 +92,35 @@ export async function updateCalculadoraConfig(
   revalidatePath('/admin/calculadora')
   return { ok: true }
 }
+
+export interface LogPublicoEntry {
+  id: string
+  created_at: string
+  gramos: number
+  horas: number
+  costo_base: number
+  precio_x3: number
+  precio_x4: number
+}
+
+export async function logCalculadoraPublica(entry: {
+  gramos: number
+  horas: number
+  costo_base: number
+  precio_x3: number
+  precio_x4: number
+}): Promise<void> {
+  const supabase = createServiceClient()
+  await supabase.from('calculadora_publica_log').insert(entry)
+}
+
+export async function getLogCalculadoraPublica(): Promise<LogPublicoEntry[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('calculadora_publica_log')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200)
+  return (data ?? []) as LogPublicoEntry[]
+}
