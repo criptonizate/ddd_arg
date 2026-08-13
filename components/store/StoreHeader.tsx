@@ -20,7 +20,7 @@ export default function StoreHeader() {
             href="/catalogo"
             className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
-            CatÃ¡logo
+            Catálogo
           </Link>
           <Link
             href="/auth/login"

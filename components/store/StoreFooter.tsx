@@ -17,7 +17,7 @@ export default function StoreFooter() {
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <Image src="/LogoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-7 w-auto" />
-          <span>â€” ImpresiÃ³n 3D en Argentina</span>
+          <span>— Impresión 3D en Argentina</span>
         </div>
         <div className="flex items-center gap-4">
           <a
@@ -30,7 +30,7 @@ export default function StoreFooter() {
             @DDD_ARG
           </a>
           <Link href="/catalogo" className="hover:text-foreground transition-colors">
-            CatÃ¡logo
+            Catálogo
           </Link>
         </div>
       </div>
