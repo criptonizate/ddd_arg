@@ -105,6 +105,15 @@ export default function OrderActions({ orderId, estado }: Props) {
             <Boxes size={12} /> Listo
           </button>
         )}
+        {estado === 'listo' && (
+          <button
+            onClick={handleImprimiendo}
+            disabled={isPending}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 disabled:opacity-50 transition-colors"
+          >
+            <Printer size={12} /> Reimprimir
+          </button>
+        )}
         {(estado === 'confirmada' || estado === 'imprimiendo' || estado === 'listo') && (
           <button
             onClick={handleDeliver}
