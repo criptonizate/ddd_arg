@@ -39,6 +39,7 @@ interface Order {
     cantidad: number
     precio_unitario: number
     impreso?: boolean
+    cantidad_impresa?: number
   }[]
 }
 
@@ -660,7 +661,7 @@ function FullCard({ order }: { order: Order }) {
                 <span className="text-muted-foreground"> × {item.cantidad}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <OrderItemCheck itemId={item.id} impreso={item.impreso ?? false} />
+                <OrderItemCheck itemId={item.id} impreso={item.impreso ?? false} cantidad={item.cantidad} cantidadImpresa={item.cantidad_impresa ?? 0} />
                 <span className="text-sm font-semibold">{formatARS(item.precio_unitario * item.cantidad)}</span>
               </div>
             </div>

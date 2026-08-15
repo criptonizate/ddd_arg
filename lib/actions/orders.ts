@@ -94,6 +94,19 @@ export async function toggleOrderItemImpreso(itemId: string, impreso: boolean) {
   return { success: true }
 }
 
+export async function updateOrderItemCantidadImpresa(itemId: string, cantidad_impresa: number, cantidad_total: number) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const impreso = cantidad_impresa >= cantidad_total
+  const { error } = await supabase
+    .from('order_items')
+    .update({ cantidad_impresa, impreso })
+    .eq('id', itemId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
 export async function updateOrderNotaInterna(orderId: string, nota: string | null) {
   await getAdminUser()
   const supabase = createServiceClient()
