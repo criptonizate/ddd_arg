@@ -246,15 +246,16 @@ export default function ManualSaleButton() {
   const total = cart.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
   const selectedProduct = products.find((p) => p.id === selProductId)
 
-  function handleSubmit() {
+  function handleSubmit(overrides?: { esLocal?: boolean; sena?: number }) {
     setError(null)
     if (!form.cliente_nombre.trim()) { setError('El nombre del cliente es obligatorio'); return }
     if (cart.length === 0) { setError('Agregá al menos un producto'); return }
     startTransition(async () => {
       const res = await createManualSale({
         ...form,
+        ...overrides,
         metodo_pago: form.metodo_pago as any,
-        sena: form.sena,
+        sena: overrides?.sena ?? form.sena,
         prioridad: form.prioridad,
         items: cart.map((i) => ({
           product_id: i.product_id || '',
@@ -599,7 +600,7 @@ export default function ManualSaleButton() {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-border sticky bottom-0 bg-card">
+            <div className="flex justify-end gap-2 p-4 sm:p-6 border-t border-border sticky bottom-0 bg-card flex-wrap">
               <button
                 onClick={closeModal}
                 className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
@@ -607,7 +608,14 @@ export default function ManualSaleButton() {
                 Cancelar
               </button>
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit({ esLocal: true, sena: total })}
+                disabled={isPending || cart.length === 0}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-60 transition-colors"
+              >
+                {isPending ? '...' : `✓ Pagado — ${formatARS(total)}`}
+              </button>
+              <button
+                onClick={() => handleSubmit()}
                 disabled={isPending || cart.length === 0}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 disabled:opacity-60 transition-colors"
               >
