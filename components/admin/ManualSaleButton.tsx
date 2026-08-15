@@ -8,6 +8,7 @@ import { useToast } from './ToastProvider'
 import { formatARS } from '@/lib/utils'
 import { Plus, X, Trash2, Loader2, Minus, Percent } from 'lucide-react'
 import type { ProductWithVariants } from '@/lib/supabase/types'
+import { getProductosSugeridos, type ProductoSugerido } from '@/lib/actions/products'
 
 // ── Autocomplete de clientes ───────────────────────────────────────────────────
 
@@ -159,14 +160,18 @@ export default function ManualSaleButton() {
   const [selProductId, setSelProductId] = useState('')
   const [selVariantId, setSelVariantId] = useState('')
   const [selCantidad, setSelCantidad] = useState(1)
-  const [modoLibre, setModoLibre] = useState(false)
+  const [modoLibre, setModoLibre] = useState(true)
   const [itemLibre, setItemLibre] = useState({ nombre: '', variante: '', precio: '' })
+  const [sugeridos, setSugeridos] = useState<ProductoSugerido[]>([])
+  const [showSugeridos, setShowSugeridos] = useState(false)
+  const [cantidadStr, setCantidadStr] = useState('1')
 
   async function openModal() {
     setLoading(true)
-    const [prods, clients] = await Promise.all([getActiveProducts(), getClienteNames()])
+    const [prods, clients, sug] = await Promise.all([getActiveProducts(), getClienteNames(), getProductosSugeridos()])
     setProducts(prods as ProductWithVariants[])
     setPastClients(clients)
+    setSugeridos(sug)
     setLoading(false)
     setOpen(true)
   }
@@ -179,8 +184,10 @@ export default function ManualSaleButton() {
     setSelProductId('')
     setSelVariantId('')
     setSelCantidad(1)
-    setModoLibre(false)
+    setModoLibre(true)
     setItemLibre({ nombre: '', variante: '', precio: '' })
+    setCantidadStr('1')
+    setShowSugeridos(false)
   }
 
   function handleClienteSelect(nombre: string, telefono: string) {
@@ -474,15 +481,51 @@ export default function ManualSaleButton() {
                 ) : (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
+                      {/* Nombre con autocomplete */}
+                      <div className="relative">
                         <label className="text-xs font-medium mb-1 block">Nombre</label>
                         <input
                           value={itemLibre.nombre}
-                          onChange={(e) => setItemLibre((l) => ({ ...l, nombre: e.target.value }))}
+                          onChange={(e) => {
+                            setItemLibre((l) => ({ ...l, nombre: e.target.value }))
+                            setShowSugeridos(true)
+                          }}
+                          onFocus={() => setShowSugeridos(true)}
+                          onBlur={() => setTimeout(() => setShowSugeridos(false), 150)}
                           placeholder="Ej: Llavero personalizado"
                           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                           onKeyDown={(e) => e.key === 'Enter' && addItemLibre()}
+                          autoComplete="off"
                         />
+                        {showSugeridos && (() => {
+                          const q = itemLibre.nombre.toLowerCase()
+                          const matches = sugeridos
+                            .filter((s) => !q || s.nombre.toLowerCase().includes(q))
+                            .slice(0, 7)
+                          if (!matches.length) return null
+                          return (
+                            <div className="absolute top-full left-0 right-0 z-[60] mt-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                              {matches.map((s, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    setItemLibre({ nombre: s.nombre, variante: s.variante ?? '', precio: String(s.ultimo_precio) })
+                                    setShowSugeridos(false)
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 hover:bg-secondary transition-colors"
+                                >
+                                  <div className="min-w-0">
+                                    <span className="font-medium">{s.nombre}</span>
+                                    {s.variante && <span className="text-muted-foreground text-xs ml-1">— {s.variante}</span>}
+                                  </div>
+                                  <span className="text-xs text-muted-foreground shrink-0">{formatARS(s.ultimo_precio)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )
+                        })()}
                       </div>
                       <div>
                         <label className="text-xs font-medium mb-1 block">Variante <span className="text-muted-foreground font-normal">(opc.)</span></label>
@@ -509,7 +552,30 @@ export default function ManualSaleButton() {
                     <div className="flex items-end gap-3 flex-wrap">
                       <div>
                         <label className="text-xs font-medium mb-1.5 block">Cantidad</label>
-                        <CantidadSelector value={selCantidad} onChange={setSelCantidad} />
+                        <div className="flex items-center gap-1.5">
+                          {[1, 2, 3].map((n) => (
+                            <button key={n} type="button" onClick={() => { setSelCantidad(n); setCantidadStr(String(n)) }}
+                              className={`w-9 h-9 rounded-lg text-sm font-bold border transition-colors ${selCantidad === n ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'}`}>
+                              {n}
+                            </button>
+                          ))}
+                          <input
+                            type="number" min="1"
+                            value={cantidadStr}
+                            onChange={(e) => {
+                              setCantidadStr(e.target.value)
+                              const n = parseInt(e.target.value)
+                              if (!isNaN(n) && n >= 1) setSelCantidad(n)
+                            }}
+                            onBlur={() => {
+                              const n = parseInt(cantidadStr)
+                              const v = isNaN(n) || n < 1 ? 1 : n
+                              setSelCantidad(v)
+                              setCantidadStr(String(v))
+                            }}
+                            className="w-14 h-9 border border-input rounded-lg px-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center font-semibold"
+                          />
+                        </div>
                       </div>
                       <button
                         onClick={addItemLibre}

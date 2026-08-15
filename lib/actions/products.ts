@@ -284,3 +284,31 @@ export async function getHistorialVentasProductos(): Promise<VentaProducto[]> {
     order_id: row.orders.id,
   }))
 }
+
+export interface ProductoSugerido {
+  nombre: string
+  variante: string | null
+  ultimo_precio: number
+}
+
+export async function getProductosSugeridos(): Promise<ProductoSugerido[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('order_items')
+    .select('nombre_producto, nombre_variante, precio_unitario, orders!inner(estado)')
+    .not('orders.estado', 'eq', 'cancelada')
+    .order('nombre_producto', { ascending: true })
+  if (!data) return []
+
+  // Deduplicar: para cada nombre_producto+variante, quedarse con el último precio
+  const map = new Map<string, ProductoSugerido>()
+  for (const row of data as any[]) {
+    const key = `${row.nombre_producto}||${row.nombre_variante ?? ''}`
+    map.set(key, {
+      nombre: row.nombre_producto,
+      variante: row.nombre_variante ?? null,
+      ultimo_precio: row.precio_unitario,
+    })
+  }
+  return Array.from(map.values())
+}
