@@ -371,3 +371,49 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
 
   return { orderId: order.id }
 }
+
+export async function updateOrderCostoEstimado(orderId: string, costo: number | null) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ costo_estimado: costo }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export interface ColaItem {
+  order_id: string
+  order_item_id: string
+  cliente_nombre: string
+  fecha_entrega: string | null
+  estado: string
+  nombre_producto: string
+  nombre_variante: string | null
+  cantidad: number
+  cantidad_impresa: number
+  impreso: boolean
+}
+
+export async function getColaImpresion(): Promise<ColaItem[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('order_items')
+    .select('id, nombre_producto, nombre_variante, cantidad, cantidad_impresa, impreso, orders!inner(id, cliente_nombre, fecha_entrega, estado)')
+    .in('orders.estado', ['confirmada', 'imprimiendo'])
+    .eq('impreso', false)
+    .order('nombre_producto', { ascending: true })
+  if (!data) return []
+  return (data as any[]).map((row) => ({
+    order_id: row.orders.id,
+    order_item_id: row.id,
+    cliente_nombre: row.orders.cliente_nombre,
+    fecha_entrega: row.orders.fecha_entrega ?? null,
+    estado: row.orders.estado,
+    nombre_producto: row.nombre_producto,
+    nombre_variante: row.nombre_variante ?? null,
+    cantidad: row.cantidad,
+    cantidad_impresa: row.cantidad_impresa ?? 0,
+    impreso: row.impreso,
+  }))
+}

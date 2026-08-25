@@ -1,9 +1,10 @@
-import { getBalance } from '@/lib/actions/finance'
+import { getBalance, getDeudoresConAntiguedad } from '@/lib/actions/finance'
 import { formatARS, formatDate, EGRESO_CATEGORIA_LABELS } from '@/lib/utils'
 import EgresoForm from '@/components/admin/EgresoForm'
 import ExportCSVButton from '@/components/admin/ExportCSVButton'
 import DeleteTransactionButton from '@/components/admin/DeleteTransactionButton'
 import FinanzasChart from '@/components/admin/FinanzasChart'
+import DeudoresTable from '@/components/admin/DeudoresTable'
 import type { Transaction } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Finanzas' }
@@ -14,7 +15,10 @@ export default async function FinanzasPage({
   searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
   const { desde, hasta } = await searchParams
-  const { ingresos, egresos, balance, transactions, chartData } = await getBalance(desde, hasta)
+  const [{ ingresos, egresos, balance, transactions, chartData }, deudores] = await Promise.all([
+    getBalance(desde, hasta),
+    getDeudoresConAntiguedad(),
+  ])
 
   return (
     <div className="space-y-8">
@@ -82,6 +86,12 @@ export default async function FinanzasPage({
 
       {/* Gráfico ingresos vs egresos */}
       <FinanzasChart chartData={chartData} />
+
+      {/* Deudores con antigüedad */}
+      <div>
+        <h2 className="text-base font-semibold mb-3">⏳ Deudores pendientes</h2>
+        <DeudoresTable deudores={deudores} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Formulario egreso */}

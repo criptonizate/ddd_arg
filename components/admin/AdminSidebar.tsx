@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/admin/filamentos', label: '🧵 Filamentos' },
   { href: '/admin/agenda', label: '📅 Agenda' },
   { href: '/admin/productos', label: '🛍️ Productos' },
+  { href: '/admin/produccion', label: '🏭 Producción' },
 ]
 
 export default function AdminSidebar({

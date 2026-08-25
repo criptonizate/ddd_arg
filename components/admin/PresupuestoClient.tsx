@@ -108,6 +108,23 @@ export default function PresupuestoClient() {
   // Importar desde calculadora (via localStorage)
   useEffect(() => {
     try {
+      // Importar desde pedido (incluye cliente + items)
+      const rawPedido = localStorage.getItem('presupuesto_importar_pedido')
+      if (rawPedido) {
+        const payload: { cliente: { nombre: string; telefono: string }; items: { descripcion: string; unidades: number; precio: number }[] } = JSON.parse(rawPedido)
+        if (payload.cliente) {
+          setCliente((prev) => ({ ...prev, nombre: payload.cliente.nombre, telefono: payload.cliente.telefono }))
+          setClienteSearch(payload.cliente.nombre)
+        }
+        if (payload.items?.length > 0) {
+          const nuevos: Item[] = payload.items.map((i) => ({ descripcion: i.descripcion, unidades: i.unidades as number | '', precio: i.precio as number | '' }))
+          setItems([...nuevos, { descripcion: '', unidades: '' as const, precio: '' as const }])
+        }
+        localStorage.removeItem('presupuesto_importar_pedido')
+        return
+      }
+
+      // Importar desde calculadora (solo items)
       const raw = localStorage.getItem('presupuesto_importar')
       if (raw) {
         const importados: { descripcion: string; unidades: number; precio: number }[] = JSON.parse(raw)

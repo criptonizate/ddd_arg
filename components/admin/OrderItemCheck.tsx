@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { toggleOrderItemImpreso, updateOrderItemCantidadImpresa } from '@/lib/actions/orders'
 import { useToast } from './ToastProvider'
 import { Minus, Plus } from 'lucide-react'
@@ -40,13 +40,54 @@ export default function OrderItemCheck({
     )
   }
 
-  // Caso múltiple: contador + / -
-  function cambiar(delta: number) {
-    const nuevo = Math.max(0, Math.min(cantidad, cantidadImpresa + delta))
+  return <MultiCounter itemId={itemId} cantidad={cantidad} cantidadImpresa={cantidadImpresa} isPending={isPending} startTransition={startTransition} toast={toast} />
+}
+
+function MultiCounter({
+  itemId,
+  cantidad,
+  cantidadImpresa,
+  isPending,
+  startTransition,
+  toast,
+}: {
+  itemId: string
+  cantidad: number
+  cantidadImpresa: number
+  isPending: boolean
+  startTransition: (fn: () => void) => void
+  toast: (msg: string, type?: 'error' | 'success' | 'info') => void
+}) {
+  const [inputVal, setInputVal] = useState('')
+  const [editando, setEditando] = useState(false)
+
+  function guardar(valor: number) {
+    const nuevo = Math.max(0, Math.min(cantidad, valor))
     startTransition(async () => {
       const res = await updateOrderItemCantidadImpresa(itemId, nuevo, cantidad)
       if (res?.error) toast(res.error, 'error')
     })
+  }
+
+  function cambiar(delta: number) {
+    guardar(cantidadImpresa + delta)
+  }
+
+  function handleInputBlur() {
+    setEditando(false)
+    const n = parseInt(inputVal)
+    if (!isNaN(n)) guardar(n)
+    setInputVal('')
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
+    }
+    if (e.key === 'Escape') {
+      setEditando(false)
+      setInputVal('')
+    }
   }
 
   const completo = cantidadImpresa >= cantidad
@@ -61,9 +102,28 @@ export default function OrderItemCheck({
         <Minus size={10} />
       </button>
 
-      <span className={`text-xs font-bold w-10 text-center tabular-nums ${completo ? 'text-green-600' : cantidadImpresa > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'}`}>
-        {cantidadImpresa}/{cantidad}
-      </span>
+      {editando ? (
+        <input
+          type="number"
+          min={0}
+          max={cantidad}
+          autoFocus
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          disabled={isPending}
+          className="w-14 text-xs font-bold text-center tabular-nums border border-ring rounded px-1 py-0.5 bg-background focus:outline-none"
+        />
+      ) : (
+        <button
+          onClick={() => { setEditando(true); setInputVal(String(cantidadImpresa)) }}
+          title="Hacer clic para ingresar cantidad exacta"
+          className={`text-xs font-bold w-10 text-center tabular-nums rounded hover:bg-secondary transition-colors px-0.5 ${completo ? 'text-green-600' : cantidadImpresa > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'}`}
+        >
+          {cantidadImpresa}/{cantidad}
+        </button>
+      )}
 
       <button
         onClick={() => cambiar(+1)}

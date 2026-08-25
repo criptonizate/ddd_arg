@@ -178,3 +178,75 @@ export async function getDashboardStats(params?: { desde?: string; hasta?: strin
     clientesNuevosMes: clientesNuevosMes ?? 0,
   }
 }
+
+export interface DeudorConAntiguedad {
+  id: string
+  cliente_nombre: string
+  cliente_telefono: string | null
+  total: number
+  sena: number
+  pendiente: number
+  created_at: string
+  dias: number
+  estado: string
+}
+
+export async function getDeudoresConAntiguedad(): Promise<DeudorConAntiguedad[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('id, cliente_nombre, cliente_telefono, total, sena, created_at, estado')
+    .not('estado', 'in', '(cancelada,local)')
+    .order('created_at', { ascending: true })
+  if (!data) return []
+
+  const hoy = Date.now()
+  return (data as any[])
+    .filter((o) => Number(o.total) - Number(o.sena ?? 0) > 0)
+    .map((o) => ({
+      id: o.id,
+      cliente_nombre: o.cliente_nombre,
+      cliente_telefono: o.cliente_telefono ?? null,
+      total: Number(o.total),
+      sena: Number(o.sena ?? 0),
+      pendiente: Number(o.total) - Number(o.sena ?? 0),
+      created_at: o.created_at,
+      dias: Math.floor((hoy - new Date(o.created_at).getTime()) / 86400000),
+      estado: o.estado,
+    }))
+    .sort((a, b) => b.dias - a.dias)
+}
+
+export interface CajaSnapshot {
+  valorEnProduccion: number
+  valorListoEntregar: number
+  pendienteCobrar: number
+  cobradoEstimadoMes: number
+  ordenesEnProduccion: number
+  ordenesListas: number
+}
+
+export async function getCajaSnapshot(): Promise<CajaSnapshot> {
+  const supabase = createServiceClient()
+  const hoy = new Date()
+  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0]
+
+  const [{ data: activas }, { data: ordenesMes }] = await Promise.all([
+    supabase.from('orders').select('total, sena, estado').in('estado', ['confirmada', 'imprimiendo', 'listo']),
+    supabase.from('orders').select('sena').gte('created_at', primerDiaMes).not('estado', 'in', '(cancelada)'),
+  ])
+
+  const enProduccion = (activas ?? []).filter((o: any) => o.estado === 'imprimiendo' || o.estado === 'confirmada')
+  const listos = (activas ?? []).filter((o: any) => o.estado === 'listo')
+  const todas = activas ?? []
+
+  return {
+    valorEnProduccion: enProduccion.reduce((s: number, o: any) => s + Number(o.total), 0),
+    valorListoEntregar: listos.reduce((s: number, o: any) => s + Number(o.total), 0),
+    pendienteCobrar: todas.reduce((s: number, o: any) => s + Math.max(0, Number(o.total) - Number(o.sena ?? 0)), 0),
+    cobradoEstimadoMes: (ordenesMes ?? []).reduce((s: number, o: any) => s + Number(o.sena ?? 0), 0),
+    ordenesEnProduccion: enProduccion.length,
+    ordenesListas: listos.length,
+  }
+}

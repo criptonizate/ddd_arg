@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition, useMemo, useEffect } from 'react'
+import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatARS, formatDateTime, formatDate, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
-import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal, FileText } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
 import OrderSenaInput from '@/components/admin/OrderSenaInput'
 import CopyButton from '@/components/admin/CopyButton'
-import { updateOrderSena } from '@/lib/actions/orders'
+import { updateOrderSena, updateOrderCostoEstimado } from '@/lib/actions/orders'
 import OrderNotaInternaInput from './OrderNotaInternaInput'
 import FechaEntregaInput from './FechaEntregaInput'
 import EditOrderItemsButton from './EditOrderItemsButton'
@@ -30,6 +31,7 @@ interface Order {
   total: number
   sena?: number
   nota_interna?: string | null
+  costo_estimado?: number | null
   order_items?: {
     id: string
     products?: { nombre: string }
@@ -569,6 +571,36 @@ function FechaEntregaBadge({ fecha }: { fecha: string }) {
 
 // ── Card: Imprimiendo (expandida con checkboxes) ───────────────────────────────
 
+function GenerarPresupuestoBtn({ order }: { order: Order }) {
+  const router = useRouter()
+  const handleClick = useCallback(() => {
+    const payload = {
+      cliente: {
+        nombre: order.cliente_nombre,
+        telefono: order.cliente_telefono ?? '',
+      },
+      items: (order.order_items ?? []).map((i) => ({
+        descripcion: i.nombre_variante ? `${i.nombre_producto} — ${i.nombre_variante}` : i.nombre_producto,
+        unidades: i.cantidad,
+        precio: i.precio_unitario,
+      })),
+    }
+    localStorage.setItem('presupuesto_importar_pedido', JSON.stringify(payload))
+    router.push('/admin/presupuesto')
+  }, [order, router])
+
+  return (
+    <button
+      onClick={handleClick}
+      title="Generar presupuesto desde este pedido"
+      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+    >
+      <FileText size={12} />
+      Presupuesto
+    </button>
+  )
+}
+
 function FullCard({ order }: { order: Order }) {
   const items = order.order_items ?? []
   const impresos = items.filter((i) => i.impreso).length
@@ -696,8 +728,12 @@ function FullCard({ order }: { order: Order }) {
             <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
           </div>
           <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
+          <CostoEstimadoInput orderId={order.id} total={order.total} costoEstimado={order.costo_estimado ?? null} />
         </div>
-        <OrderActions orderId={order.id} estado={order.estado} />
+        <div className="flex flex-col items-end gap-2">
+          <OrderActions orderId={order.id} estado={order.estado} />
+          <GenerarPresupuestoBtn order={order} />
+        </div>
       </div>
       <OrderEventLog orderId={order.id} />
     </div>
@@ -827,8 +863,12 @@ function ActiveCard({
               </div>
               <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
               <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
+              <CostoEstimadoInput orderId={order.id} total={order.total} costoEstimado={order.costo_estimado ?? null} />
             </div>
-            <OrderActions orderId={order.id} estado={order.estado} />
+            <div className="flex flex-col items-end gap-2">
+              <OrderActions orderId={order.id} estado={order.estado} />
+              <GenerarPresupuestoBtn order={order} />
+            </div>
           </div>
         </div>
       )}
@@ -969,6 +1009,7 @@ function CollapsibleCard({
               </div>
               <OrderSenaInput orderId={order.id} sena={order.sena ?? 0} total={order.total} />
               <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
+              <CostoEstimadoInput orderId={order.id} total={order.total} costoEstimado={order.costo_estimado ?? null} />
             </div>
             {order.cliente_telefono && (
               <div className="flex items-center gap-1">
@@ -981,6 +1022,64 @@ function CollapsibleCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Costo estimado + rentabilidad ──────────────────────────────────────────────
+
+function CostoEstimadoInput({
+  orderId,
+  total,
+  costoEstimado,
+}: {
+  orderId: string
+  total: number
+  costoEstimado: number | null
+}) {
+  const [val, setVal] = useState(costoEstimado !== null ? String(costoEstimado) : '')
+  const [saving, setSaving] = useState(false)
+  const [, startTransition] = useTransition()
+
+  const costo = parseFloat(val)
+  const ganancia = total - costo
+  const margen = total > 0 ? (ganancia / total) * 100 : 0
+
+  function handleBlur() {
+    const num = parseFloat(val)
+    const nuevo = isNaN(num) ? null : num
+    if (nuevo === costoEstimado) return
+    setSaving(true)
+    startTransition(async () => {
+      await updateOrderCostoEstimado(orderId, nuevo)
+      setSaving(false)
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-muted-foreground shrink-0">Costo est.:</label>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={handleBlur}
+            disabled={saving}
+            placeholder="—"
+            className="w-24 text-xs border border-input rounded px-1.5 py-0.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          />
+        </div>
+        {!isNaN(costo) && costo > 0 && (
+          <span className={`text-xs font-medium ${margen >= 50 ? 'text-green-600' : margen >= 30 ? 'text-yellow-600' : 'text-red-600'}`}>
+            Margen {margen.toFixed(0)}% · Ganancia {formatARS(ganancia)}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

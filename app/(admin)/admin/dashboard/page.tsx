@@ -1,4 +1,4 @@
-import { getDashboardStats } from '@/lib/actions/finance'
+import { getDashboardStats, getCajaSnapshot } from '@/lib/actions/finance'
 import { formatARS } from '@/lib/utils'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import StockAlerts from '@/components/admin/StockAlerts'
@@ -42,7 +42,10 @@ export default async function DashboardPage({
 }) {
   const { periodo, desde, hasta } = await searchParams
   const range = getPeriodo(periodo, desde, hasta)
-  const stats = await getDashboardStats({ desde: range.desde, hasta: range.hasta })
+  const [stats, caja] = await Promise.all([
+    getDashboardStats({ desde: range.desde, hasta: range.hasta }),
+    getCajaSnapshot(),
+  ])
   const activePeriodo = periodo ?? 'mes'
 
   const kpis = [
@@ -162,6 +165,25 @@ export default async function DashboardPage({
           <StockAlerts variants={stats.stockBajo} />
         </div>
       )}
+
+      {/* Snapshot de caja */}
+      <div>
+        <h2 className="text-base font-semibold mb-3">💼 Estado de caja actual</h2>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          {[
+            { label: 'En producción', value: caja.valorEnProduccion, sub: `${caja.ordenesEnProduccion} pedido${caja.ordenesEnProduccion !== 1 ? 's' : ''}`, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800' },
+            { label: 'Listo p/ entregar', value: caja.valorListoEntregar, sub: `${caja.ordenesListas} pedido${caja.ordenesListas !== 1 ? 's' : ''}`, color: 'text-green-600', bg: 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' },
+            { label: 'Pendiente de cobro', value: caja.pendienteCobrar, sub: 'aún no cobrado', color: caja.pendienteCobrar > 0 ? 'text-orange-600' : 'text-muted-foreground', bg: caja.pendienteCobrar > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800' : 'bg-card border-border' },
+            { label: 'Cobrado este mes', value: caja.cobradoEstimadoMes, sub: 'señas + pagos', color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800' },
+          ].map((tile) => (
+            <div key={tile.label} className={`border rounded-xl p-4 ${tile.bg}`}>
+              <p className="text-xs text-muted-foreground">{tile.label}</p>
+              <p className={`text-xl font-bold mt-1 ${tile.color}`}>{formatARS(tile.value)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{tile.sub}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Gráfico ingresos */}
       <DashboardCharts ventasPorDia={stats.ventasPorDia} />
