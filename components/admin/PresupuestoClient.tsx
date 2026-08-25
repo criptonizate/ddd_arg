@@ -105,6 +105,10 @@ export default function PresupuestoClient() {
   // Condiciones de pago
   const [condicionesPago, setCondicionesPago] = useState('30% adelanto, saldo contra entrega')
 
+  // Consignación
+  const [esConsignacion, setEsConsignacion] = useState(false)
+  const [diasDevolucion, setDiasDevolucion] = useState(15)
+
   // Importar desde calculadora (via localStorage)
   useEffect(() => {
     try {
@@ -534,6 +538,40 @@ export default function PresupuestoClient() {
                 className={INPUT_CLASS}
               />
             </div>
+
+            {/* Consignación */}
+            <div>
+              <label className="text-xs font-medium block mb-2">Modalidad</label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setEsConsignacion((v) => !v)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${esConsignacion ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+                >
+                  <span className={`w-3 h-3 rounded-full border-2 transition-colors ${esConsignacion ? 'bg-amber-500 border-amber-500' : 'border-muted-foreground'}`} />
+                  Consignación
+                </button>
+                {esConsignacion && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Plazo devolución:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={diasDevolucion}
+                      onChange={(e) => setDiasDevolucion(Math.max(1, parseInt(e.target.value) || 15))}
+                      className="w-16 border border-input rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">días desde la entrega</span>
+                  </div>
+                )}
+              </div>
+              {esConsignacion && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
+                  Los productos se entregan en consignación. El cliente tiene {diasDevolucion} días desde la fecha de entrega para devolver lo no vendido o abonar el total.
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -815,20 +853,54 @@ export default function PresupuestoClient() {
                 </td>
               </tr>
             )}
+            {/* Consignación */}
+            {esConsignacion && (
+              <tr>
+                <td colSpan={4} style={{ padding: '6px 12px', border: '1px solid #ccc', fontSize: '11px', color: '#7a5800', background: '#fffbea' }}>
+                  <strong>Modalidad: CONSIGNACIÓN</strong> — Los productos se entregan en consignación. El cliente tiene <strong>{diasDevolucion} días</strong> desde la fecha de entrega para devolver los artículos no vendidos o abonar el importe correspondiente.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
         {/* Espacio para firma */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '32px' }}>
           <tbody>
-            <tr>
-              <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, textAlign: 'center', color: TEAL, fontSize: '11px' }}>
-                Firma de la persona que confecciona el presupuesto
-              </td>
-              <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, borderLeft: '1px solid #ccc', textAlign: 'center', color: TEAL, fontSize: '11px' }}>
-                Firma de aceptación del cliente
-              </td>
-            </tr>
+            {esConsignacion ? (
+              <>
+                <tr>
+                  <td colSpan={2} style={{ padding: '4px 16px 12px', fontSize: '11px', color: '#7a5800', background: '#fffbea', border: '1px solid #e6c84a', borderRadius: '6px' }}>
+                    <strong>Condiciones de consignación:</strong> El firmante declara recibir los productos detallados en calidad de consignación, comprometiéndose a devolver los artículos no vendidos o a abonar el precio acordado dentro de los {diasDevolucion} días corridos desde la fecha de entrega consignada en este documento.
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, textAlign: 'center', color: TEAL, fontSize: '11px' }}>
+                    Firma y aclaración — Entrega (DDD ARG)
+                  </td>
+                  <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, borderLeft: '1px solid #ccc', textAlign: 'center', color: TEAL, fontSize: '11px' }}>
+                    Firma y aclaración — Recepción en consignación
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '4px 16px 8px', textAlign: 'center', fontSize: '10px', color: '#888' }}>
+                    Fecha de entrega: ___/___/______
+                  </td>
+                  <td style={{ padding: '4px 16px 8px', textAlign: 'center', fontSize: '10px', color: '#888', borderLeft: '1px solid #ccc' }}>
+                    Fecha límite devolución/pago: ___/___/______
+                  </td>
+                </tr>
+              </>
+            ) : (
+              <tr>
+                <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, textAlign: 'center', color: TEAL, fontSize: '11px' }}>
+                  Firma de la persona que confecciona el presupuesto
+                </td>
+                <td style={{ width: '50%', padding: '24px 16px 16px', borderTop: `1px solid ${TEAL}`, borderLeft: '1px solid #ccc', textAlign: 'center', color: TEAL, fontSize: '11px' }}>
+                  Firma de aceptación del cliente
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
