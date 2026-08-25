@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen, ImageDown, Search } from 'lucide-react'
 import { createManualSale } from '@/lib/actions/orders'
 import { savePresupuesto, getPresupuestos, deletePresupuesto, duplicatePresupuesto } from '@/lib/actions/presupuestos'
 import type { PresupuestoRecord } from '@/lib/actions/presupuestos'
 import { getClientesBasic } from '@/lib/actions/clientes'
+import { getProductosSugeridos } from '@/lib/actions/products'
+import type { ProductoSugerido } from '@/lib/actions/products'
 import { formatARS } from '@/lib/utils'
 
 interface Item {
@@ -63,8 +65,11 @@ export default function PresupuestoClient() {
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const clienteDropdownRef = useRef<HTMLDivElement>(null)
 
+  const [productosSugeridos, setProductosSugeridos] = useState<ProductoSugerido[]>([])
+
   useEffect(() => {
     getClientesBasic().then(setClientesAll)
+    getProductosSugeridos().then(setProductosSugeridos)
   }, [])
 
   useEffect(() => {
@@ -93,6 +98,17 @@ export default function PresupuestoClient() {
     setShowClienteDropdown(false)
   }
   const [validez, setValidez] = useState(10)
+  const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
+
+  const filtrarSugeridos = useCallback((texto: string) => {
+    if (!texto.trim() || texto.trim().length < 1) return []
+    const q = texto.toLowerCase()
+    return productosSugeridos.filter((p) => {
+      const nombre = p.variante ? `${p.nombre} — ${p.variante}` : p.nombre
+      return nombre.toLowerCase().includes(q)
+    }).slice(0, 8)
+  }, [productosSugeridos])
+
   const [items, setItems] = useState<Item[]>([
     { descripcion: '', unidades: '', precio: '' },
     { descripcion: '', unidades: '', precio: '' },
@@ -591,13 +607,41 @@ export default function PresupuestoClient() {
                 {/* Mobile: col-2 grid (descripción full, unidades+precio en 2 cols, botones full) */}
                 {/* Desktop: col-12 grid con proporciones originales */}
                 <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center">
-                  <div className="col-span-2 sm:col-span-5">
+                  <div className="col-span-2 sm:col-span-5 relative">
                     <input
                       value={item.descripcion}
-                      onChange={(e) => updateItem(idx, 'descripcion', e.target.value)}
+                      onChange={(e) => {
+                        updateItem(idx, 'descripcion', e.target.value)
+                        setActiveDropdownIdx(idx)
+                      }}
+                      onFocus={() => setActiveDropdownIdx(idx)}
+                      onBlur={() => setTimeout(() => setActiveDropdownIdx(null), 150)}
                       placeholder="Ej: Escarapelas personalizadas"
                       className="w-full border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      autoComplete="off"
                     />
+                    {activeDropdownIdx === idx && filtrarSugeridos(item.descripcion).length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                        {filtrarSugeridos(item.descripcion).map((s, si) => {
+                          const nombre = s.variante ? `${s.nombre} — ${s.variante}` : s.nombre
+                          return (
+                            <button
+                              key={si}
+                              type="button"
+                              onMouseDown={() => {
+                                updateItem(idx, 'descripcion', nombre)
+                                updateItem(idx, 'precio', s.ultimo_precio)
+                                setActiveDropdownIdx(null)
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-secondary text-left transition-colors"
+                            >
+                              <span className="truncate">{nombre}</span>
+                              <span className="text-xs text-muted-foreground shrink-0 ml-2">{formatARS(s.ultimo_precio)}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <input
