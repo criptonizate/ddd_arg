@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import ConsignacionToggle from './ConsignacionToggle'
 import { formatARS, formatDateTime, formatDate, ESTADO_LABELS, ESTADO_COLORS, ORIGEN_LABELS, METODO_PAGO_LABELS } from '@/lib/utils'
 import { ChevronDown, ChevronUp, Search, X, SlidersHorizontal, FileText } from 'lucide-react'
 import OrderActions from '@/components/admin/OrderActions'
@@ -32,6 +33,8 @@ interface Order {
   sena?: number
   nota_interna?: string | null
   costo_estimado?: number | null
+  es_consignacion?: boolean
+  dias_devolucion?: number
   order_items?: {
     id: string
     products?: { nombre: string }
@@ -45,7 +48,7 @@ interface Order {
   }[]
 }
 
-type Tab = 'activas' | 'entregadas' | 'local'
+type Tab = 'activas' | 'entregadas' | 'local' | 'consignacion'
 
 const GRUPO = {
   imprimiendo: {
@@ -78,10 +81,12 @@ export default function VentasClient({
   activas,
   entregadas,
   local,
+  consignaciones = [],
 }: {
   activas: Order[]
   entregadas: Order[]
   local: Order[]
+  consignaciones?: Order[]
 }) {
   const [tab, setTab] = useState<Tab>('activas')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -260,6 +265,22 @@ export default function VentasClient({
           )}
         </button>
 
+        <button
+          onClick={() => setTab('consignacion')}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            tab === 'consignacion'
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'border-border text-muted-foreground hover:border-amber-400 hover:text-amber-600'
+          }`}
+        >
+          📦 Consignación
+          {consignaciones.length > 0 && (
+            <span className={`ml-2 text-xs font-bold ${tab === 'consignacion' ? 'opacity-80' : 'text-amber-600'}`}>
+              {consignaciones.length}
+            </span>
+          )}
+        </button>
+
         {/* Filtro solo deudores (visible en entregadas/local) */}
         {(tab === 'entregadas' || tab === 'local') && (
           <button
@@ -428,6 +449,10 @@ export default function VentasClient({
       )}
 
       {/* ── TAB: ENTREGADAS / LOCAL (agrupado por mes) ── */}
+      {tab === 'consignacion' && (
+        <ConsignacionView orders={consignaciones} />
+      )}
+
       {(tab === 'entregadas' || tab === 'local') && (
         meses.length === 0 ? (
           <EmptyState search={search} onClear={() => setSearch('')} message={soloDeuda ? 'Nadie debe plata 🎉' : tab === 'entregadas' ? 'No hay ventas entregadas' : 'No hay ventas en el local'} />
@@ -729,6 +754,7 @@ function FullCard({ order }: { order: Order }) {
           </div>
           <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
           <CostoEstimadoInput orderId={order.id} total={order.total} costoEstimado={order.costo_estimado ?? null} />
+          <ConsignacionToggle orderId={order.id} esConsignacion={order.es_consignacion ?? false} diasDevolucion={order.dias_devolucion ?? 15} />
         </div>
         <div className="flex flex-col items-end gap-2">
           <OrderActions orderId={order.id} estado={order.estado} />
@@ -864,6 +890,7 @@ function ActiveCard({
               <CobrarInline orderId={order.id} total={order.total} sena={order.sena ?? 0} />
               <OrderNotaInternaInput orderId={order.id} notaInterna={order.nota_interna ?? null} />
               <CostoEstimadoInput orderId={order.id} total={order.total} costoEstimado={order.costo_estimado ?? null} />
+              <ConsignacionToggle orderId={order.id} esConsignacion={order.es_consignacion ?? false} diasDevolucion={order.dias_devolucion ?? 15} />
             </div>
             <div className="flex flex-col items-end gap-2">
               <OrderActions orderId={order.id} estado={order.estado} />
@@ -1022,6 +1049,129 @@ function CollapsibleCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Vista de consignaciones activas ───────────────────────────────────────────
+
+function ConsignacionView({ orders }: { orders: Order[] }) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  if (orders.length === 0) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-10 text-center dark:bg-amber-950/20 dark:border-amber-800">
+        <p className="text-3xl mb-2">📦</p>
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Sin consignaciones activas</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Marcá un pedido como consignación desde su tarjeta</p>
+      </div>
+    )
+  }
+
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  function vencimiento(order: Order): { fecha: Date | null; dias: number | null; label: string; color: string } {
+    if (!order.fecha_entrega) return { fecha: null, dias: null, label: 'Sin fecha de entrega', color: 'text-muted-foreground' }
+    const entrega = new Date(order.fecha_entrega + 'T00:00:00')
+    const vence = new Date(entrega)
+    vence.setDate(vence.getDate() + (order.dias_devolucion ?? 15))
+    const diff = Math.ceil((vence.getTime() - hoy.getTime()) / 86400000)
+    if (diff < 0) return { fecha: vence, dias: diff, label: `Venció hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`, color: 'text-red-600' }
+    if (diff === 0) return { fecha: vence, dias: 0, label: 'Vence hoy', color: 'text-red-600' }
+    if (diff <= 3) return { fecha: vence, dias: diff, label: `Vence en ${diff} día${diff !== 1 ? 's' : ''}`, color: 'text-orange-600' }
+    if (diff <= 7) return { fecha: vence, dias: diff, label: `Vence en ${diff} días`, color: 'text-yellow-600' }
+    return { fecha: vence, dias: diff, label: `${diff} días restantes`, color: 'text-green-600' }
+  }
+
+  const totalValor = orders.reduce((s, o) => s + Number(o.total), 0)
+  const vencidos = orders.filter((o) => { const v = vencimiento(o); return v.dias !== null && v.dias < 0 }).length
+
+  return (
+    <div className="space-y-4">
+      {/* Resumen */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 dark:bg-amber-950/20 dark:border-amber-800">
+          <p className="text-xs text-muted-foreground">En consignación</p>
+          <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">{orders.length}</p>
+          <p className="text-xs text-muted-foreground">pedidos</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground">Valor total</p>
+          <p className="text-xl font-bold mt-0.5">{formatARS(totalValor)}</p>
+          <p className="text-xs text-muted-foreground">en la calle</p>
+        </div>
+        <div className={`border rounded-xl p-4 ${vencidos > 0 ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'}`}>
+          <p className="text-xs text-muted-foreground">Vencidos</p>
+          <p className={`text-xl font-bold mt-0.5 ${vencidos > 0 ? 'text-red-600' : 'text-green-600'}`}>{vencidos}</p>
+          <p className="text-xs text-muted-foreground">sin resolver</p>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="space-y-2">
+        {orders.map((order) => {
+          const v = vencimiento(order)
+          const expanded = expandedIds.has(order.id)
+          const pendiente = Math.max(0, Number(order.total) - Number(order.sena ?? 0))
+
+          return (
+            <div key={order.id} className={`bg-card border rounded-xl overflow-hidden shadow-sm border-l-4 ${v.dias !== null && v.dias < 0 ? 'border-l-red-500 border-red-200 dark:border-red-800' : v.dias !== null && v.dias <= 3 ? 'border-l-orange-400 border-border' : 'border-l-amber-400 border-border'}`}>
+              <button
+                onClick={() => setExpandedIds((prev) => { const next = new Set(prev); next.has(order.id) ? next.delete(order.id) : next.add(order.id); return next })}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/20 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+                  {order.cliente_telefono && (
+                    <a href={`https://wa.me/54${order.cliente_telefono.replace(/\D/g, '')}?text=Hola%20${encodeURIComponent(order.cliente_nombre)}%2C%20te%20recuerdo%20que%20el%20plazo%20de%20devoluci%C3%B3n%20de%20la%20consignaci%C3%B3n%20est%C3%A1%20pr%C3%B3ximo.`}
+                      target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-green-600 hover:underline shrink-0">
+                      📲 WA
+                    </a>
+                  )}
+                  <span className="text-xs text-muted-foreground">{formatARS(order.total)}</span>
+                  {pendiente > 0 && <span className="text-xs font-semibold text-orange-600">Debe {formatARS(pendiente)}</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-xs font-semibold ${v.color}`}>{v.label}</span>
+                  {expanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                </div>
+              </button>
+
+              {expanded && (
+                <div className="border-t border-border px-4 py-3 space-y-3">
+                  {/* Items */}
+                  {(order.order_items ?? []).length > 0 && (
+                    <div className="space-y-1">
+                      {(order.order_items ?? []).map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {item.nombre_producto}{item.nombre_variante ? ` — ${item.nombre_variante}` : ''}
+                            <span className="ml-1 font-medium text-foreground">×{item.cantidad}</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground">{formatARS(item.precio_unitario * item.cantidad)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Fechas */}
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    {order.fecha_entrega && <span>📅 Entregado: <span className="font-medium text-foreground">{formatDate(order.fecha_entrega)}</span></span>}
+                    {v.fecha && <span>⏳ Vence: <span className={`font-medium ${v.color}`}>{v.fecha.toLocaleDateString('es-AR')}</span></span>}
+                    <span>Plazo: {order.dias_devolucion ?? 15} días</span>
+                  </div>
+                  {/* Acciones */}
+                  <div className="flex gap-2 flex-wrap">
+                    <ConsignacionToggle orderId={order.id} esConsignacion={true} diasDevolucion={order.dias_devolucion ?? 15} />
+                    <OrderActions orderId={order.id} estado={order.estado} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

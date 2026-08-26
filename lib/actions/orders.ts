@@ -372,6 +372,27 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
   return { orderId: order.id }
 }
 
+export async function updateOrderConsignacion(orderId: string, es_consignacion: boolean, dias_devolucion: number) {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('orders').update({ es_consignacion, dias_devolucion }).eq('id', orderId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/ventas')
+  return { success: true }
+}
+
+export async function getConsignacionesActivas() {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('*, order_items(id, nombre_producto, nombre_variante, cantidad, precio_unitario, impreso, cantidad_impresa)')
+    .eq('es_consignacion', true)
+    .not('estado', 'in', '(cancelada)')
+    .order('fecha_entrega', { ascending: true, nullsFirst: false })
+  return data ?? []
+}
+
 export async function updateOrderCostoEstimado(orderId: string, costo: number | null) {
   await getAdminUser()
   const supabase = createServiceClient()
