@@ -1,5 +1,6 @@
 import { getActiveProducts } from '@/lib/actions/products'
 import ProductCard from '@/components/store/ProductCard'
+import type { ProductWithVariants } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Catálogo — DDD ARG' }
 export const dynamic = 'force-dynamic'
@@ -8,8 +9,8 @@ export default async function CatalogoPage() {
   const products = await getActiveProducts()
 
   const categorias = Array.from(
-    new Set(products.map((p) => p.categoria).filter(Boolean))
-  ) as string[]
+    new Set(products.flatMap((p) => p.categorias ?? []))
+  ).sort()
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -26,29 +27,29 @@ export default async function CatalogoPage() {
           <p className="text-lg font-medium">Próximamente</p>
           <p className="text-sm mt-1">Estamos cargando el catálogo.</p>
         </div>
+      ) : categorias.length > 0 ? (
+        categorias.map((cat) => {
+          const inCat = products.filter((p: ProductWithVariants) =>
+            (p.categorias ?? []).includes(cat)
+          )
+          if (inCat.length === 0) return null
+          return (
+            <section key={cat} className="mb-14">
+              <h2 className="text-lg font-semibold mb-5 pb-2 border-b border-border">{cat}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {inCat.map((p: ProductWithVariants) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </section>
+          )
+        })
       ) : (
-        <>
-          {categorias.length > 0 ? (
-            categorias.map((cat) => (
-              <section key={cat} className="mb-14">
-                <h2 className="text-lg font-semibold mb-5 pb-2 border-b border-border">{cat}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                  {products
-                    .filter((p) => p.categoria === cat)
-                    .map((p) => (
-                      <ProductCard key={p.id} product={p} />
-                    ))}
-                </div>
-              </section>
-            ))
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          )}
-        </>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {products.map((p: ProductWithVariants) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
       )}
     </div>
   )

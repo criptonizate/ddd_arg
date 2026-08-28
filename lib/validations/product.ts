@@ -12,6 +12,7 @@ export const ProductSchema = z.object({
     .max(99)
     .default(0),
   categoria: z.string().optional().default(''),
+  categorias: z.array(z.string()).default([]),
   estado: z.enum(['activo', 'pausado']).default('activo'),
 })
 

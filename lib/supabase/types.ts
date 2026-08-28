@@ -20,6 +20,7 @@ export interface Product {
   precio_base: number
   descuento_mayoreo_pct: number
   categoria: string | null
+  categorias: string[]
   estado: ProductEstado
   created_at: string
 }
