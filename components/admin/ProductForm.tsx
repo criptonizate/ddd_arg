@@ -5,6 +5,18 @@ import { useRouter } from 'next/navigation'
 import { createProduct, updateProduct } from '@/lib/actions/products'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
+const CATEGORIAS = [
+  'Religión',
+  'Sensorial - Anti stress',
+  'Deportes',
+  'Hogar',
+  'Infantil',
+  'Figuras y Personajes',
+  'Accesorios',
+  'Educación',
+  'Personalizado',
+]
+
 interface Props {
   product?: ProductWithVariants
 }
@@ -128,13 +140,17 @@ export default function ProductForm({ product }: Props) {
           <label className="block text-sm font-medium mb-1.5" htmlFor="categoria">
             Categoría
           </label>
-          <input
+          <select
             id="categoria"
             name="categoria"
             defaultValue={product?.categoria ?? ''}
-            placeholder="Ej: Accesorios, Hogar..."
             className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          >
+            <option value="">Sin categoría</option>
+            {CATEGORIAS.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
         </div>
 
         <div>
