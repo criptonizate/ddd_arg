@@ -135,6 +135,31 @@ function buildSeedEntries(): GastoEntry[] {
 const fmt = (n: number) =>
   '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
+function conceptIcon(concept: string): string {
+  const c = concept.toLowerCase()
+  if (c.includes('luz'))                                          return '💡'
+  if (c.includes('cochera') || c.includes('garage'))             return '🚗'
+  if (c.includes('internet') || c.includes('wifi'))              return '📡'
+  if (c.includes('seguro'))                                       return '🛡️'
+  if (c.includes('escuela') || c.includes('colegio'))            return '🏫'
+  if (c.includes('ingreso') || c.includes('sueldo'))             return '💰'
+  if (c.includes('tarjeta') || c.includes('visa') || c.includes('mastercard') || c.includes('naranja') || c.includes('patagonia')) return '💳'
+  if (c.includes('mercadopago') || c.includes('crédito mp') || c.includes('mp-') || c.includes('mp ')) return '📲'
+  if (c.includes('psicoló') || c.includes('psicolo') || c.includes('terapeuta')) return '🧠'
+  if (c.includes('fútbol') || c.includes('futbol'))              return '⚽'
+  if (c.includes('pádel') || c.includes('padel') || c.includes('profesor')) return '🎾'
+  if (c.includes('albañil') || c.includes('albanil') || c.includes('obra')) return '🏗️'
+  if (c.includes('préstamo') || c.includes('prestamo') || c.includes('pagatonia')) return '🏦'
+  if (c.includes('multa'))                                        return '🚔'
+  if (c.includes('cocina') || c.includes('electrodom'))          return '🍳'
+  if (c.includes('descuento') || c.includes('cuota'))            return '📅'
+  if (c.includes('gas'))                                          return '🔥'
+  if (c.includes('alquiler'))                                     return '🏠'
+  if (c.includes('combustible') || c.includes('nafta'))          return '⛽'
+  if (c.includes('médico') || c.includes('medico') || c.includes('salud') || c.includes('farmacia')) return '🩺'
+  return '📌'
+}
+
 export default function GastosClient({ initialEntries }: { initialEntries: GastoEntry[] }) {
   const [entries, setEntries] = useState<GastoEntry[]>([])
   const [viewMonth, setViewMonth] = useState({ year: 0, month: 0 })
@@ -331,7 +356,9 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                     >
                       <span className="text-xs font-mono text-muted-foreground">{day}</span>
                       <div className="min-w-0">
-                        <span className={cn('text-sm', entry.status === 'pagado' && 'line-through')}>{entry.concept}</span>
+                        <span className={cn('text-sm', entry.status === 'pagado' && 'line-through')}>
+                          <span className="mr-1.5">{conceptIcon(entry.concept)}</span>{entry.concept}
+                        </span>
                         <span className="ml-2 text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
                           {entry.category}
                         </span>
@@ -379,7 +406,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                 onClick={() => toggleStatus(entry.id)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm truncate">{entry.concept}</p>
+                  <p className="text-sm truncate"><span className="mr-1">{conceptIcon(entry.concept)}</span>{entry.concept}</p>
                   <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
                 </div>
                 <span className="text-sm font-mono font-semibold text-muted-foreground shrink-0">{fmt(entry.amount)}</span>
