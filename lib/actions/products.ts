@@ -181,6 +181,16 @@ export async function deleteVariant(id: string, productId: string) {
   return { success: true }
 }
 
+export async function patchProduct(
+  id: string,
+  fields: Partial<{ categoria: string; precio_base: number; estado: 'activo' | 'pausado' }>
+): Promise<void> {
+  await requireAdmin()
+  const supabase = createServiceClient()
+  await supabase.from('products').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id)
+  revalidatePath('/admin/productos')
+}
+
 export async function adjustStock(variantId: string, productId: string, newStock: number) {
   await requireAdmin()
 
