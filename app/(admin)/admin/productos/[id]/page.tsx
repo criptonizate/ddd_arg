@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getProduct } from '@/lib/actions/products'
+import { getCategorias } from '@/lib/actions/categorias'
 import ProductForm from '@/components/admin/ProductForm'
 import VariantManager from '@/components/admin/VariantManager'
 import ImageManager from '@/components/admin/ImageManager'
@@ -13,7 +14,10 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const product = await getProduct(id).catch(() => null)
+  const [product, categorias] = await Promise.all([
+    getProduct(id).catch(() => null),
+    getCategorias(),
+  ])
   if (!product) notFound()
 
   return (
@@ -29,7 +33,7 @@ export default async function EditProductPage({
       {/* Formulario base */}
       <section>
         <h2 className="text-base font-semibold mb-4">Datos generales</h2>
-        <ProductForm product={product} />
+        <ProductForm product={product} categorias={categorias.map((c) => c.nombre)} />
       </section>
 
       {/* Imágenes */}

@@ -6,23 +6,9 @@ import { toast } from 'sonner'
 import { createProduct, updateProduct } from '@/lib/actions/products'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
-export const CATEGORIAS = [
-  'Religión',
-  'Llaveros',
-  'Sensorial - Anti stress',
-  'Deportes',
-  'Hogar',
-  'Infantil',
-  'Figuras y Personajes',
-  'Accesorios',
-  'Educación',
-  'Personalizado',
-  'Gamer',
-  'Pastelería - Cortadores',
-]
-
 interface Props {
   product?: ProductWithVariants
+  categorias?: string[]
 }
 
 type FormState = { error?: Record<string, string[]> | string; success?: boolean } | undefined
@@ -50,7 +36,7 @@ async function submitAction(
   }
 }
 
-export default function ProductForm({ product }: Props) {
+export default function ProductForm({ product, categorias = [] }: Props) {
   const router = useRouter()
   const [selectedCats, setSelectedCats] = useState<string[]>(product?.categorias ?? [])
 
@@ -158,7 +144,7 @@ export default function ProductForm({ product }: Props) {
             <span className="ml-1 text-xs font-normal text-muted-foreground">— podés elegir más de una</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {CATEGORIAS.map((cat) => {
+            {categorias.map((cat) => {
               const checked = selectedCats.includes(cat)
               return (
                 <label
