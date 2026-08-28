@@ -1,59 +1,49 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface Entry {
-  id: string
-  concept: string
-  type: 'gasto' | 'ingreso'
-  category: 'fijo' | 'variable'
-  amount: number
-  date: string
-  status: 'pagado' | 'pendiente'
-  due: string | null
-}
+import type { GastoEntry } from '@/lib/actions/gastos'
+import { upsertGasto, upsertGastos } from '@/lib/actions/gastos'
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const STORAGE_KEY = 'gastos-personales-v1'
 const SEED_DELETES = Array.from({ length: 10 }, (_, i) => `e-albanil-${i + 2}`)
 
-function buildSeedEntries(): Entry[] {
-  const arr: Entry[] = [
+function buildSeedEntries(): GastoEntry[] {
+  const arr: GastoEntry[] = [
     // Julio 2026
-    { id: 'e-2026-07-cuota-berni',    concept: 'Escuela Sagrado Corazón - Berni',         type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-07-05', status: 'pagado',   due: '2026-07-05' },
-    { id: 'e-2026-07-cochera',         concept: 'Cochera (1 lugar y medio)',                type: 'gasto',   category: 'fijo',     amount: 105000,  date: '2026-07-01', status: 'pagado',   due: null },
-    { id: 'e-2026-07-luz',             concept: 'Luz (donde vivo) - NIS 5149223',          type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-07-01', status: 'pagado',   due: null },
-    { id: 'e-2026-07-internet',        concept: 'Internet',                                 type: 'gasto',   category: 'fijo',     amount: 26000,   date: '2026-07-01', status: 'pagado',   due: null },
-    { id: 'e-2026-07-seguro-auto',     concept: 'Seguro auto',                              type: 'gasto',   category: 'fijo',     amount: 80000,   date: '2026-07-01', status: 'pagado',   due: null },
-    { id: 'e-2026-07-ingreso',         concept: 'Ingreso mensual',                          type: 'ingreso', category: 'fijo',     amount: 2800000, date: '2026-07-01', status: 'pagado',   due: null },
-    { id: 'e-albanil-1',               concept: 'Deuda albañil Diego Bazán - cuota 1',     type: 'gasto',   category: 'fijo',     amount: 150000,  date: '2026-07-15', status: 'pagado',   due: '2026-07-15' },
+    { id: 'e-2026-07-cuota-berni',     concept: 'Escuela Sagrado Corazón - Berni',          type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-07-05', status: 'pagado',    due: '2026-07-05' },
+    { id: 'e-2026-07-cochera',          concept: 'Cochera (1 lugar y medio)',                 type: 'gasto',   category: 'fijo',     amount: 105000,  date: '2026-07-01', status: 'pagado',    due: null },
+    { id: 'e-2026-07-luz',              concept: 'Luz (donde vivo) - NIS 5149223',           type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-07-01', status: 'pagado',    due: null },
+    { id: 'e-2026-07-internet',         concept: 'Internet',                                  type: 'gasto',   category: 'fijo',     amount: 26000,   date: '2026-07-01', status: 'pagado',    due: null },
+    { id: 'e-2026-07-seguro-auto',      concept: 'Seguro auto',                               type: 'gasto',   category: 'fijo',     amount: 80000,   date: '2026-07-01', status: 'pagado',    due: null },
+    { id: 'e-2026-07-ingreso',          concept: 'Ingreso mensual',                           type: 'ingreso', category: 'fijo',     amount: 2800000, date: '2026-07-01', status: 'pagado',    due: null },
+    { id: 'e-albanil-1',                concept: 'Deuda albañil Diego Bazán - cuota 1',      type: 'gasto',   category: 'fijo',     amount: 150000,  date: '2026-07-15', status: 'pagado',    due: '2026-07-15' },
     // Agosto 2026
-    { id: 'e-2026-08-seguro-auto',     concept: 'Seguro auto',                              type: 'gasto',   category: 'fijo',     amount: 45000,   date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-luz-actual',      concept: 'Luz (donde vivo) - NIS 5149223',          type: 'gasto',   category: 'fijo',     amount: 179000,  date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-luz-terreno',     concept: 'Luz (terreno, futura casa) - NIS 5186797',type: 'gasto',   category: 'fijo',     amount: 12000,   date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-multa-auto',      concept: 'Multa auto',                               type: 'gasto',   category: 'variable', amount: 220000,  date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-visa-bbva',       concept: 'Tarjeta Visa BBVA',                        type: 'gasto',   category: 'fijo',     amount: 2300000, date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-master-bbva',     concept: 'Tarjeta Mastercard BBVA',                  type: 'gasto',   category: 'fijo',     amount: 520000,  date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-ingreso',         concept: 'Ingreso mensual',                          type: 'ingreso', category: 'fijo',     amount: 2800000, date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-naranja-x',       concept: 'Tarjeta Naranja X',                        type: 'gasto',   category: 'fijo',     amount: 98000,   date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-patagonia-master',concept: 'Tarjeta Patagonia Mastercard',              type: 'gasto',   category: 'fijo',     amount: 1265951, date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-futbol-changuito',concept: 'Fútbol niños - Changuito',                 type: 'gasto',   category: 'fijo',     amount: 70000,   date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-cochera',         concept: 'Cochera (1 lugar y medio)',                type: 'gasto',   category: 'fijo',     amount: 105000,  date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-internet',        concept: 'Internet',                                 type: 'gasto',   category: 'fijo',     amount: 26000,   date: '2026-08-01', status: 'pagado',   due: null },
-    { id: 'e-2026-08-cuota-berni',     concept: 'Escuela Sagrado Corazón - Berni',         type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-08-05', status: 'pendiente', due: '2026-08-05' },
-    { id: 'e-2026-08-psicologa-paula', concept: 'Psicóloga Paula',                          type: 'gasto',   category: 'fijo',     amount: 50000,   date: '2026-08-01', status: 'pendiente', due: null },
-    { id: 'e-2026-08-profesor-padel',  concept: 'Profesor Pádel',                           type: 'gasto',   category: 'fijo',     amount: 108000,  date: '2026-08-01', status: 'pagado',   due: null },
+    { id: 'e-2026-08-seguro-auto',      concept: 'Seguro auto',                               type: 'gasto',   category: 'fijo',     amount: 45000,   date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-luz-actual',       concept: 'Luz (donde vivo) - NIS 5149223',           type: 'gasto',   category: 'fijo',     amount: 179000,  date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-luz-terreno',      concept: 'Luz (terreno, futura casa) - NIS 5186797', type: 'gasto',   category: 'fijo',     amount: 12000,   date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-multa-auto',       concept: 'Multa auto',                                type: 'gasto',   category: 'variable', amount: 220000,  date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-visa-bbva',        concept: 'Tarjeta Visa BBVA',                         type: 'gasto',   category: 'fijo',     amount: 2300000, date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-master-bbva',      concept: 'Tarjeta Mastercard BBVA',                   type: 'gasto',   category: 'fijo',     amount: 520000,  date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-ingreso',          concept: 'Ingreso mensual',                           type: 'ingreso', category: 'fijo',     amount: 2800000, date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-naranja-x',        concept: 'Tarjeta Naranja X',                         type: 'gasto',   category: 'fijo',     amount: 98000,   date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-patagonia-master', concept: 'Tarjeta Patagonia Mastercard',               type: 'gasto',   category: 'fijo',     amount: 1265951, date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-futbol-changuito', concept: 'Fútbol niños - Changuito',                  type: 'gasto',   category: 'fijo',     amount: 70000,   date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-cochera',          concept: 'Cochera (1 lugar y medio)',                 type: 'gasto',   category: 'fijo',     amount: 105000,  date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-internet',         concept: 'Internet',                                  type: 'gasto',   category: 'fijo',     amount: 26000,   date: '2026-08-01', status: 'pagado',    due: null },
+    { id: 'e-2026-08-cuota-berni',      concept: 'Escuela Sagrado Corazón - Berni',          type: 'gasto',   category: 'fijo',     amount: 130000,  date: '2026-08-05', status: 'pendiente', due: '2026-08-05' },
+    { id: 'e-2026-08-psicologa-paula',  concept: 'Psicóloga Paula',                           type: 'gasto',   category: 'fijo',     amount: 50000,   date: '2026-08-01', status: 'pendiente', due: null },
+    { id: 'e-2026-08-profesor-padel',   concept: 'Profesor Pádel',                            type: 'gasto',   category: 'fijo',     amount: 108000,  date: '2026-08-01', status: 'pagado',    due: null },
     // Septiembre 2026
-    { id: 'e-2026-09-cocina-electrica',concept: 'Cocina eléctrica (MercadoLibre, tarjeta)',type: 'gasto',   category: 'variable', amount: 900000,  date: '2026-09-01', status: 'pendiente', due: null },
+    { id: 'e-2026-09-cocina-electrica', concept: 'Cocina eléctrica (MercadoLibre, tarjeta)', type: 'gasto',   category: 'variable', amount: 900000,  date: '2026-09-01', status: 'pendiente', due: null },
   ]
 
   // Descuento préstamo por sueldo — 6 cuotas de $500.000
   ;[
-    { n: 1, year: 2026, month: 5,  status: 'pagado'   as const },
-    { n: 2, year: 2026, month: 6,  status: 'pagado'   as const },
-    { n: 3, year: 2026, month: 7,  status: 'pagado'   as const },
+    { n: 1, year: 2026, month: 5,  status: 'pagado'    as const },
+    { n: 2, year: 2026, month: 6,  status: 'pagado'    as const },
+    { n: 3, year: 2026, month: 7,  status: 'pagado'    as const },
     { n: 4, year: 2026, month: 8,  status: 'pendiente' as const },
     { n: 5, year: 2026, month: 9,  status: 'pendiente' as const },
     { n: 6, year: 2026, month: 10, status: 'pendiente' as const },
@@ -84,11 +74,10 @@ function buildSeedEntries(): Entry[] {
   addSeries('mp-b', 'Crédito MercadoPago B', 4, 12,  68446, 2026, 8)
   addSeries('mp-c', 'Crédito MercadoPago C', 1, 12,  55723, 2026, 8)
   addSeries('mp-d', 'Crédito MercadoPago D', 1,  6,  35482, 2026, 8)
-  // mp-b cuota 5 ya pagada
   const mpb5 = arr.find(x => x.id === 'e-mp-b-5')
   if (mpb5) mpb5.status = 'pagado'
 
-  // Albañil Diego Bazán — nuevo esquema $100.000/mes desde sep 2026
+  // Albañil Diego Bazán — $100.000/mes desde sep 2026
   let restante = 1623902 - 150000
   let ayr = 2026, amo = 9, ai = 2
   while (restante > 0) {
@@ -133,8 +122,7 @@ function buildSeedEntries(): Entry[] {
       const mm = String(mo).padStart(2, '0')
       arr.push({
         id: `e-${r.prefix}-${yr}-${mm}`,
-        concept: r.concept,
-        type: 'gasto', category: 'fijo', amount: r.amount,
+        concept: r.concept, type: 'gasto', category: 'fijo', amount: r.amount,
         date: `${yr}-${mm}-${r.day}`, status: r.status, due: null,
       })
       mo++; if (mo > 12) { mo = 1; yr++ }
@@ -147,70 +135,79 @@ function buildSeedEntries(): Entry[] {
 const fmt = (n: number) =>
   '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
-export default function GastosClient() {
-  const [entries, setEntries] = useState<Entry[]>([])
+export default function GastosClient({ initialEntries }: { initialEntries: GastoEntry[] }) {
+  const [entries, setEntries] = useState<GastoEntry[]>([])
   const [viewMonth, setViewMonth] = useState({ year: 0, month: 0 })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editConcept, setEditConcept] = useState('')
   const [editAmount, setEditAmount] = useState('')
+  const [, startTransition] = useTransition()
   // form
-  const [fConcept,   setFConcept]   = useState('')
-  const [fType,      setFType]      = useState<'gasto' | 'ingreso'>('gasto')
-  const [fCategory,  setFCategory]  = useState<'fijo' | 'variable'>('fijo')
-  const [fAmount,    setFAmount]    = useState('')
-  const [fDate,      setFDate]      = useState('')
-  const [fStatus,    setFStatus]    = useState<'pagado' | 'pendiente'>('pagado')
-  const [fDue,       setFDue]       = useState('')
+  const [fConcept,  setFConcept]  = useState('')
+  const [fType,     setFType]     = useState<'gasto' | 'ingreso'>('gasto')
+  const [fCategory, setFCategory] = useState<'fijo' | 'variable'>('fijo')
+  const [fAmount,   setFAmount]   = useState('')
+  const [fDate,     setFDate]     = useState('')
+  const [fStatus,   setFStatus]   = useState<'pagado' | 'pendiente'>('pagado')
+  const [fDue,      setFDue]      = useState('')
 
   useEffect(() => {
-    const byId: Record<string, Entry> = {}
+    // Merge seeds + DB (DB gana para preservar ediciones del usuario)
+    const byId: Record<string, GastoEntry> = {}
     buildSeedEntries().forEach(e => { byId[e.id] = e })
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) (JSON.parse(stored) as Entry[]).forEach(e => { byId[e.id] = e })
-    } catch {}
+    initialEntries.forEach(e => { byId[e.id] = e })
     SEED_DELETES.forEach(id => { delete byId[id] })
     const merged = Object.values(byId)
     setEntries(merged)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+
+    // Guarda en DB los seeds que aún no existen
+    const dbIds = new Set(initialEntries.map(e => e.id))
+    const newSeeds = merged.filter(e => !dbIds.has(e.id))
+    if (newSeeds.length > 0) {
+      startTransition(() => upsertGastos(newSeeds))
+    }
+
     const now = new Date()
     setViewMonth({ year: now.getFullYear(), month: now.getMonth() })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function save(next: Entry[]) {
-    setEntries(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  function mutate(updated: GastoEntry) {
+    setEntries(prev => prev.map(e => e.id === updated.id ? updated : e))
+    startTransition(() => upsertGasto(updated))
   }
 
   function toggleStatus(id: string) {
-    save(entries.map(e => e.id === id
-      ? { ...e, status: e.status === 'pagado' ? 'pendiente' : 'pagado' }
-      : e
-    ))
+    const entry = entries.find(e => e.id === id)
+    if (!entry) return
+    mutate({ ...entry, status: entry.status === 'pagado' ? 'pendiente' : 'pagado' })
   }
 
-  function startEdit(entry: Entry) {
+  function startEdit(entry: GastoEntry) {
     setEditingId(entry.id)
     setEditConcept(entry.concept)
     setEditAmount(String(entry.amount))
   }
 
   function saveEdit(id: string) {
-    save(entries.map(e => e.id === id ? {
-      ...e,
-      concept: editConcept.trim() || e.concept,
-      amount: parseFloat(editAmount) || e.amount,
-    } : e))
+    const entry = entries.find(e => e.id === id)
+    if (!entry) return
+    mutate({
+      ...entry,
+      concept: editConcept.trim() || entry.concept,
+      amount: parseFloat(editAmount) || entry.amount,
+    })
     setEditingId(null)
   }
 
   function handleAdd(ev: React.FormEvent) {
     ev.preventDefault()
-    save([...entries, {
+    const newEntry: GastoEntry = {
       id: 'manual-' + Date.now(),
       concept: fConcept, type: fType, category: fCategory,
       amount: parseFloat(fAmount), date: fDate, status: fStatus, due: fDue || null,
-    }])
+    }
+    setEntries(prev => [...prev, newEntry])
+    startTransition(() => upsertGasto(newEntry))
     setFConcept(''); setFAmount(''); setFDate(''); setFDue('')
     setFType('gasto'); setFCategory('fijo'); setFStatus('pagado')
   }
@@ -228,15 +225,14 @@ export default function GastosClient() {
   const totalGastos   = useMemo(() => monthEntries.filter(e => e.type === 'gasto').reduce((s, e) => s + e.amount, 0), [monthEntries])
 
   const pendientes = useMemo(() =>
-    monthEntries
-      .filter(e => e.status === 'pendiente')
+    monthEntries.filter(e => e.status === 'pendiente')
       .sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date)),
     [monthEntries]
   )
   const totalPendiente = useMemo(() => pendientes.reduce((s, e) => s + e.amount, 0), [pendientes])
 
   const trends = useMemo(() => {
-    const byName: Record<string, Entry[]> = {}
+    const byName: Record<string, GastoEntry[]> = {}
     entries.filter(e => e.category === 'fijo').forEach(e => {
       const k = e.concept.trim().toLowerCase()
       if (!byName[k]) byName[k] = []
@@ -315,14 +311,10 @@ export default function GastosClient() {
                 <div key={entry.id} className={cn('border-b border-border last:border-0', !isEditing && entry.status === 'pagado' && 'opacity-50')}>
                   {isEditing ? (
                     <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20">
-                      <input
-                        value={editConcept} onChange={ev => setEditConcept(ev.target.value)}
-                        className="flex-1 min-w-[160px] border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                      <input
-                        type="number" value={editAmount} onChange={ev => setEditAmount(ev.target.value)}
-                        className="w-32 border border-input rounded-lg px-2.5 py-1.5 text-sm font-mono bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
+                      <input value={editConcept} onChange={ev => setEditConcept(ev.target.value)}
+                        className="flex-1 min-w-[160px] border border-input rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+                      <input type="number" value={editAmount} onChange={ev => setEditAmount(ev.target.value)}
+                        className="w-32 border border-input rounded-lg px-2.5 py-1.5 text-sm font-mono bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                       <button onClick={() => saveEdit(entry.id)} className="p-1.5 rounded-lg bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors">
                         <Check size={13} />
                       </button>
@@ -379,24 +371,20 @@ export default function GastosClient() {
             </div>
             {pendientes.length === 0 ? (
               <p className="text-xs text-muted-foreground py-1">Sin pendientes para este mes.</p>
-            ) : (
-              <div>
-                {pendientes.map(entry => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center justify-between gap-2 py-2 px-1 rounded-lg cursor-pointer hover:bg-secondary/30 transition-colors border-b border-border/50 last:border-0"
-                    title="Click para marcar como pagado"
-                    onClick={() => toggleStatus(entry.id)}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm truncate">{entry.concept}</p>
-                      <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
-                    </div>
-                    <span className="text-sm font-mono font-semibold text-muted-foreground shrink-0">{fmt(entry.amount)}</span>
-                  </div>
-                ))}
+            ) : pendientes.map(entry => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between gap-2 py-2 px-1 rounded-lg cursor-pointer hover:bg-secondary/30 transition-colors border-b border-border/50 last:border-0"
+                title="Click para marcar como pagado"
+                onClick={() => toggleStatus(entry.id)}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm truncate">{entry.concept}</p>
+                  <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
+                </div>
+                <span className="text-sm font-mono font-semibold text-muted-foreground shrink-0">{fmt(entry.amount)}</span>
               </div>
-            )}
+            ))}
           </div>
 
           {/* Cómo fue subiendo */}
@@ -430,11 +418,11 @@ export default function GastosClient() {
               <input value={fConcept} onChange={ev => setFConcept(ev.target.value)} required
                 placeholder="Concepto (ej: Alquiler)" className={inputCls} />
               <div className="grid grid-cols-2 gap-2">
-                <select value={fType} onChange={ev => setFType(ev.target.value as any)} className={inputCls}>
+                <select value={fType} onChange={ev => setFType(ev.target.value as 'gasto' | 'ingreso')} className={inputCls}>
                   <option value="gasto">Gasto</option>
                   <option value="ingreso">Ingreso</option>
                 </select>
-                <select value={fCategory} onChange={ev => setFCategory(ev.target.value as any)} className={inputCls}>
+                <select value={fCategory} onChange={ev => setFCategory(ev.target.value as 'fijo' | 'variable')} className={inputCls}>
                   <option value="fijo">Fijo</option>
                   <option value="variable">Variable</option>
                 </select>
@@ -445,7 +433,7 @@ export default function GastosClient() {
                 <input type="date" value={fDate} onChange={ev => setFDate(ev.target.value)} required className={inputCls} />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <select value={fStatus} onChange={ev => setFStatus(ev.target.value as any)} className={inputCls}>
+                <select value={fStatus} onChange={ev => setFStatus(ev.target.value as 'pagado' | 'pendiente')} className={inputCls}>
                   <option value="pagado">Pagado</option>
                   <option value="pendiente">Pendiente</option>
                 </select>
