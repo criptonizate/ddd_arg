@@ -20,6 +20,7 @@ async function submitAction(
     nombre: formData.get('nombre') as string,
     descripcion: formData.get('descripcion') as string,
     precio_base: Number(formData.get('precio_base')),
+    descuento_mayoreo_pct: Number(formData.get('descuento_mayoreo_pct') ?? 0),
     categoria: formData.get('categoria') as string,
     estado: formData.get('estado') as 'activo' | 'pausado',
   }
@@ -99,6 +100,27 @@ export default function ProductForm({ product }: Props) {
           />
           {err.precio_base && (
             <p className="text-xs text-destructive mt-1">{err.precio_base[0]}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1.5" htmlFor="descuento_mayoreo_pct">
+            Descuento por volumen (%)
+            <span className="ml-1 text-xs font-normal text-muted-foreground">— aplica comprando 3 o más unidades</span>
+          </label>
+          <input
+            id="descuento_mayoreo_pct"
+            name="descuento_mayoreo_pct"
+            type="number"
+            min="0"
+            max="99"
+            step="1"
+            defaultValue={product?.descuento_mayoreo_pct ?? 0}
+            placeholder="0"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {err.descuento_mayoreo_pct && (
+            <p className="text-xs text-destructive mt-1">{err.descuento_mayoreo_pct[0]}</p>
           )}
         </div>
 

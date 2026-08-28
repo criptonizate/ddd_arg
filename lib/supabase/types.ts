@@ -18,6 +18,7 @@ export interface Product {
   nombre: string
   descripcion: string | null
   precio_base: number
+  descuento_mayoreo_pct: number
   categoria: string | null
   estado: ProductEstado
   created_at: string

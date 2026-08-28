@@ -1,6 +1,9 @@
 import { getCalculadoraConfig } from '@/lib/actions/calculadora'
+import { getActiveProducts } from '@/lib/actions/products'
 import CalculadoraPublica from '@/components/store/CalculadoraPublica'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
+import ProductCard from '@/components/store/ProductCard'
+import Link from 'next/link'
 
 function InstagramIcon({ size = 16 }: { size?: number }) {
   return (
@@ -20,7 +23,10 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const config = await getCalculadoraConfig()
+  const [config, products] = await Promise.all([
+    getCalculadoraConfig(),
+    getActiveProducts(),
+  ])
 
   return (
     <div className="space-y-0">
@@ -80,6 +86,41 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── Productos destacados ── */}
+      {products.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 py-16">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold">Nuestros productos</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Piezas listas para llevar. Precios en pesos argentinos.
+              </p>
+            </div>
+            <Link
+              href="/catalogo"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Ver todo →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {products.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          {products.length > 8 && (
+            <div className="text-center mt-8">
+              <Link
+                href="/catalogo"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                Ver catálogo completo ({products.length} productos)
+              </Link>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Calculadora ── */}
       <section className="max-w-4xl mx-auto px-4 py-16">

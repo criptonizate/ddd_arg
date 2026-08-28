@@ -6,6 +6,11 @@ export const ProductSchema = z.object({
   precio_base: z
     .number({ message: 'Ingresá un precio válido' })
     .min(0, 'El precio no puede ser negativo'),
+  descuento_mayoreo_pct: z
+    .number()
+    .min(0)
+    .max(99)
+    .default(0),
   categoria: z.string().optional().default(''),
   estado: z.enum(['activo', 'pausado']).default('activo'),
 })
