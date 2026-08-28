@@ -107,7 +107,7 @@ function StockCell({ product }: { product: ProductWithVariants }) {
   function handleBlur() {
     const num = parseInt(value, 10)
     if (isNaN(num) || num < 0) { setValue(String(variant.stock)); return }
-    startTransition(() => adjustStock(variant.id, product.id, num))
+    startTransition(() => { adjustStock(variant.id, product.id, num) })
   }
 
   return (
