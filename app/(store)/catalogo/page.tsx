@@ -8,7 +8,7 @@ export default async function CatalogoPage() {
   const products = await getActiveProducts()
 
   const categorias = Array.from(
-    new Set(products.map((p: { categoria?: string | null }) => p.categoria).filter(Boolean))
+    new Set(products.map((p) => p.categoria).filter(Boolean))
   ) as string[]
 
   return (

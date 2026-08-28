@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import { ProductSchema, VariantSchema } from '@/lib/validations/product'
 import type { ProductFormValues, VariantFormValues } from '@/lib/validations/product'
+import type { ProductWithVariants } from '@/lib/supabase/types'
 
 function requireAdmin() {
   // Verificación de admin se hace en el proxy; aquí reforzamos
@@ -110,7 +111,7 @@ export async function getProduct(id: string) {
   return data
 }
 
-export async function getActiveProducts() {
+export async function getActiveProducts(): Promise<ProductWithVariants[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('products')
@@ -123,7 +124,7 @@ export async function getActiveProducts() {
     .order('nombre')
 
   if (error) throw new Error(error.message)
-  return data
+  return (data ?? []) as unknown as ProductWithVariants[]
 }
 
 // Variantes
