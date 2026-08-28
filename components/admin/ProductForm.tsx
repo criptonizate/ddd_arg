@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState, startTransition } from 'react'
+import { useActionState, startTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { createProduct, updateProduct } from '@/lib/actions/products'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
@@ -50,9 +51,18 @@ export default function ProductForm({ product }: Props) {
   const action = submitAction.bind(null, product)
   const [state, formAction, pending] = useActionState(action, undefined)
 
-  if (state?.success && !product) {
-    router.push('/admin/productos')
-  }
+  useEffect(() => {
+    if (!state) return
+    if (state.success) {
+      if (product) {
+        toast.success('Producto guardado correctamente')
+      } else {
+        router.push('/admin/productos')
+      }
+    } else if (state.error) {
+      toast.error(typeof state.error === 'string' ? state.error : 'Error al guardar el producto')
+    }
+  }, [state])
 
   const err = typeof state?.error === 'object' ? state.error : {}
   const serverError = typeof state?.error === 'string' ? state.error : undefined
