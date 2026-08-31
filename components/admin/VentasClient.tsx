@@ -1176,60 +1176,15 @@ function ConsignacionView({ orders }: { orders: Order[] }) {
   )
 }
 
-// ── Costo estimado + rentabilidad ──────────────────────────────────────────────
+// ── Rentabilidad estimada (precio = costo × 3) ────────────────────────────────
 
-function CostoEstimadoInput({
-  orderId,
-  total,
-  costoEstimado,
-}: {
-  orderId: string
-  total: number
-  costoEstimado: number | null
-}) {
-  const [val, setVal] = useState(costoEstimado !== null ? String(costoEstimado) : '')
-  const [saving, setSaving] = useState(false)
-  const [, startTransition] = useTransition()
-
-  const costo = parseFloat(val)
+function CostoEstimadoInput({ total }: { orderId: string; total: number; costoEstimado: number | null }) {
+  if (!total) return null
+  const costo = Math.round(total / 3)
   const ganancia = total - costo
-  const margen = total > 0 ? (ganancia / total) * 100 : 0
-
-  function handleBlur() {
-    const num = parseFloat(val)
-    const nuevo = isNaN(num) ? null : num
-    if (nuevo === costoEstimado) return
-    setSaving(true)
-    startTransition(async () => {
-      await updateOrderCostoEstimado(orderId, nuevo)
-      setSaving(false)
-    })
-  }
-
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-muted-foreground shrink-0">Costo est.:</label>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">$</span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={handleBlur}
-            disabled={saving}
-            placeholder="—"
-            className="w-24 text-xs border border-input rounded px-1.5 py-0.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-          />
-        </div>
-        {!isNaN(costo) && costo > 0 && (
-          <span className={`text-xs font-medium ${margen >= 50 ? 'text-green-600' : margen >= 30 ? 'text-yellow-600' : 'text-red-600'}`}>
-            Margen {margen.toFixed(0)}% · Ganancia {formatARS(ganancia)}
-          </span>
-        )}
-      </div>
-    </div>
+    <p className="text-xs text-muted-foreground">
+      Costo est. {formatARS(costo)} · <span className="text-green-600 dark:text-green-400 font-medium">~67% ganancia ({formatARS(ganancia)})</span>
+    </p>
   )
 }
