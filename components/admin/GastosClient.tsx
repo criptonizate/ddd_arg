@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
-import { upsertGasto, upsertGastos } from '@/lib/actions/gastos'
+import { upsertGasto, upsertGastos, updateConceptFromDate } from '@/lib/actions/gastos'
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const SEED_DELETES = Array.from({ length: 10 }, (_, i) => `e-albanil-${i + 2}`)
@@ -166,6 +166,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editConcept, setEditConcept] = useState('')
   const [editAmount, setEditAmount] = useState('')
+  const [pendingEdit, setPendingEdit] = useState<{ entry: GastoEntry; newAmount: number } | null>(null)
   const [, startTransition] = useTransition()
   // form
   const [fConcept,  setFConcept]  = useState('')
@@ -216,12 +217,43 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   function saveEdit(id: string) {
     const entry = entries.find(e => e.id === id)
     if (!entry) return
-    mutate({
-      ...entry,
-      concept: editConcept.trim() || entry.concept,
-      amount: parseFloat(editAmount) || entry.amount,
-    })
+    const newConcept = editConcept.trim() || entry.concept
+    const newAmount = parseFloat(editAmount) || entry.amount
+    const amountChanged = newAmount !== entry.amount
+
+    // Si cambió el monto y es un gasto fijo, preguntar si aplica a futuro
+    if (amountChanged && entry.category === 'fijo' && entry.type === 'gasto') {
+      // Primero actualizo el concepto si cambió, sin cerrar el edit
+      const updated = { ...entry, concept: newConcept, amount: newAmount }
+      setPendingEdit({ entry: updated, newAmount })
+      setEditingId(null)
+      return
+    }
+
+    mutate({ ...entry, concept: newConcept, amount: newAmount })
     setEditingId(null)
+  }
+
+  function applyEditSoloEsteMes() {
+    if (!pendingEdit) return
+    mutate(pendingEdit.entry)
+    setPendingEdit(null)
+  }
+
+  function applyEditTodosLosMeses() {
+    if (!pendingEdit) return
+    const { entry, newAmount } = pendingEdit
+    // Actualizar en estado local todos los futuros del mismo concept
+    setEntries(prev => prev.map(e =>
+      e.concept === entry.concept && e.status === 'pendiente' && e.date >= entry.date
+        ? { ...e, amount: newAmount }
+        : e
+    ))
+    // Guardar el entry actual
+    startTransition(() => upsertGasto(entry))
+    // Actualizar todos los futuros en DB
+    startTransition(() => updateConceptFromDate(entry.concept, newAmount, entry.date))
+    setPendingEdit(null)
   }
 
   function handleAdd(ev: React.FormEvent) {
@@ -289,6 +321,45 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
 
   return (
     <div className="space-y-5">
+
+      {/* Modal: ¿Solo este mes o todos los siguientes? */}
+      {pendingEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <p className="font-semibold text-base">¿Cómo aplicás el cambio?</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                <span className="font-medium">{conceptIcon(pendingEdit.entry.concept)} {pendingEdit.entry.concept}</span>
+                <br />
+                Nuevo monto: <span className="font-semibold">{fmt(pendingEdit.newAmount)}</span>
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={applyEditSoloEsteMes}
+                className="w-full text-left px-4 py-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+              >
+                <p className="font-medium text-sm">Solo este mes</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Los meses siguientes mantienen el valor anterior</p>
+              </button>
+              <button
+                onClick={applyEditTodosLosMeses}
+                className="w-full text-left px-4 py-3 rounded-xl border border-foreground bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors"
+              >
+                <p className="font-medium text-sm">Este mes y todos los siguientes</p>
+                <p className="text-xs opacity-70 mt-0.5">Actualiza todos los meses pendientes con este concepto</p>
+              </button>
+            </div>
+            <button
+              onClick={() => setPendingEdit(null)}
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

@@ -49,3 +49,21 @@ export async function deleteGasto(id: string): Promise<void> {
   const supabase = createServiceClient()
   await supabase.from('gastos_personales').delete().eq('id', id)
 }
+
+export async function updateConceptFromDate(concept: string, amount: number, fromDate: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('gastos_personales')
+    .select('id, amount')
+    .eq('concept', concept)
+    .eq('status', 'pendiente')
+    .gte('date', fromDate)
+  if (!data?.length) return
+  const now = new Date().toISOString()
+  await supabase
+    .from('gastos_personales')
+    .upsert(
+      data.map((e: { id: string; amount: number }) => ({ id: e.id, amount, updated_at: now })),
+      { onConflict: 'id' }
+    )
+}
