@@ -537,15 +537,23 @@ export default function PresupuestoClient() {
             <div>
               <label className="text-xs font-medium block mb-1">Condiciones de pago</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {['30% adelanto, saldo contra entrega', '50% adelanto, saldo contra entrega', 'Pago total anticipado', 'A convenir'].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setCondicionesPago(opt)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${condicionesPago === opt ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
+                {[
+                  { label: '30% adelanto, saldo contra entrega', pct: 30 },
+                  { label: '50% adelanto, saldo contra entrega', pct: 50 },
+                  { label: 'Pago total anticipado', pct: 100 },
+                  { label: 'A convenir', pct: 0 },
+                ].map(({ label, pct }) => {
+                  const monto = pct > 0 && subtotal > 0 ? Math.round(subtotal * pct / 100) : 0
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => setCondicionesPago(label)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${condicionesPago === label ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+                    >
+                      {label}{monto > 0 ? ` — $${monto.toLocaleString('es-AR')}` : ''}
+                    </button>
+                  )
+                })}
               </div>
               <input
                 value={condicionesPago}
@@ -897,6 +905,15 @@ export default function PresupuestoClient() {
                 </td>
               </tr>
             )}
+            {/* Datos de transferencia */}
+            <tr>
+              <td colSpan={4} style={{ padding: '6px 12px', border: '1px solid #ccc', fontSize: '11px', color: '#555', background: '#f9f9f9' }}>
+                <strong>Datos para transferencia:</strong>&nbsp;
+                Alias: <strong>juan3d.nx</strong>&nbsp;&nbsp;·&nbsp;&nbsp;
+                Nombre: Juan Pablo Arnaudo Zalazar&nbsp;&nbsp;·&nbsp;&nbsp;
+                DNI: 36255511
+              </td>
+            </tr>
             {/* Consignación */}
             {esConsignacion && (
               <tr>
