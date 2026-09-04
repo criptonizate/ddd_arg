@@ -18,6 +18,7 @@ import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
   id: string
+  numero?: number
   estado: OrderEstado
   origen: string
   metodo_pago?: string
