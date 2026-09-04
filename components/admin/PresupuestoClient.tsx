@@ -169,8 +169,7 @@ export default function PresupuestoClient() {
   const [presupuestosList, setPresupuestosList] = useState<PresupuestoRecord[]>([])
   const [loadingList, setLoadingList] = useState(false)
 
-  async function handleSavePresupuesto() {
-    setSavingPresupuesto(true)
+  async function guardarPresupuesto() {
     const validItems = items
       .filter(i => i.descripcion.trim())
       .map(i => ({
@@ -192,7 +191,22 @@ export default function PresupuestoClient() {
       tiempo_entrega: tiempoEntrega,
     })
     if (result.numero) setCurrentNumero(result.numero)
+    return result
+  }
+
+  async function handleSavePresupuesto() {
+    setSavingPresupuesto(true)
+    await guardarPresupuesto()
     setSavingPresupuesto(false)
+  }
+
+  async function ensureNumero() {
+    if (currentNumero) return
+    const hasItems = items.some(i => i.descripcion.trim())
+    if (!hasItems) return
+    await guardarPresupuesto()
+    // Dar tiempo al DOM para re-renderizar con el número antes de capturar
+    await new Promise(resolve => setTimeout(resolve, 200))
   }
 
   async function handleOpenPresupuestosModal() {
@@ -410,18 +424,30 @@ export default function PresupuestoClient() {
   const [exportingPNG, setExportingPNG] = useState(false)
 
   async function handleExportPNG() {
-    const el = document.getElementById('presupuesto-preview')
-    if (!el) return
     setExportingPNG(true)
     try {
+      await ensureNumero()
+      const el = document.getElementById('presupuesto-preview')
+      if (!el) return
       const { toPng } = await import('html-to-image')
       const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
       const nombre = cliente.nombre.trim() || 'sin nombre'
+      const w = el.offsetWidth
+      const h = el.scrollHeight
       const dataUrl = await toPng(el, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         skipFonts: true,
-        style: { backgroundColor: '#ffffff', color: '#000000' },
+        width: w,
+        height: h,
+        style: {
+          backgroundColor: '#ffffff',
+          color: '#000000',
+          borderRadius: '0',
+          overflow: 'visible',
+          maxWidth: 'none',
+          border: '1px solid #e5e7eb',
+        },
       })
       const link = document.createElement('a')
       link.download = `Presupuesto ${nombre} - ${fecha}.png`
@@ -433,6 +459,11 @@ export default function PresupuestoClient() {
     } finally {
       setExportingPNG(false)
     }
+  }
+
+  async function handlePrint() {
+    await ensureNumero()
+    window.print()
   }
 
   const PREVIEW_ROWS = Math.max(8, items.length + 2)
@@ -498,7 +529,7 @@ export default function PresupuestoClient() {
               {exportingPNG ? 'Generando...' : 'Exportar PNG'}
             </button>
             <button
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               <Printer size={15} />
