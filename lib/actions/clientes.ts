@@ -22,13 +22,14 @@ export interface ClienteStats {
 export interface ClienteDetalle extends ClienteStats {
   pedidos: {
     id: string
+    numero?: number
     estado: string
     total: number
     sena: number | null
     created_at: string
     origen: string
     nota: string | null
-    items: { nombre_producto: string; cantidad: number; precio_unitario: number; precio_original: number | null }[]
+    items: { nombre_producto: string; nombre_variante?: string | null; cantidad: number; precio_unitario: number; precio_original: number | null }[]
   }[]
 }
 
@@ -106,14 +107,14 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
     supabase.from('clientes').select('*').eq('id', id).maybeSingle(),
     supabase
       .from('orders')
-      .select('id, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, cantidad, precio_unitario, precio_original)')
+      .select('id, numero, estado, total, sena, created_at, origen, nota, order_items(nombre_producto, nombre_variante, cantidad, precio_unitario, precio_original)')
       .eq('cliente_id', id)
       .order('created_at', { ascending: false }),
   ])
 
   if (!cliente) return null
 
-  type RawOrderDetail = { id: string; estado: string; total: number; sena: number | null; created_at: string; origen: string; nota: string | null; order_items: unknown[] | null }
+  type RawOrderDetail = { id: string; numero?: number; estado: string; total: number; sena: number | null; created_at: string; origen: string; nota: string | null; order_items: unknown[] | null }
   const allOrders: RawOrderDetail[] = (orders ?? []) as RawOrderDetail[]
   const pedidosValidos = allOrders.filter((o) => o.estado !== 'cancelada')
   const totalGastado = pedidosValidos.reduce((s, o) => s + Number(o.total), 0)
@@ -126,6 +127,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
     ultimaCompra: fechas[0] ?? null,
     pedidos: allOrders.map((o) => ({
       id: o.id,
+      numero: o.numero,
       estado: o.estado,
       total: Number(o.total),
       sena: o.sena ? Number(o.sena) : null,
@@ -134,6 +136,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
       nota: o.nota,
       items: (o.order_items ?? []).map((i: any) => ({
         nombre_producto: i.nombre_producto,
+        nombre_variante: i.nombre_variante ?? null,
         cantidad: i.cantidad,
         precio_unitario: Number(i.precio_unitario),
         precio_original: i.precio_original != null ? Number(i.precio_original) : null,

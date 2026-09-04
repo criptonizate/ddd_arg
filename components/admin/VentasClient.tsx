@@ -951,6 +951,9 @@ function CollapsibleCard({
         className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors text-left"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+          {order.numero && (
+            <span className="text-xs font-mono text-muted-foreground shrink-0">#{order.numero}</span>
+          )}
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>

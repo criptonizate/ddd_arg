@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getCliente } from '@/lib/actions/clientes'
 import { formatARS, formatDateTime, ESTADO_LABELS, ESTADO_COLORS } from '@/lib/utils'
 import ClienteEditForm from '@/components/admin/ClienteEditForm'
+import RepetirPedidoButton from '@/components/admin/RepetirPedidoButton'
 import type { OrderEstado } from '@/lib/supabase/types'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +72,7 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
                     <div key={p.id} className="px-5 py-4">
                       <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {p.numero && <span className="text-xs font-mono text-muted-foreground">#{p.numero}</span>}
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${ESTADO_COLORS[p.estado as OrderEstado] ?? 'bg-secondary text-secondary-foreground border-border'}`}>
                             {ESTADO_LABELS[p.estado as OrderEstado] ?? p.estado}
                           </span>
@@ -82,6 +84,11 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
                           {!pagado && pendiente > 0 && p.sena && (
                             <span className="text-xs text-orange-600 font-medium">Debe {formatARS(pendiente)}</span>
                           )}
+                          <RepetirPedidoButton
+                            clienteNombre={cliente.nombre}
+                            clienteTelefono={cliente.telefono}
+                            items={p.items}
+                          />
                         </div>
                       </div>
                       {/* Ítems del pedido */}

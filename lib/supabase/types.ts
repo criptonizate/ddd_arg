@@ -52,6 +52,7 @@ export interface ProductWithVariants extends Product {
 
 export interface Order {
   id: string
+  numero?: number
   cliente_nombre: string
   cliente_telefono: string | null
   cliente_email: string | null

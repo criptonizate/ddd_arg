@@ -172,6 +172,30 @@ export default function ManualSaleButton() {
     setProducts(prods as ProductWithVariants[])
     setPastClients(clients)
     setSugeridos(sug)
+
+    // Prefill desde "Repetir pedido" en historial de cliente
+    try {
+      const raw = localStorage.getItem('manual_sale_prefill')
+      if (raw) {
+        localStorage.removeItem('manual_sale_prefill')
+        const prefill: {
+          cliente_nombre: string
+          cliente_telefono: string
+          items: { nombre: string; variante: string; cantidad: number; precio_unitario: number }[]
+        } = JSON.parse(raw)
+        if (prefill.cliente_nombre) {
+          setForm((f) => ({ ...f, cliente_nombre: prefill.cliente_nombre, cliente_telefono: prefill.cliente_telefono }))
+        }
+        if (prefill.items?.length) {
+          setCart(prefill.items.filter((i) => i.nombre).map((i) => ({
+            product_id: '', variant_id: '', cantidad: i.cantidad,
+            precio_unitario: i.precio_unitario, precio_original: i.precio_unitario,
+            nombre: i.nombre, variante: i.variante, esLibre: true,
+          })))
+        }
+      }
+    } catch {}
+
     setLoading(false)
     setOpen(true)
   }
