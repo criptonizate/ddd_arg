@@ -996,7 +996,15 @@ export default function PresupuestoClient() {
             {condicionesPago.trim() && (
               <tr>
                 <td colSpan={4} style={{ padding: '6px 12px', border: '1px solid #ccc', fontSize: '11px', color: '#555' }}>
-                  <strong>Condiciones de pago:</strong> {condicionesPago}
+                  <strong>Condiciones de pago:</strong> {(() => {
+                    const match = condicionesPago.match(/(\d+)%/)
+                    if (match && subtotal > 0) {
+                      const pct = parseInt(match[1])
+                      const monto = Math.round(subtotal * pct / 100)
+                      return `${condicionesPago} (${formatNum(monto)})`
+                    }
+                    return condicionesPago
+                  })()}
                 </td>
               </tr>
             )}
