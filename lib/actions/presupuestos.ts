@@ -23,23 +23,24 @@ export interface PresupuestoRecord {
   descuento_mayorista_pct: number
   nota: string
   condiciones_pago?: string
+  tiempo_entrega?: string
   created_at: string
 }
 
 export async function savePresupuesto(
   data: Omit<PresupuestoRecord, 'id' | 'created_at'>
-): Promise<{ ok: boolean; id?: string; error?: string }> {
+): Promise<{ ok: boolean; id?: string; numero?: number; error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
   const { data: row, error } = await supabase
     .from('presupuestos')
     .insert(data)
-    .select('id')
+    .select('id, numero')
     .single()
 
   if (error) return { ok: false, error: error.message }
   revalidatePath('/admin/presupuesto')
-  return { ok: true, id: row.id }
+  return { ok: true, id: row.id, numero: row.numero }
 }
 
 export async function getPresupuestos(): Promise<PresupuestoRecord[]> {

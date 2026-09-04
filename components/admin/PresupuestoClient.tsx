@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen, ImageDown, Search } from 'lucide-react'
+import { Plus, Trash2, Printer, ShoppingCart, X, Percent, CheckCircle, Save, FolderOpen, ImageDown, Search, Share2 } from 'lucide-react'
 import { createManualSale } from '@/lib/actions/orders'
 import { savePresupuesto, getPresupuestos, deletePresupuesto, duplicatePresupuesto } from '@/lib/actions/presupuestos'
 import type { PresupuestoRecord } from '@/lib/actions/presupuestos'
@@ -98,6 +98,8 @@ export default function PresupuestoClient() {
     setShowClienteDropdown(false)
   }
   const [validez, setValidez] = useState(10)
+  const [tiempoEntrega, setTiempoEntrega] = useState('2-4 días hábiles dependiendo de la cantidad')
+  const [currentNumero, setCurrentNumero] = useState<number | null>(null)
   const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
 
   const filtrarSugeridos = useCallback((texto: string) => {
@@ -177,7 +179,7 @@ export default function PresupuestoClient() {
         precio: Number(i.precio) || 0,
         ...(i.precioEspecial !== undefined ? { precioEspecial: Number(i.precioEspecial) || 0 } : {}),
       }))
-    await savePresupuesto({
+    const result = await savePresupuesto({
       cliente_nombre: cliente.nombre,
       cliente_direccion: cliente.direccion,
       cliente_cuit: cliente.cuit,
@@ -187,7 +189,9 @@ export default function PresupuestoClient() {
       descuento_mayorista_pct: parseFloat(descuentoPct) || 0,
       nota: '',
       condiciones_pago: condicionesPago,
+      tiempo_entrega: tiempoEntrega,
     })
+    if (result.numero) setCurrentNumero(result.numero)
     setSavingPresupuesto(false)
   }
 
@@ -215,6 +219,8 @@ export default function PresupuestoClient() {
     })))
     if (p.descuento_mayorista_pct > 0) setDescuentoPct(String(p.descuento_mayorista_pct))
     if (p.condiciones_pago) setCondicionesPago(p.condiciones_pago)
+    if (p.tiempo_entrega) setTiempoEntrega(p.tiempo_entrega)
+    if (p.numero) setCurrentNumero(p.numero)
     setShowPresupuestosModal(false)
   }
 
@@ -375,6 +381,32 @@ export default function PresupuestoClient() {
     }
   }
 
+  function handleWhatsApp() {
+    const validItems = items.filter(i => i.descripcion.trim() && i.unidades !== '')
+    const lines = validItems.map(i => {
+      const u = Number(i.unidades) || 0
+      const p = i.precioEspecial !== undefined ? (Number(i.precioEspecial) || 0) : (Number(i.precio) || 0)
+      return `• ${i.descripcion}: ${u} u. × ${formatNum(p)} = ${formatNum(u * p)}`
+    })
+    const parts: string[] = [
+      cliente.nombre ? `Hola ${cliente.nombre}! 👋` : '',
+      '',
+      `*Presupuesto DDD ARG*${currentNumero ? ` #${currentNumero}` : ''}`,
+      ...lines,
+      '',
+      `*Total: ${formatNum(subtotal)}*`,
+      condicionesPago ? `Pago: ${condicionesPago}` : '',
+      tiempoEntrega ? `Entrega estimada: ${tiempoEntrega}` : '',
+      `Validez: ${validez} días`,
+    ]
+    const msg = parts.filter((v, i) => v || (i > 0 && parts[i - 1])).join('\n').trim()
+    const phone = cliente.telefono.replace(/\D/g, '')
+    const url = phone
+      ? `https://wa.me/54${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   const [exportingPNG, setExportingPNG] = useState(false)
 
   async function handleExportPNG() {
@@ -442,6 +474,13 @@ export default function PresupuestoClient() {
               className="flex items-center gap-2 border border-border hover:bg-secondary px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
               <Save size={14} /> {savingPresupuesto ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button
+              onClick={handleWhatsApp}
+              className="flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Share2 size={14} />
+              WhatsApp
             </button>
             <button
               onClick={openPedidoModal}
@@ -524,14 +563,31 @@ export default function PresupuestoClient() {
           {/* Config */}
           <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <h3 className="font-semibold text-sm">Opciones</h3>
+            <div className="flex gap-4 flex-wrap">
+              <div>
+                <label className="text-xs font-medium block mb-1">Validez (días)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={validez}
+                  onChange={(e) => setValidez(Number(e.target.value))}
+                  className="w-32 border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              {currentNumero && (
+                <div>
+                  <label className="text-xs font-medium block mb-1">N° Presupuesto</label>
+                  <p className="text-sm font-bold px-3 py-2">P-{String(currentNumero).padStart(3, '0')}</p>
+                </div>
+              )}
+            </div>
             <div>
-              <label className="text-xs font-medium block mb-1">Validez (días)</label>
+              <label className="text-xs font-medium block mb-1">Tiempo de entrega estimado</label>
               <input
-                type="number"
-                min="1"
-                value={validez}
-                onChange={(e) => setValidez(Number(e.target.value))}
-                className="w-32 border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                value={tiempoEntrega}
+                onChange={(e) => setTiempoEntrega(e.target.value)}
+                placeholder="Ej: 2-4 días hábiles"
+                className={INPUT_CLASS}
               />
             </div>
             <div>
@@ -814,7 +870,7 @@ export default function PresupuestoClient() {
           </tbody>
         </table>
 
-        {/* Fecha + validez */}
+        {/* Fecha + validez + numero + tiempo entrega */}
         <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #ccc' }}>
           <tbody>
             <tr style={{ fontSize: '12px' }}>
@@ -822,6 +878,14 @@ export default function PresupuestoClient() {
               <td style={{ padding: '8px 16px', width: '25%', borderRight: '1px solid #ccc' }}>{today()}</td>
               <td style={{ padding: '8px 16px', width: '25%' }}>Validez:</td>
               <td style={{ padding: '8px 16px', width: '25%' }}>{validez} días</td>
+            </tr>
+            <tr style={{ fontSize: '12px', borderTop: '1px solid #eee' }}>
+              <td style={{ padding: '8px 16px', width: '25%' }}>N° Presupuesto:</td>
+              <td style={{ padding: '8px 16px', width: '25%', borderRight: '1px solid #ccc', fontWeight: 'bold' }}>
+                {currentNumero ? `P-${String(currentNumero).padStart(3, '0')}` : '—'}
+              </td>
+              <td style={{ padding: '8px 16px', width: '25%' }}>Tiempo de entrega:</td>
+              <td style={{ padding: '8px 16px', width: '25%' }}>{tiempoEntrega || '—'}</td>
             </tr>
           </tbody>
         </table>
