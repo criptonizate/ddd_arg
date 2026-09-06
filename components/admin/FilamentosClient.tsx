@@ -869,6 +869,12 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
   const [showNuevo, setShowNuevo] = useState(false)
   const [tab, setTab] = useState<'stock' | 'ventas'>('stock')
 
+  // Filtros
+  const [filtroMarca, setFiltroMarca] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroMaterial, setFiltroMaterial] = useState('')
+  const [filtroColor, setFiltroColor] = useState('')
+
   function sortFilamentos(list: Filamento[]): Filamento[] {
     return [...list].sort((a, b) => {
       const marcaA = a.marca || 'ZZZZ'
@@ -892,10 +898,26 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
     setFilamentos((prev) => prev.filter((f) => f.id !== id))
   }
 
-  const totalGr = filamentos.reduce((s, f) => s + totalGramos(f), 0)
-  const totalRollos = filamentos.reduce((s, f) => s + f.rollos_cerrados, 0)
+  // Opciones únicas para filtros
+  const marcasUnicas = [...new Set(filamentos.map(f => f.marca).filter(Boolean))].sort()
+  const tiposUnicos = [...new Set(filamentos.map(f => f.tipo).filter(Boolean))].sort()
+  const materialesUnicos = [...new Set(filamentos.map(f => f.material))].sort()
+  const coloresUnicos = [...new Set(filamentos.map(f => f.color).filter(Boolean))].sort()
 
-  const porMarca = filamentos.reduce<Record<string, Filamento[]>>((acc, f) => {
+  const hayFiltros = filtroMarca || filtroTipo || filtroMaterial || filtroColor
+
+  const filamentosFiltrados = filamentos.filter(f => {
+    if (filtroMarca && f.marca !== filtroMarca) return false
+    if (filtroTipo && f.tipo !== filtroTipo) return false
+    if (filtroMaterial && f.material !== filtroMaterial) return false
+    if (filtroColor && !f.color.toLowerCase().includes(filtroColor.toLowerCase())) return false
+    return true
+  })
+
+  const totalGr = filamentosFiltrados.reduce((s, f) => s + totalGramos(f), 0)
+  const totalRollos = filamentosFiltrados.reduce((s, f) => s + f.rollos_cerrados, 0)
+
+  const porMarca = filamentosFiltrados.reduce<Record<string, Filamento[]>>((acc, f) => {
     const key = f.marca || '(Sin marca)'
     if (!acc[key]) acc[key] = []
     acc[key].push(f)
@@ -908,6 +930,22 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
     return acc
   }, {})
 
+  function chipBtn(label: string, active: boolean, onClick: () => void) {
+    return (
+      <button
+        key={label}
+        onClick={onClick}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+          active
+            ? 'bg-foreground text-background border-foreground'
+            : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+        }`}
+      >
+        {label}
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {showNuevo && (
@@ -919,19 +957,17 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
         <div>
           <h1 className="text-2xl font-bold">🧵 Filamentos</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {filamentos.length} tipo{filamentos.length !== 1 ? 's' : ''}
+            {filamentosFiltrados.length}{hayFiltros ? `/${filamentos.length}` : ''} tipo{filamentos.length !== 1 ? 's' : ''}
             {totalGr > 0 && ` · ${fmtGr(totalGr)} totales`}
-            {totalRollos > 0 && ` · ${totalRollos} rollo${totalRollos !== 1 ? 's' : ''} cerrado${totalRollos !== 1 ? 's' : ''}`}
+            {totalRollos > 0 && ` · ${totalRollos} rollo${totalRollos !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowNuevo(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            <Plus size={14} /> Nuevo filamento
-          </button>
-        </div>
+        <button
+          onClick={() => setShowNuevo(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          <Plus size={14} /> Nuevo filamento
+        </button>
       </div>
 
       {/* Tabs */}
@@ -950,6 +986,68 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
 
       {tab === 'stock' && (
         <>
+          {/* ── Filtros ── */}
+          {filamentos.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              {/* Marca */}
+              {marcasUnicas.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-14 shrink-0">Marca</span>
+                  {chipBtn('Todas', !filtroMarca, () => setFiltroMarca(''))}
+                  {marcasUnicas.map(m => chipBtn(m, filtroMarca === m, () => setFiltroMarca(filtroMarca === m ? '' : m)))}
+                </div>
+              )}
+              {/* Tipo */}
+              {tiposUnicos.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-14 shrink-0">Tipo</span>
+                  {chipBtn('Todos', !filtroTipo, () => setFiltroTipo(''))}
+                  {tiposUnicos.map(t => chipBtn(t, filtroTipo === t, () => setFiltroTipo(filtroTipo === t ? '' : t)))}
+                </div>
+              )}
+              {/* Material */}
+              {materialesUnicos.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-14 shrink-0">Material</span>
+                  {chipBtn('Todos', !filtroMaterial, () => setFiltroMaterial(''))}
+                  {materialesUnicos.map(m => chipBtn(m, filtroMaterial === m, () => setFiltroMaterial(filtroMaterial === m ? '' : m)))}
+                </div>
+              )}
+              {/* Color */}
+              {coloresUnicos.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-14 shrink-0">Color</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {chipBtn('Todos', !filtroColor, () => setFiltroColor(''))}
+                    {coloresUnicos.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setFiltroColor(filtroColor === c ? '' : c)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          filtroColor === c
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                        }`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colorDot(c)}`} />
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Limpiar */}
+              {hayFiltros && (
+                <button
+                  onClick={() => { setFiltroMarca(''); setFiltroTipo(''); setFiltroMaterial(''); setFiltroColor('') }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Resumen por material */}
           {filamentos.length > 0 && Object.keys(porMaterial).length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -977,6 +1075,14 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
                 <Plus size={14} /> Nuevo filamento
               </button>
             </div>
+          ) : filamentosFiltrados.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground">
+              <p className="text-sm">Sin resultados para los filtros seleccionados</p>
+              <button onClick={() => { setFiltroMarca(''); setFiltroTipo(''); setFiltroMaterial(''); setFiltroColor('') }}
+                className="mt-2 text-xs underline underline-offset-2 hover:text-foreground">
+                Limpiar filtros
+              </button>
+            </div>
           ) : (
             <div className="space-y-6">
               {Object.entries(porMarca).map(([marca, items]) => (
@@ -984,7 +1090,7 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
                   <div className="flex items-center gap-2 mb-3">
                     <h3 className="text-sm font-bold text-foreground">{marca}</h3>
                     <span className="text-xs text-muted-foreground">
-                      · {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} total · {items.length} tipo{items.length !== 1 ? 's' : ''}
+                      · {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} · {items.length} tipo{items.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="space-y-2">
