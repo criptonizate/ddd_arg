@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/admin/calculadora', label: '🧮 Calculadora' },
   { href: '/admin/productos', label: '🛍️ Productos' },
   { href: '/admin/produccion', label: '🏭 Producción' },
+  { href: '/admin/filamentos', label: '🧵 Filamentos' },
   { href: '/admin/gastos', label: '💸 Mis gastos' },
 ]
 
