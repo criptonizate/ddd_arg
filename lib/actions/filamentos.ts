@@ -153,3 +153,127 @@ export async function deleteMovimiento(
   revalidatePath('/admin/filamentos')
   return {}
 }
+
+// ── Ventas de filamento ───────────────────────────────────────────────────────
+
+import type { VentaFilamento } from '@/lib/filamentos-helpers'
+
+export async function registrarVentaFilamento(
+  filamentoId: string,
+  venta: { gramos: number; precio_kg: number; costo_kg: number; cliente: string; nota: string; fecha: string }
+): Promise<{ venta?: VentaFilamento; filamento?: Filamento; error?: string }> {
+  await getAdminUser()
+  if (venta.gramos <= 0) return { error: 'Los gramos deben ser mayores a 0' }
+
+  const supabase = createServiceClient()
+
+  // 1. Stock actual
+  const { data: actual, error: fetchErr } = await supabase
+    .from('filamentos')
+    .select('gramos_sueltos, rollos_cerrados, peso_rollo_gr')
+    .eq('id', filamentoId)
+    .single()
+  if (fetchErr || !actual) return { error: 'Filamento no encontrado' }
+
+  const totalDisp = actual.rollos_cerrados * actual.peso_rollo_gr + actual.gramos_sueltos
+  if (venta.gramos > totalDisp) return { error: `Stock insuficiente (${Math.round(totalDisp)}g disponibles)` }
+
+  // 2. Guardar venta
+  const { data: row, error: ventaErr } = await supabase
+    .from('filamento_ventas')
+    .insert({ filamento_id: filamentoId, ...venta })
+    .select()
+    .single()
+  if (ventaErr) return { error: ventaErr.message }
+
+  // 3. Descontar del stock (de gramos_sueltos primero, luego rollos)
+  let restante = venta.gramos
+  let nuevoSueltos = actual.gramos_sueltos
+  let nuevoRollos = actual.rollos_cerrados
+
+  if (nuevoSueltos >= restante) {
+    nuevoSueltos -= restante
+    restante = 0
+  } else {
+    restante -= nuevoSueltos
+    nuevoSueltos = 0
+  }
+  if (restante > 0) {
+    const rollosNecesarios = Math.ceil(restante / actual.peso_rollo_gr)
+    nuevoRollos = Math.max(0, nuevoRollos - rollosNecesarios)
+    const gramosDeRollos = rollosNecesarios * actual.peso_rollo_gr
+    nuevoSueltos = Math.max(0, gramosDeRollos - restante)
+  }
+
+  const { data: updated, error: updErr } = await supabase
+    .from('filamentos')
+    .update({ gramos_sueltos: nuevoSueltos, rollos_cerrados: nuevoRollos })
+    .eq('id', filamentoId)
+    .select()
+    .single()
+  if (updErr) return { error: updErr.message }
+
+  revalidatePath('/admin/filamentos')
+  return { venta: row as VentaFilamento, filamento: updated as Filamento }
+}
+
+export async function getVentasFilamento(filamentoId: string): Promise<VentaFilamento[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('*')
+    .eq('filamento_id', filamentoId)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+  return (data ?? []) as VentaFilamento[]
+}
+
+export async function getHistorialVentasFilamentos(): Promise<VentaFilamento[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('*, filamentos(nombre, color, material)')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(200)
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    filamento_nombre: r.filamentos?.nombre ?? '',
+    filamento_color: r.filamentos?.color ?? '',
+    filamento_material: r.filamentos?.material ?? '',
+  })) as VentaFilamento[]
+}
+
+export async function deleteVentaFilamento(
+  id: string,
+  filamentoId: string,
+  gramos: number
+): Promise<{ filamento?: Filamento; error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const { data: actual } = await supabase
+    .from('filamentos')
+    .select('gramos_sueltos')
+    .eq('id', filamentoId)
+    .single()
+
+  const { error: delErr } = await supabase.from('filamento_ventas').delete().eq('id', id)
+  if (delErr) return { error: delErr.message }
+
+  if (actual) {
+    const { data: updated } = await supabase
+      .from('filamentos')
+      .update({ gramos_sueltos: (actual.gramos_sueltos ?? 0) + gramos })
+      .eq('id', filamentoId)
+      .select()
+      .single()
+    revalidatePath('/admin/filamentos')
+    return { filamento: updated as Filamento }
+  }
+
+  revalidatePath('/admin/filamentos')
+  return {}
+}
