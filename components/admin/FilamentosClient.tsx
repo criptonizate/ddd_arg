@@ -11,6 +11,7 @@ import {
   deleteMovimiento,
   getMovimientos,
   registrarVentaFilamento,
+  descontarUsoPropioFilamento,
   getVentasFilamento,
   deleteVentaFilamento,
   getHistorialVentasFilamentos,
@@ -232,16 +233,25 @@ function FilamentoCard({
   const [ventas, setVentas] = useState<VentaFilamento[] | null>(null)
   const [loadingMovs, setLoadingMovs] = useState(false)
 
-  // Formulario compra
   const today = new Date().toISOString().split('T')[0]
+
+  // Formulario compra
   const [showCompra, setShowCompra] = useState(false)
   const [compraForm, setCompraForm] = useState({ rollos: 0, gramos: 0, fecha: today, nota: '' })
   const [compraError, setCompraError] = useState('')
 
   // Formulario venta
   const [showVenta, setShowVenta] = useState(false)
-  const [ventaForm, setVentaForm] = useState({ gramos: 0, precio_kg: 0, cliente: '', nota: '', fecha: today })
+  const [ventaKg, setVentaKg] = useState('')
+  const [ventaPrecioKg, setVentaPrecioKg] = useState('20000')
+  const [ventaCliente, setVentaCliente] = useState('')
+  const [ventaFecha, setVentaFecha] = useState(today)
   const [ventaError, setVentaError] = useState('')
+
+  // Formulario uso propio
+  const [showUsoPropio, setShowUsoPropio] = useState(false)
+  const [usoPropioGr, setUsoPropioGr] = useState('')
+  const [usoPropioError, setUsoPropioError] = useState('')
 
   const totalGr = fil.rollos_cerrados * fil.peso_rollo_gr + fil.gramos_sueltos
 
@@ -335,22 +345,34 @@ function FilamentoCard({
   }
 
   function handleRegistrarVenta() {
-    if (ventaForm.gramos <= 0) { setVentaError('Ingresá los gramos a vender'); return }
-    if (ventaForm.gramos > totalGr) { setVentaError(`Stock insuficiente (${Math.round(totalGr)}g disponibles)`); return }
+    const kg = parseFloat(ventaKg)
+    const precio = parseFloat(ventaPrecioKg)
+    if (!kg || kg <= 0) { setVentaError('Ingresá los kg a vender'); return }
+    const gramos = Math.round(kg * 1000)
+    if (gramos > totalGr) { setVentaError(`Stock insuficiente (${(totalGr / 1000).toFixed(3)} kg disponibles)`); return }
     setVentaError('')
     startTransition(async () => {
-      const res = await registrarVentaFilamento(fil.id, { ...ventaForm, costo_kg: fil.costo_kg })
+      const res = await registrarVentaFilamento(fil.id, {
+        gramos, precio_kg: precio, costo_kg: fil.costo_kg,
+        cliente: ventaCliente, nota: '', fecha: ventaFecha,
+      })
       if (res.error) { setVentaError(res.error); return }
-      if (res.filamento) {
-        setFil(res.filamento)
-        setGramos(String(res.filamento.gramos_sueltos || ''))
-        onUpdate(res.filamento)
-      }
-      if (res.venta) {
-        setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
-      }
-      setVentaForm({ gramos: 0, precio_kg: 0, cliente: '', nota: '', fecha: today })
-      setShowVenta(false)
+      if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
+      if (res.venta) setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
+      setVentaKg(''); setVentaCliente(''); setVentaFecha(today); setShowVenta(false)
+    })
+  }
+
+  function handleUsoPropioConfirmar() {
+    const gr = parseFloat(usoPropioGr)
+    if (!gr || gr <= 0) { setUsoPropioError('Ingresá los gramos a descontar'); return }
+    if (gr > totalGr) { setUsoPropioError(`Stock insuficiente (${Math.round(totalGr)}g disponibles)`); return }
+    setUsoPropioError('')
+    startTransition(async () => {
+      const res = await descontarUsoPropioFilamento(fil.id, gr)
+      if (res.error) { setUsoPropioError(res.error); return }
+      if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
+      setUsoPropioGr(''); setShowUsoPropio(false)
     })
   }
 
@@ -386,10 +408,11 @@ function FilamentoCard({
     })
   }
 
-  // Calcular preview de venta
-  const ventaGramos = ventaForm.gramos
-  const ventaPrecioTotal = ventaGramos > 0 ? (ventaGramos / 1000) * ventaForm.precio_kg : 0
-  const ventaCostoTotal = ventaGramos > 0 ? (ventaGramos / 1000) * fil.costo_kg : 0
+  // Preview venta
+  const ventaKgNum = parseFloat(ventaKg) || 0
+  const ventaPrecioKgNum = parseFloat(ventaPrecioKg) || 0
+  const ventaPrecioTotal = ventaKgNum * ventaPrecioKgNum
+  const ventaCostoTotal = ventaKgNum * fil.costo_kg
   const ventaGanancia = ventaPrecioTotal - ventaCostoTotal
   const ventaMargen = ventaPrecioTotal > 0 ? (ventaGanancia / ventaPrecioTotal) * 100 : 0
 
@@ -543,14 +566,21 @@ function FilamentoCard({
 
           {/* ── Botones de acción ── */}
           <div className="border-t border-border pt-4 flex gap-2 flex-wrap">
-            {!showVenta && !showCompra && (
+            {!showVenta && !showUsoPropio && !showCompra && (
               <>
                 <button
                   onClick={() => setShowVenta(true)}
                   disabled={totalGr <= 0}
                   className="flex items-center gap-2 text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 px-4 py-2 rounded-lg transition-colors"
                 >
-                  <ShoppingBag size={14} /> Registrar venta
+                  <ShoppingBag size={14} /> Vender
+                </button>
+                <button
+                  onClick={() => setShowUsoPropio(true)}
+                  disabled={totalGr <= 0}
+                  className="flex items-center gap-2 text-sm font-medium border border-border hover:bg-secondary disabled:opacity-40 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Minus size={14} /> Uso propio
                 </button>
                 <button
                   onClick={() => setShowCompra(true)}
@@ -562,11 +592,45 @@ function FilamentoCard({
             )}
           </div>
 
+          {/* ── Formulario uso propio ── */}
+          {showUsoPropio && (
+            <div className="bg-secondary/20 border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">Uso propio — descontar del stock</p>
+                <button onClick={() => { setShowUsoPropio(false); setUsoPropioError('') }} className="text-muted-foreground hover:text-foreground">
+                  <X size={14} />
+                </button>
+              </div>
+              {usoPropioError && <p className="text-xs text-red-500">{usoPropioError}</p>}
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="1" max={totalGr} placeholder="0" autoFocus
+                  value={usoPropioGr}
+                  onChange={(e) => setUsoPropioGr(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleUsoPropioConfirmar()}
+                  className="w-32 text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                />
+                <span className="text-sm text-muted-foreground">g</span>
+                <span className="text-xs text-muted-foreground">(disponible: {fmtGr(totalGr)})</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setShowUsoPropio(false); setUsoPropioError('') }}
+                  className="flex-1 text-sm border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={handleUsoPropioConfirmar} disabled={isPending}
+                  className="flex-1 text-sm bg-foreground text-background rounded-lg py-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity">
+                  {isPending ? 'Guardando...' : 'Descontar'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Formulario venta ── */}
           {showVenta && (
             <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-green-800 dark:text-green-300">Registrar venta de filamento</p>
+                <p className="text-xs font-semibold text-green-800 dark:text-green-300">Registrar venta</p>
                 <button onClick={() => { setShowVenta(false); setVentaError('') }} className="text-muted-foreground hover:text-foreground">
                   <X size={14} />
                 </button>
@@ -575,44 +639,43 @@ function FilamentoCard({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Gramos a vender *</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Cantidad (kg) *</label>
                   <div className="flex items-center gap-1">
-                    <input type="number" min="1" max={totalGr} placeholder="0"
-                      value={ventaForm.gramos || ''}
-                      onChange={(e) => setVentaForm((f) => ({ ...f, gramos: Number(e.target.value) || 0 }))}
+                    <input type="number" min="0.001" step="0.001" placeholder="0.000" autoFocus
+                      value={ventaKg}
+                      onChange={(e) => setVentaKg(e.target.value)}
                       className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
-                    <span className="text-xs text-muted-foreground shrink-0">g</span>
+                    <span className="text-xs text-muted-foreground shrink-0">kg</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Disp: {fmtGr(totalGr)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Disp: {(totalGr / 1000).toFixed(3)} kg</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Precio de venta ($/kg) *</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Precio ($/kg)</label>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">$</span>
-                    <input type="number" min="0" placeholder="0"
-                      value={ventaForm.precio_kg || ''}
-                      onChange={(e) => setVentaForm((f) => ({ ...f, precio_kg: Number(e.target.value) || 0 }))}
+                    <input type="number" min="0"
+                      value={ventaPrecioKg}
+                      onChange={(e) => setVentaPrecioKg(e.target.value)}
                       className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
-                    <span className="text-xs text-muted-foreground shrink-0">/kg</span>
                   </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Cliente</label>
                   <input placeholder="Nombre del cliente"
-                    value={ventaForm.cliente}
-                    onChange={(e) => setVentaForm((f) => ({ ...f, cliente: e.target.value }))}
+                    value={ventaCliente}
+                    onChange={(e) => setVentaCliente(e.target.value)}
                     className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Fecha</label>
-                  <input type="date" value={ventaForm.fecha}
-                    onChange={(e) => setVentaForm((f) => ({ ...f, fecha: e.target.value }))}
+                  <input type="date" value={ventaFecha}
+                    onChange={(e) => setVentaFecha(e.target.value)}
                     className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
                 </div>
               </div>
 
               {/* Preview ganancia */}
-              {ventaGramos > 0 && ventaForm.precio_kg > 0 && (
+              {ventaKgNum > 0 && (
                 <div className="bg-white dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
                   <div>
                     <p className="text-xs text-muted-foreground">Total venta</p>

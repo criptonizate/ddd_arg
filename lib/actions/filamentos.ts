@@ -217,6 +217,53 @@ export async function registrarVentaFilamento(
   return { venta: row as VentaFilamento, filamento: updated as Filamento }
 }
 
+export async function descontarUsoPropioFilamento(
+  filamentoId: string,
+  gramos: number
+): Promise<{ filamento?: Filamento; error?: string }> {
+  await getAdminUser()
+  if (gramos <= 0) return { error: 'Los gramos deben ser mayores a 0' }
+
+  const supabase = createServiceClient()
+  const { data: actual, error: fetchErr } = await supabase
+    .from('filamentos')
+    .select('gramos_sueltos, rollos_cerrados, peso_rollo_gr')
+    .eq('id', filamentoId)
+    .single()
+  if (fetchErr || !actual) return { error: 'Filamento no encontrado' }
+
+  const totalDisp = actual.rollos_cerrados * actual.peso_rollo_gr + actual.gramos_sueltos
+  if (gramos > totalDisp) return { error: `Stock insuficiente (${Math.round(totalDisp)}g disponibles)` }
+
+  let restante = gramos
+  let nuevoSueltos = actual.gramos_sueltos
+  let nuevoRollos = actual.rollos_cerrados
+
+  if (nuevoSueltos >= restante) {
+    nuevoSueltos -= restante
+    restante = 0
+  } else {
+    restante -= nuevoSueltos
+    nuevoSueltos = 0
+  }
+  if (restante > 0) {
+    const rollosNecesarios = Math.ceil(restante / actual.peso_rollo_gr)
+    nuevoRollos = Math.max(0, nuevoRollos - rollosNecesarios)
+    nuevoSueltos = Math.max(0, rollosNecesarios * actual.peso_rollo_gr - restante)
+  }
+
+  const { data: updated, error: updErr } = await supabase
+    .from('filamentos')
+    .update({ gramos_sueltos: nuevoSueltos, rollos_cerrados: nuevoRollos })
+    .eq('id', filamentoId)
+    .select()
+    .single()
+  if (updErr) return { error: updErr.message }
+
+  revalidatePath('/admin/filamentos')
+  return { filamento: updated as Filamento }
+}
+
 export async function getVentasFilamento(filamentoId: string): Promise<VentaFilamento[]> {
   await getAdminUser()
   const supabase = createServiceClient()
