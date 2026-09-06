@@ -242,7 +242,7 @@ function FilamentoCard({
 
   // Formulario venta
   const [showVenta, setShowVenta] = useState(false)
-  const [ventaKg, setVentaKg] = useState('')
+  const [ventaKg, setVentaKg] = useState(1)
   const [ventaPrecioKg, setVentaPrecioKg] = useState('20000')
   const [ventaCliente, setVentaCliente] = useState('')
   const [ventaFecha, setVentaFecha] = useState(today)
@@ -345,11 +345,11 @@ function FilamentoCard({
   }
 
   function handleRegistrarVenta() {
-    const kg = parseFloat(ventaKg)
+    const kg = ventaKg
     const precio = parseFloat(ventaPrecioKg)
     if (!kg || kg <= 0) { setVentaError('Ingresá los kg a vender'); return }
     const gramos = Math.round(kg * 1000)
-    if (gramos > totalGr) { setVentaError(`Stock insuficiente (${(totalGr / 1000).toFixed(3)} kg disponibles)`); return }
+    if (gramos > totalGr) { setVentaError(`Stock insuficiente (${Math.floor(totalGr / 1000)} kg disponibles)`); return }
     setVentaError('')
     startTransition(async () => {
       const res = await registrarVentaFilamento(fil.id, {
@@ -359,7 +359,7 @@ function FilamentoCard({
       if (res.error) { setVentaError(res.error); return }
       if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
       if (res.venta) setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
-      setVentaKg(''); setVentaCliente(''); setVentaFecha(today); setShowVenta(false)
+      setVentaKg(1); setVentaCliente(''); setVentaFecha(today); setShowVenta(false)
     })
   }
 
@@ -409,7 +409,7 @@ function FilamentoCard({
   }
 
   // Preview venta
-  const ventaKgNum = parseFloat(ventaKg) || 0
+  const ventaKgNum = ventaKg || 0
   const ventaPrecioKgNum = parseFloat(ventaPrecioKg) || 0
   const ventaPrecioTotal = ventaKgNum * ventaPrecioKgNum
   const ventaCostoTotal = ventaKgNum * fil.costo_kg
@@ -639,15 +639,17 @@ function FilamentoCard({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Cantidad (kg) *</label>
-                  <div className="flex items-center gap-1">
-                    <input type="number" min="0.001" step="0.001" placeholder="0.000" autoFocus
-                      value={ventaKg}
-                      onChange={(e) => setVentaKg(e.target.value)}
-                      className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
-                    <span className="text-xs text-muted-foreground shrink-0">kg</span>
+                  <label className="text-xs text-muted-foreground block mb-1">Cantidad</label>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setVentaKg(Math.max(1, ventaKg - 1))}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-secondary transition-colors text-sm font-bold">−</button>
+                    <span className="text-xl font-bold w-12 text-center tabular-nums">{ventaKg}</span>
+                    <button type="button" onClick={() => setVentaKg(ventaKg + 1)}
+                      disabled={ventaKg * 1000 >= totalGr}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-secondary disabled:opacity-30 transition-colors text-sm font-bold">+</button>
+                    <span className="text-xs text-muted-foreground">kg</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Disp: {(totalGr / 1000).toFixed(3)} kg</p>
+                  <p className="text-xs text-muted-foreground mt-1">Disp: {Math.floor(totalGr / 1000)} kg</p>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Precio ($/kg)</label>
