@@ -1,9 +1,16 @@
 export const MATERIALES = ['PLA', 'PETG', 'TPU', 'ABS', 'ASA', 'Otro'] as const
 export type Material = (typeof MATERIALES)[number]
 
+export const TIPOS_FILAMENTO = ['Común', 'Silk', 'Matte', 'GLOW', 'Fluorescente', 'Madera', 'Mármol', 'Otro'] as const
+export type TipoFilamento = (typeof TIPOS_FILAMENTO)[number]
+
+export const MARCAS_SUGERIDAS = ['GST3D', 'GST3D - LITE', 'Fremover']
+
 export interface Filamento {
   id: string
   nombre: string
+  marca: string
+  tipo: string
   material: Material
   color: string
   rollos_cerrados: number

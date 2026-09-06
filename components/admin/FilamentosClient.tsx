@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp } from 'lucide-react'
-import { MATERIALES, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
+import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
   updateFilamento,
@@ -81,9 +81,11 @@ function NuevoFilamentoModal({
   onCreated: (f: Filamento) => void
 }) {
   const [form, setForm] = useState({
-    nombre: '', material: 'PLA' as Material, color: '',
+    nombre: '', marca: '', tipo: 'Común', material: 'PLA' as Material, color: '',
     rollos_cerrados: 0, gramos_sueltos: 0, peso_rollo_gr: 1000, costo_kg: 0, nota: '',
   })
+  const [marcaInput, setMarcaInput] = useState('')
+  const [showMarcaSugs, setShowMarcaSugs] = useState(false)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
 
@@ -115,6 +117,33 @@ function NuevoFilamentoModal({
             <label className="text-xs font-medium text-muted-foreground block mb-1">Nombre *</label>
             <input className={inputCls} value={form.nombre} placeholder="Ej: PLA Bambu Blanco"
               onChange={(e) => set('nombre', e.target.value)} autoFocus />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Marca</label>
+              <input className={inputCls} value={form.marca}
+                placeholder="GST3D, Fremover..."
+                onChange={(e) => { set('marca', e.target.value); setShowMarcaSugs(true) }}
+                onFocus={() => setShowMarcaSugs(true)}
+                onBlur={() => setTimeout(() => setShowMarcaSugs(false), 150)} />
+              {showMarcaSugs && (
+                <div className="absolute z-10 top-full mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                  {[...MARCAS_SUGERIDAS.filter(m => !form.marca || m.toLowerCase().includes(form.marca.toLowerCase())), ...(form.marca && !MARCAS_SUGERIDAS.includes(form.marca) ? [form.marca] : [])].map((m) => (
+                    <button key={m} type="button" onMouseDown={() => { set('marca', m); setShowMarcaSugs(false) }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-secondary transition-colors">
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Tipo</label>
+              <select className={inputCls} value={form.tipo} onChange={(e) => set('tipo', e.target.value)}>
+                {TIPOS_FILAMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -193,6 +222,9 @@ function FilamentoCard({
   const [expanded, setExpanded] = useState(false)
   const [gramos, setGramos] = useState(String(initial.gramos_sueltos || ''))
   const [costoKgStr, setCostoKgStr] = useState(String(initial.costo_kg || ''))
+  const [marcaInput, setMarcaInput] = useState(initial.marca || '')
+  const [tipoInput, setTipoInput] = useState(initial.tipo || 'Común')
+  const [showMarcaSugs, setShowMarcaSugs] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   // Historial
@@ -253,6 +285,28 @@ function FilamentoCard({
     startTransition(async () => {
       await updateFilamento(fil.id, { costo_kg: costo })
       const updated = { ...fil, costo_kg: costo }
+      setFil(updated)
+      onUpdate(updated)
+    })
+  }
+
+  function saveMarca() {
+    const m = marcaInput.trim()
+    if (m === fil.marca) return
+    startTransition(async () => {
+      await updateFilamento(fil.id, { marca: m })
+      const updated = { ...fil, marca: m }
+      setFil(updated)
+      onUpdate(updated)
+    })
+  }
+
+  function saveTipo(t: string) {
+    if (t === fil.tipo) return
+    setTipoInput(t)
+    startTransition(async () => {
+      await updateFilamento(fil.id, { tipo: t })
+      const updated = { ...fil, tipo: t }
       setFil(updated)
       onUpdate(updated)
     })
@@ -347,12 +401,15 @@ function FilamentoCard({
 
         <button onClick={handleExpand} className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {fil.marca && <span className="text-xs font-semibold text-foreground/70">{fil.marca}</span>}
             <span className="font-semibold text-sm">{fil.nombre}</span>
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium border ${MATERIAL_COLORS[fil.material]}`}>
               {fil.material}
             </span>
+            {fil.tipo && fil.tipo !== 'Común' && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">{fil.tipo}</span>
+            )}
             {fil.color && <span className="text-xs text-muted-foreground">{fil.color}</span>}
-            {fil.costo_kg > 0 && <span className="text-xs text-muted-foreground">Costo: {fmtARS(fil.costo_kg)}/kg</span>}
           </div>
         </button>
 
@@ -417,6 +474,42 @@ function FilamentoCard({
                 placeholder="0"
               />
               <span className="text-sm text-muted-foreground">g</span>
+            </div>
+          </div>
+
+          {/* Marca y Tipo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Marca</label>
+              <input
+                value={marcaInput}
+                onChange={(e) => { setMarcaInput(e.target.value); setShowMarcaSugs(true) }}
+                onFocus={() => setShowMarcaSugs(true)}
+                onBlur={() => { setTimeout(() => setShowMarcaSugs(false), 150); saveMarca() }}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                placeholder="GST3D, Fremover..."
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+              />
+              {showMarcaSugs && (
+                <div className="absolute z-10 top-full mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                  {[...MARCAS_SUGERIDAS.filter(m => !marcaInput || m.toLowerCase().includes(marcaInput.toLowerCase()))].map((m) => (
+                    <button key={m} type="button" onMouseDown={() => { setMarcaInput(m); setShowMarcaSugs(false); setTimeout(saveMarca, 50) }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-secondary transition-colors">
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Tipo</label>
+              <select
+                value={tipoInput}
+                onChange={(e) => saveTipo(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+              >
+                {TIPOS_FILAMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
           </div>
 
@@ -776,14 +869,23 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
   const [showNuevo, setShowNuevo] = useState(false)
   const [tab, setTab] = useState<'stock' | 'ventas'>('stock')
 
+  function sortFilamentos(list: Filamento[]): Filamento[] {
+    return [...list].sort((a, b) => {
+      const marcaA = a.marca || 'ZZZZ'
+      const marcaB = b.marca || 'ZZZZ'
+      return marcaA.localeCompare(marcaB, 'es') ||
+        (a.tipo || '').localeCompare(b.tipo || '', 'es') ||
+        (a.color || '').localeCompare(b.color || '', 'es') ||
+        a.nombre.localeCompare(b.nombre, 'es')
+    })
+  }
+
   function handleCreated(f: Filamento) {
-    setFilamentos((prev) =>
-      [...prev, f].sort((a, b) => a.material.localeCompare(b.material) || a.nombre.localeCompare(b.nombre))
-    )
+    setFilamentos((prev) => sortFilamentos([...prev, f]))
   }
 
   function handleUpdate(updated: Filamento) {
-    setFilamentos((prev) => prev.map((f) => f.id === updated.id ? updated : f))
+    setFilamentos((prev) => sortFilamentos(prev.map((f) => f.id === updated.id ? updated : f)))
   }
 
   function handleDelete(id: string) {
@@ -792,6 +894,13 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
 
   const totalGr = filamentos.reduce((s, f) => s + totalGramos(f), 0)
   const totalRollos = filamentos.reduce((s, f) => s + f.rollos_cerrados, 0)
+
+  const porMarca = filamentos.reduce<Record<string, Filamento[]>>((acc, f) => {
+    const key = f.marca || '(Sin marca)'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(f)
+    return acc
+  }, {})
 
   const porMaterial = filamentos.reduce<Record<string, Filamento[]>>((acc, f) => {
     if (!acc[f.material]) acc[f.material] = []
@@ -842,25 +951,19 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
       {tab === 'stock' && (
         <>
           {/* Resumen por material */}
-          {filamentos.length > 0 && Object.keys(porMaterial).length > 1 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {filamentos.length > 0 && Object.keys(porMaterial).length > 0 && (
+            <div className="flex flex-wrap gap-2">
               {Object.entries(porMaterial).map(([mat, items]) => {
                 const grTotal = items.reduce((s, f) => s + totalGramos(f), 0)
                 return (
-                  <div key={mat} className="bg-card border border-border rounded-xl px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${MATERIAL_COLORS[mat]}`}>
+                  <div key={mat} className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-1.5">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium border ${MATERIAL_COLORS[mat]}`}>
                       {mat}
                     </span>
-                    <p className="text-lg font-bold mt-1 tabular-nums">{fmtGr(grTotal)}</p>
-                    <p className="text-xs text-muted-foreground">{items.length} tipo{items.length !== 1 ? 's' : ''}</p>
+                    <span className="text-sm font-bold tabular-nums">{fmtGr(grTotal)}</span>
                   </div>
                 )
               })}
-              <div className="bg-card border border-border rounded-xl px-4 py-3">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total</span>
-                <p className="text-lg font-bold mt-1 tabular-nums">{fmtGr(totalGr)}</p>
-                <p className="text-xs text-muted-foreground">{filamentos.length} filamento{filamentos.length !== 1 ? 's' : ''}</p>
-              </div>
             </div>
           )}
 
@@ -876,14 +979,12 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
             </div>
           ) : (
             <div className="space-y-6">
-              {Object.entries(porMaterial).map(([mat, items]) => (
-                <section key={mat}>
+              {Object.entries(porMarca).map(([marca, items]) => (
+                <section key={marca}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${MATERIAL_COLORS[mat]}`}>
-                      {mat}
-                    </span>
+                    <h3 className="text-sm font-bold text-foreground">{marca}</h3>
                     <span className="text-xs text-muted-foreground">
-                      {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} total
+                      · {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} total · {items.length} tipo{items.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="space-y-2">
