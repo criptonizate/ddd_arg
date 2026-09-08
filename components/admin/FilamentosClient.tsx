@@ -939,6 +939,8 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroMaterial, setFiltroMaterial] = useState('')
   const [filtroColor, setFiltroColor] = useState('')
+  const [filtroStockMin, setFiltroStockMin] = useState(0) // en kg
+  const [ordenStock, setOrdenStock] = useState<'default' | 'asc' | 'desc'>('default')
 
   function sortFilamentos(list: Filamento[]): Filamento[] {
     return [...list].sort((a, b) => {
@@ -969,21 +971,32 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
   const materialesUnicos = [...new Set(filamentos.map(f => f.material))].sort()
   const coloresUnicos = [...new Set(filamentos.map(f => f.color).filter(Boolean))].sort()
 
-  const hayFiltros = filtroMarca || filtroTipo || filtroMaterial || filtroColor
+  const hayFiltros = filtroMarca || filtroTipo || filtroMaterial || filtroColor || filtroStockMin > 0 || ordenStock !== 'default'
 
-  const filamentosFiltrados = filamentos.filter(f => {
+  let filamentosFiltrados = filamentos.filter(f => {
     if (filtroMarca && f.marca !== filtroMarca) return false
     if (filtroTipo && f.tipo !== filtroTipo) return false
     if (filtroMaterial && f.material !== filtroMaterial) return false
     if (filtroColor && !f.color.toLowerCase().includes(filtroColor.toLowerCase())) return false
+    if (filtroStockMin > 0 && totalGramos(f) < filtroStockMin * 1000) return false
     return true
   })
+
+  if (ordenStock !== 'default') {
+    filamentosFiltrados = [...filamentosFiltrados].sort((a, b) =>
+      ordenStock === 'desc'
+        ? totalGramos(b) - totalGramos(a)
+        : totalGramos(a) - totalGramos(b)
+    )
+  }
 
   const totalGr = filamentosFiltrados.reduce((s, f) => s + totalGramos(f), 0)
   const totalRollos = filamentosFiltrados.reduce((s, f) => s + f.rollos_cerrados, 0)
 
+  // Cuando ordenamos por stock no agrupamos por marca (pierde el sentido)
+  const agrupar = ordenStock === 'default'
   const porMarca = filamentosFiltrados.reduce<Record<string, Filamento[]>>((acc, f) => {
-    const key = f.marca || '(Sin marca)'
+    const key = agrupar ? (f.marca || '(Sin marca)') : 'todos'
     if (!acc[key]) acc[key] = []
     acc[key].push(f)
     return acc
@@ -1101,10 +1114,36 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
                   </div>
                 </div>
               )}
+              {/* Stock mínimo */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground w-14 shrink-0">Stock</span>
+                {[0, 1, 2, 3, 5].map(kg => (
+                  <button
+                    key={kg}
+                    onClick={() => setFiltroStockMin(kg)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      filtroStockMin === kg
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {kg === 0 ? 'Todos' : `+${kg} kg`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Ordenar por cantidad */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground w-14 shrink-0">Ordenar</span>
+                {chipBtn('Por marca', ordenStock === 'default', () => setOrdenStock('default'))}
+                {chipBtn('↑ Menor stock', ordenStock === 'asc', () => setOrdenStock(ordenStock === 'asc' ? 'default' : 'asc'))}
+                {chipBtn('↓ Mayor stock', ordenStock === 'desc', () => setOrdenStock(ordenStock === 'desc' ? 'default' : 'desc'))}
+              </div>
+
               {/* Limpiar */}
               {hayFiltros && (
                 <button
-                  onClick={() => { setFiltroMarca(''); setFiltroTipo(''); setFiltroMaterial(''); setFiltroColor('') }}
+                  onClick={() => { setFiltroMarca(''); setFiltroTipo(''); setFiltroMaterial(''); setFiltroColor(''); setFiltroStockMin(0); setOrdenStock('default') }}
                   className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
                 >
                   Limpiar filtros
@@ -1152,12 +1191,14 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
             <div className="space-y-6">
               {Object.entries(porMarca).map(([marca, items]) => (
                 <section key={marca}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-sm font-bold text-foreground">{marca}</h3>
-                    <span className="text-xs text-muted-foreground">
-                      · {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} · {items.length} tipo{items.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
+                  {agrupar && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-bold text-foreground">{marca}</h3>
+                      <span className="text-xs text-muted-foreground">
+                        · {fmtGr(items.reduce((s, f) => s + totalGramos(f), 0))} · {items.length} tipo{items.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {items.map((f) => (
                       <FilamentoCard key={f.id} filamento={f} onUpdate={handleUpdate} onDelete={() => handleDelete(f.id)} />
