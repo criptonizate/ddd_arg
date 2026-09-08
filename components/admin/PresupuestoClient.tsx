@@ -432,13 +432,22 @@ export default function PresupuestoClient() {
       const { toPng } = await import('html-to-image')
       const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
       const nombre = cliente.nombre.trim() || 'sin nombre'
-      const w = el.offsetWidth
+
+      // Forzar ancho completo para evitar recorte por el layout
+      const EXPORT_WIDTH = 860
+      const prevStyle = el.style.cssText
+      el.style.width = `${EXPORT_WIDTH}px`
+      el.style.maxWidth = 'none'
+      el.style.overflow = 'visible'
+      // Esperar un frame para que el DOM re-calcule alto
+      await new Promise(r => setTimeout(r, 80))
       const h = el.scrollHeight
+
       const dataUrl = await toPng(el, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         skipFonts: true,
-        width: w,
+        width: EXPORT_WIDTH,
         height: h,
         style: {
           backgroundColor: '#ffffff',
@@ -446,9 +455,10 @@ export default function PresupuestoClient() {
           borderRadius: '0',
           overflow: 'visible',
           maxWidth: 'none',
-          border: '1px solid #e5e7eb',
+          border: 'none',
         },
       })
+      el.style.cssText = prevStyle
       const link = document.createElement('a')
       link.download = `Presupuesto ${nombre} - ${fecha}.png`
       link.href = dataUrl
