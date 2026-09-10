@@ -145,6 +145,7 @@ export async function markOrderListo(orderId: string) {
   if (error) return { error: error.message }
   revalidatePath('/admin/pedidos')
   revalidatePath('/admin/ventas')
+  revalidatePath('/admin/produccion')
   return { success: true }
 }
 
@@ -187,6 +188,7 @@ export async function confirmOrder(orderId: string) {
 
   revalidatePath('/admin/ventas')
   revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/produccion')
   return { success: true }
 }
 

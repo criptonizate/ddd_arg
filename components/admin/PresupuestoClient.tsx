@@ -260,19 +260,23 @@ export default function PresupuestoClient() {
 
   function updateCliente(field: keyof typeof cliente, value: string) {
     setCliente(c => ({ ...c, [field]: value }))
+    setCurrentNumero(null)
   }
 
   function updateItem(idx: number, field: keyof Item, value: string | number | '') {
     setItems(prev => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)))
+    setCurrentNumero(null)
   }
 
   function addItem() {
     setItems(prev => [...prev, { descripcion: '', unidades: '', precio: '' }])
+    setCurrentNumero(null)
   }
 
   function removeItem(idx: number) {
     if (items.length <= 1) return
     setItems(prev => prev.filter((_, i) => i !== idx))
+    setCurrentNumero(null)
   }
 
   function togglePrecioEspecial(idx: number) {
@@ -425,9 +429,11 @@ export default function PresupuestoClient() {
 
   async function handleExportPNG() {
     setExportingPNG(true)
+    const el = document.getElementById('presupuesto-preview')
+    let prevStyle = ''
+    let prevClass = ''
     try {
       await ensureNumero()
-      const el = document.getElementById('presupuesto-preview')
       if (!el) return
       const { toPng } = await import('html-to-image')
       const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
@@ -435,8 +441,8 @@ export default function PresupuestoClient() {
 
       // Quitar restricciones de ancho/overflow para captura completa
       const EXPORT_WIDTH = 860
-      const prevStyle = el.style.cssText
-      const prevClass = el.className
+      prevStyle = el.style.cssText
+      prevClass = el.className
       el.className = el.className
         .replace('max-w-4xl', '')
         .replace('overflow-hidden', '')
@@ -464,8 +470,6 @@ export default function PresupuestoClient() {
           borderRadius: '0',
         },
       })
-      el.style.cssText = prevStyle
-      el.className = prevClass
       const link = document.createElement('a')
       link.download = `Presupuesto ${nombre} - ${fecha}.png`
       link.href = dataUrl
@@ -474,6 +478,9 @@ export default function PresupuestoClient() {
       console.error('PNG export error:', e)
       alert('No se pudo exportar la imagen. Intentá de nuevo.')
     } finally {
+      // Siempre restaurar estilos aunque toPng haya fallado
+      if (el && prevStyle !== '') el.style.cssText = prevStyle
+      if (el && prevClass !== '') el.className = prevClass
       setExportingPNG(false)
     }
   }
