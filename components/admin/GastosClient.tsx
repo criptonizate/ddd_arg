@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
 import { upsertGasto, upsertGastos, updateConceptFromDate } from '@/lib/actions/gastos'
@@ -132,6 +132,16 @@ function buildSeedEntries(): GastoEntry[] {
   return arr
 }
 
+function addOneMonth(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setMonth(d.getMonth() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+function getSeriesKey(concept: string): string {
+  return concept.replace(/\s*[-–]?\s*cuota\s+\d+(?:\/\d+)?$/i, '').trim()
+}
+
 const fmt = (n: number) =>
   '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
@@ -167,6 +177,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   const [editConcept, setEditConcept] = useState('')
   const [editAmount, setEditAmount] = useState('')
   const [pendingEdit, setPendingEdit] = useState<{ entry: GastoEntry; newAmount: number } | null>(null)
+  const [postponingEntry, setPostponingEntry] = useState<GastoEntry | null>(null)
   const [, startTransition] = useTransition()
   // form
   const [fConcept,  setFConcept]  = useState('')
@@ -254,6 +265,38 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
     // Actualizar todos los futuros en DB
     startTransition(() => updateConceptFromDate(entry.concept, newAmount, entry.date))
     setPendingEdit(null)
+  }
+
+  function postponeSoloEsta() {
+    if (!postponingEntry) return
+    const updated = {
+      ...postponingEntry,
+      date: addOneMonth(postponingEntry.date),
+      due: postponingEntry.due ? addOneMonth(postponingEntry.due) : null,
+    }
+    mutate(updated)
+    setPostponingEntry(null)
+  }
+
+  function postponeSerie() {
+    if (!postponingEntry) return
+    const seriesKey = getSeriesKey(postponingEntry.concept)
+    const toUpdate = entries.filter(e =>
+      e.status === 'pendiente' &&
+      e.date >= postponingEntry.date &&
+      getSeriesKey(e.concept) === seriesKey
+    )
+    const updated = toUpdate.map(e => ({
+      ...e,
+      date: addOneMonth(e.date),
+      due: e.due ? addOneMonth(e.due) : null,
+    }))
+    setEntries(prev => {
+      const updateMap = new Map(updated.map(e => [e.id, e]))
+      return prev.map(e => updateMap.get(e.id) ?? e)
+    })
+    startTransition(() => upsertGastos(updated))
+    setPostponingEntry(null)
   }
 
   function handleAdd(ev: React.FormEvent) {
@@ -360,6 +403,59 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
         </div>
       )}
 
+      {/* Modal: Posponer cuota */}
+      {postponingEntry && (() => {
+        const seriesKey = getSeriesKey(postponingEntry.concept)
+        const seriesAhead = entries.filter(e =>
+          e.status === 'pendiente' &&
+          e.date >= postponingEntry.date &&
+          getSeriesKey(e.concept) === seriesKey
+        )
+        const nextMonthLabel = (() => {
+          const d = new Date(postponingEntry.date + 'T00:00:00')
+          d.setMonth(d.getMonth() + 1)
+          return MONTH_NAMES[d.getMonth()].toLowerCase() + ' ' + d.getFullYear()
+        })()
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-card border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+              <div>
+                <p className="font-semibold text-base">Posponer al mes siguiente</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  <span className="font-medium">{conceptIcon(postponingEntry.concept)} {postponingEntry.concept}</span>
+                  <br />
+                  Se moverá a <span className="font-semibold">{nextMonthLabel}</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={postponeSoloEsta}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+                >
+                  <p className="font-medium text-sm">Solo esta cuota</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Las cuotas siguientes no cambian de fecha</p>
+                </button>
+                {seriesAhead.length > 1 && (
+                  <button
+                    onClick={postponeSerie}
+                    className="w-full text-left px-4 py-3 rounded-xl border border-foreground bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors"
+                  >
+                    <p className="font-medium text-sm">Esta y las {seriesAhead.length - 1} siguientes</p>
+                    <p className="text-xs opacity-70 mt-0.5">Todas las cuotas pendientes de esta serie se corren un mes</p>
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setPostponingEntry(null)}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -421,7 +517,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                   ) : (
                     <div
                       className="group grid items-center gap-2 py-3 px-4 cursor-pointer hover:bg-secondary/20 transition-colors"
-                      style={{ gridTemplateColumns: '32px 1fr auto auto 26px' }}
+                      style={{ gridTemplateColumns: '32px 1fr auto auto 26px 26px' }}
                       onClick={() => toggleStatus(entry.id)}
                       title={entry.status === 'pagado' ? 'Click para volver a pendiente' : 'Click para marcar como pagado'}
                     >
@@ -451,6 +547,17 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                       >
                         <Pencil size={11} />
                       </button>
+                      {entry.status === 'pendiente' ? (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-border text-muted-foreground transition-all"
+                          title="Posponer al mes siguiente"
+                          onClick={ev => { ev.stopPropagation(); setPostponingEntry(entry) }}
+                        >
+                          <Clock size={11} />
+                        </button>
+                      ) : (
+                        <span />
+                      )}
                     </div>
                   )}
                 </div>
