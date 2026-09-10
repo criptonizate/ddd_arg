@@ -289,17 +289,37 @@ export async function updateOrderItems(
 
   const total = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
 
+  // Preservar cantidad_impresa e impreso antes de borrar
+  const { data: existingItems } = await supabase
+    .from('order_items')
+    .select('nombre_producto, nombre_variante, cantidad_impresa, impreso')
+    .eq('order_id', orderId)
+
+  const impresoMap = new Map<string, { cantidad_impresa: number; impreso: boolean }>()
+  for (const row of existingItems ?? []) {
+    const key = `${row.nombre_producto}||${row.nombre_variante ?? ''}`
+    impresoMap.set(key, { cantidad_impresa: row.cantidad_impresa ?? 0, impreso: row.impreso ?? false })
+  }
+
   const { error: deleteError } = await supabase.from('order_items').delete().eq('order_id', orderId)
   if (deleteError) return { error: deleteError.message }
 
   const { error: insertError } = await supabase.from('order_items').insert(
-    items.map((i) => ({
-      order_id: orderId,
-      nombre_producto: i.nombre_producto,
-      nombre_variante: i.nombre_variante || null,
-      cantidad: i.cantidad,
-      precio_unitario: i.precio_unitario,
-    }))
+    items.map((i) => {
+      const key = `${i.nombre_producto}||${i.nombre_variante ?? ''}`
+      const prev = impresoMap.get(key)
+      const cantidad_impresa = prev ? Math.min(prev.cantidad_impresa, i.cantidad) : 0
+      const impreso = cantidad_impresa >= i.cantidad
+      return {
+        order_id: orderId,
+        nombre_producto: i.nombre_producto,
+        nombre_variante: i.nombre_variante || null,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio_unitario,
+        cantidad_impresa,
+        impreso,
+      }
+    })
   )
   if (insertError) return { error: insertError.message }
 
