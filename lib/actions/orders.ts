@@ -242,6 +242,7 @@ export async function getOrders(params?: {
     .from('orders')
     .select(`
       *,
+      clientes (pide_facturacion),
       order_items (
         *,
         products (nombre),

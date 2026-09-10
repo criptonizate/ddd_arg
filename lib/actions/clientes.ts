@@ -11,6 +11,7 @@ export interface ClienteStats {
   email: string | null
   direccion: string | null
   notas: string | null
+  pide_facturacion: boolean
   created_at: string
   totalPedidos: number
   totalGastado: number
@@ -149,7 +150,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
 
 export async function updateCliente(
   id: string,
-  data: { nombre: string; telefono?: string; email?: string; direccion?: string; notas?: string }
+  data: { nombre: string; telefono?: string; email?: string; direccion?: string; notas?: string; pide_facturacion?: boolean }
 ): Promise<{ error?: string }> {
   await getAdminUser()
   if (!data.nombre?.trim()) return { error: 'El nombre es obligatorio' }
@@ -162,6 +163,7 @@ export async function updateCliente(
       email: data.email?.trim() || null,
       direccion: data.direccion?.trim() || null,
       notas: data.notas?.trim() || null,
+      pide_facturacion: data.pide_facturacion ?? false,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)

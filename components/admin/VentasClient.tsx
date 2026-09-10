@@ -36,6 +36,7 @@ interface Order {
   costo_estimado?: number | null
   es_consignacion?: boolean
   dias_devolucion?: number
+  pide_facturacion?: boolean
   order_items?: {
     id: string
     products?: { nombre: string }
@@ -671,7 +672,14 @@ function FullCard({ order }: { order: Order }) {
       <div className="flex items-start gap-6 flex-wrap">
         <div>
           <span className="text-xs text-muted-foreground block">Cliente</span>
-          <span className="font-semibold text-sm">{order.cliente_nombre}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">{order.cliente_nombre}</span>
+            {order.pide_facturacion && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                Factura
+              </span>
+            )}
+          </div>
         </div>
         {order.cliente_telefono && (
           <div>
@@ -798,6 +806,11 @@ function ActiveCard({
           </span>
           {order.fecha_entrega && <FechaEntregaBadge fecha={order.fecha_entrega} />}
           <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          {order.pide_facturacion && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 shrink-0 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+              Factura
+            </span>
+          )}
           {order.nota && (
             <span className="text-xs text-muted-foreground italic truncate hidden sm:block">— {order.nota}</span>
           )}
@@ -959,6 +972,11 @@ function CollapsibleCard({
             {ESTADO_LABELS[order.estado]}
           </span>
           <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          {order.pide_facturacion && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 shrink-0 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+              Factura
+            </span>
+          )}
           {pagado && <span className="text-xs font-medium text-green-600 shrink-0">✓ Pagado</span>}
           {tienePendiente && !showCobrar && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 shrink-0 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800">

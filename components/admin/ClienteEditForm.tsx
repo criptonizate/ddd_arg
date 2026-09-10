@@ -5,7 +5,7 @@ import { updateCliente, deleteCliente } from '@/lib/actions/clientes'
 import { useToast } from './ToastProvider'
 import { useConfirm } from './ConfirmModal'
 import { useRouter } from 'next/navigation'
-import { Pencil, Check, X, Trash2, Phone, Mail, MapPin, StickyNote } from 'lucide-react'
+import { Pencil, Check, X, Trash2, Phone, Mail, MapPin, StickyNote, Receipt } from 'lucide-react'
 import type { ClienteDetalle } from '@/lib/actions/clientes'
 
 export default function ClienteEditForm({ cliente }: { cliente: ClienteDetalle }) {
@@ -16,6 +16,7 @@ export default function ClienteEditForm({ cliente }: { cliente: ClienteDetalle }
     email: cliente.email ?? '',
     direccion: cliente.direccion ?? '',
     notas: cliente.notas ?? '',
+    pide_facturacion: cliente.pide_facturacion ?? false,
   })
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
@@ -86,6 +87,18 @@ export default function ClienteEditForm({ cliente }: { cliente: ClienteDetalle }
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 placeholder="Preferencias, detalles importantes..." />
             </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none py-1">
+              <input
+                type="checkbox"
+                checked={form.pide_facturacion}
+                onChange={(e) => setForm({ ...form, pide_facturacion: e.target.checked })}
+                className="w-4 h-4 rounded border-input accent-foreground"
+              />
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Receipt size={13} className="text-muted-foreground" />
+                Pide facturación
+              </span>
+            </label>
             <div className="flex gap-2 pt-1">
               <button onClick={handleSave} disabled={isPending}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 rounded-lg disabled:opacity-60 transition-colors">
@@ -128,7 +141,13 @@ export default function ClienteEditForm({ cliente }: { cliente: ClienteDetalle }
                 <span className="text-muted-foreground italic text-xs">{cliente.notas}</span>
               </div>
             )}
-            {!cliente.telefono && !cliente.email && !cliente.direccion && !cliente.notas && (
+            {cliente.pide_facturacion && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <Receipt size={13} className="text-blue-500 shrink-0" />
+                <span className="text-blue-600 dark:text-blue-400 font-medium text-xs">Pide facturación</span>
+              </div>
+            )}
+            {!cliente.telefono && !cliente.email && !cliente.direccion && !cliente.notas && !cliente.pide_facturacion && (
               <p className="text-xs text-muted-foreground italic">Sin datos adicionales — hacé clic en Editar para completar</p>
             )}
           </div>
