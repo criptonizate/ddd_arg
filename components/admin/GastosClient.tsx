@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
 import { upsertGasto, upsertGastos, updateConceptFromDate } from '@/lib/actions/gastos'
@@ -350,6 +351,27 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
       .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
   }, [entries])
 
+  const chartData = useMemo(() => {
+    const byMonth: Record<string, { gastos: number; ingresos: number }> = {}
+    entries.forEach(e => {
+      const key = e.date.slice(0, 7)
+      if (!byMonth[key]) byMonth[key] = { gastos: 0, ingresos: 0 }
+      if (e.type === 'gasto') byMonth[key].gastos += e.amount
+      else byMonth[key].ingresos += e.amount
+    })
+    return Object.entries(byMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => {
+        const mo = parseInt(key.slice(5, 7)) - 1
+        const yr = key.slice(2, 4)
+        return {
+          mes: MONTH_NAMES[mo].slice(0, 3) + " '" + yr,
+          gastos: val.gastos,
+          ingresos: val.ingresos,
+        }
+      })
+  }, [entries])
+
   function prevMonth() {
     setViewMonth(vm => vm.month === 0 ? { year: vm.year - 1, month: 11 } : { year: vm.year, month: vm.month - 1 })
   }
@@ -654,6 +676,82 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
           </div>
         </aside>
       </div>
+
+      {/* Gráfico de proyección mensual */}
+      {chartData.length > 1 && (
+        <section className="bg-card border border-border rounded-xl shadow-sm p-5">
+          <div className="mb-4">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Proyección mensual</p>
+            <h2 className="text-base font-bold mt-0.5">Evolución de gastos</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Mes a mes — útil para ver cómo bajan las cuotas</p>
+          </div>
+          <div className="flex items-center gap-4 mb-3">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-block w-5 h-0.5 bg-red-400 rounded" />
+              Gastos
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-block w-5 h-0.5 bg-green-500 rounded" style={{ borderTop: '2px dashed' }} />
+              Ingresos
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+              <XAxis
+                dataKey="mes"
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+                interval={1}
+              />
+              <YAxis
+                tickFormatter={(v: number) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+                width={52}
+              />
+              <Tooltip
+                formatter={(val: number, name: string) => [
+                  '$' + val.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+                  name === 'gastos' ? 'Gastos' : 'Ingresos',
+                ]}
+                labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                contentStyle={{
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--card)',
+                  color: 'var(--foreground)',
+                  fontSize: 12,
+                }}
+              />
+              <ReferenceLine
+                y={chartData[0]?.ingresos ?? 0}
+                stroke="rgba(34,197,94,0.25)"
+                strokeDasharray="6 3"
+              />
+              <Line
+                type="monotone"
+                dataKey="ingresos"
+                stroke="rgb(34,197,94)"
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="gastos"
+                stroke="rgb(239,68,68)"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'rgb(239,68,68)', strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      )}
     </div>
   )
 }
