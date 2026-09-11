@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
 import { upsertGasto, upsertGastos, updateConceptFromDate } from '@/lib/actions/gastos'
@@ -352,23 +352,21 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   }, [entries])
 
   const chartData = useMemo(() => {
-    const byMonth: Record<string, { gastos: number; ingresos: number }> = {}
+    const now = new Date()
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const byMonth: Record<string, number> = {}
     entries.forEach(e => {
+      if (e.type !== 'gasto') return
       const key = e.date.slice(0, 7)
-      if (!byMonth[key]) byMonth[key] = { gastos: 0, ingresos: 0 }
-      if (e.type === 'gasto') byMonth[key].gastos += e.amount
-      else byMonth[key].ingresos += e.amount
+      if (key < currentKey) return
+      byMonth[key] = (byMonth[key] ?? 0) + e.amount
     })
     return Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, val]) => {
+      .map(([key, total]) => {
         const mo = parseInt(key.slice(5, 7)) - 1
         const yr = key.slice(2, 4)
-        return {
-          mes: MONTH_NAMES[mo].slice(0, 3) + " '" + yr,
-          gastos: val.gastos,
-          ingresos: val.ingresos,
-        }
+        return { mes: MONTH_NAMES[mo].slice(0, 3) + " '" + yr, total }
       })
   }, [entries])
 
@@ -677,81 +675,88 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
         </aside>
       </div>
 
-      {/* Gráfico de proyección mensual */}
-      {chartData.length > 1 && (
-        <section className="bg-card border border-border rounded-xl shadow-sm p-5">
-          <div className="mb-4">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Proyección mensual</p>
-            <h2 className="text-base font-bold mt-0.5">Evolución de gastos</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Mes a mes — útil para ver cómo bajan las cuotas</p>
-          </div>
-          <div className="flex items-center gap-4 mb-3">
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-block w-5 h-0.5 bg-red-400 rounded" />
-              Gastos
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-block w-5 h-0.5 bg-green-500 rounded" style={{ borderTop: '2px dashed' }} />
-              Ingresos
-            </span>
-          </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
-              <XAxis
-                dataKey="mes"
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                tickLine={false}
-                axisLine={false}
-                interval={1}
-              />
-              <YAxis
-                tickFormatter={(v: number) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                tickLine={false}
-                axisLine={false}
-                width={52}
-              />
-              <Tooltip
-                formatter={(val: number, name: string) => [
-                  '$' + val.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
-                  name === 'gastos' ? 'Gastos' : 'Ingresos',
-                ]}
-                labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-                contentStyle={{
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--card)',
-                  color: 'var(--foreground)',
-                  fontSize: 12,
-                }}
-              />
-              <ReferenceLine
-                y={chartData[0]?.ingresos ?? 0}
-                stroke="rgba(34,197,94,0.25)"
-                strokeDasharray="6 3"
-              />
-              <Line
-                type="monotone"
-                dataKey="ingresos"
-                stroke="rgb(34,197,94)"
-                strokeWidth={1.5}
-                strokeDasharray="5 3"
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="gastos"
-                stroke="rgb(239,68,68)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'rgb(239,68,68)', strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </section>
-      )}
+      {/* Proyección futura de gastos */}
+      {chartData.length > 1 && (() => {
+        const floor = chartData[chartData.length - 1]?.total ?? 0
+        const peak = Math.max(...chartData.map(d => d.total))
+        return (
+          <section className="bg-card border border-border rounded-xl shadow-sm p-5">
+            <div className="mb-1">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Proyección futura</p>
+              <h2 className="text-base font-bold mt-0.5">Cómo bajan los gastos mes a mes</h2>
+            </div>
+            <div className="flex items-center gap-5 mb-4 mt-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-4 h-3 rounded-sm" style={{ background: 'rgba(239,68,68,0.35)', border: '1px solid rgb(239,68,68)' }} />
+                Total gastos
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-5" style={{ borderTop: '2px dashed rgb(251,146,60)' }} />
+                Piso cuando terminen las cuotas
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="gastosGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgb(239,68,68)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="rgb(239,68,68)" stopOpacity={0.03} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.12)" />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={2}
+                />
+                <YAxis
+                  tickFormatter={(v: number) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                  domain={[0, peak * 1.08]}
+                />
+                <Tooltip
+                  formatter={(val: unknown) => [
+                    '$' + Number(val).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+                    'Gastos del mes',
+                  ]}
+                  labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--card)',
+                    color: 'var(--foreground)',
+                    fontSize: 12,
+                  }}
+                />
+                <ReferenceLine
+                  y={floor}
+                  stroke="rgb(251,146,60)"
+                  strokeDasharray="5 3"
+                  strokeWidth={1.5}
+                  label={{ value: fmt(floor), position: 'insideBottomRight', fontSize: 10, fill: 'rgb(251,146,60)', dy: -4 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="rgb(239,68,68)"
+                  strokeWidth={2.5}
+                  fill="url(#gastosGrad)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: 'rgb(239,68,68)', strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+            <p className="text-[10px] text-muted-foreground mt-2 text-right">
+              La línea naranja es el mínimo proyectado: lo que queda cuando terminen todas las cuotas actuales
+            </p>
+          </section>
+        )
+      })()}
     </div>
   )
 }
