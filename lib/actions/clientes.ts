@@ -218,6 +218,21 @@ export async function getClienteNames(): Promise<{ nombre: string; telefono: str
   return (data ?? []) as { nombre: string; telefono: string | null }[]
 }
 
+export async function getClientesFacturacion(ids: string[]): Promise<Record<string, boolean>> {
+  if (!ids.length) return {}
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('id, pide_facturacion')
+      .in('id', ids)
+    if (error) return {}
+    return Object.fromEntries((data ?? []).map((c: any) => [c.id, c.pide_facturacion ?? false]))
+  } catch {
+    return {}
+  }
+}
+
 export async function getClientesBasic(): Promise<{ id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }[]> {
   await getAdminUser()
   const supabase = createServiceClient()
