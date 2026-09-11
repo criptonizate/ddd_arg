@@ -353,12 +353,15 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
 
   const chartData = useMemo(() => {
     const now = new Date()
-    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const from = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    const to   = new Date(now.getFullYear(), now.getMonth() + 11, 1) // 10 meses después
+    const fromKey = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}`
+    const toKey   = `${to.getFullYear()}-${String(to.getMonth() + 1).padStart(2, '0')}`
     const byMonth: Record<string, number> = {}
     entries.forEach(e => {
       if (e.type !== 'gasto') return
       const key = e.date.slice(0, 7)
-      if (key < currentKey) return
+      if (key < fromKey || key >= toKey) return
       byMonth[key] = (byMonth[key] ?? 0) + e.amount
     })
     return Object.entries(byMonth)
@@ -709,7 +712,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                   tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                   tickLine={false}
                   axisLine={false}
-                  interval={2}
+                  interval={0}
                 />
                 <YAxis
                   tickFormatter={(v: number) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}k`}
