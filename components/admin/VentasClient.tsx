@@ -25,6 +25,7 @@ interface Order {
   created_at: string
   fecha_entrega?: string | null
   prioridad?: boolean
+  cliente_id?: string | null
   cliente_nombre: string
   cliente_telefono?: string
   entrega: string
@@ -673,7 +674,13 @@ function FullCard({ order }: { order: Order }) {
         <div>
           <span className="text-xs text-muted-foreground block">Cliente</span>
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">{order.cliente_nombre}</span>
+            {order.cliente_id ? (
+              <a href={`/admin/clientes/${order.cliente_id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-sm hover:underline">
+                {order.cliente_nombre}
+              </a>
+            ) : (
+              <span className="font-semibold text-sm">{order.cliente_nombre}</span>
+            )}
             {order.pide_facturacion && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
                 Factura
@@ -805,7 +812,13 @@ function ActiveCard({
             {ESTADO_LABELS[order.estado]}
           </span>
           {order.fecha_entrega && <FechaEntregaBadge fecha={order.fecha_entrega} />}
-          <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          {order.cliente_id ? (
+            <a href={`/admin/clientes/${order.cliente_id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-sm truncate hover:underline">
+              {order.cliente_nombre}
+            </a>
+          ) : (
+            <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          )}
           {order.pide_facturacion && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 shrink-0 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
               Factura
@@ -971,7 +984,13 @@ function CollapsibleCard({
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${ESTADO_COLORS[order.estado]}`}>
             {ESTADO_LABELS[order.estado]}
           </span>
-          <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          {order.cliente_id ? (
+            <a href={`/admin/clientes/${order.cliente_id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-sm truncate hover:underline">
+              {order.cliente_nombre}
+            </a>
+          ) : (
+            <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+          )}
           {order.pide_facturacion && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 shrink-0 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
               Factura
@@ -1144,7 +1163,13 @@ function ConsignacionView({ orders }: { orders: Order[] }) {
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/20 transition-colors text-left"
               >
                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+                  {order.cliente_id ? (
+                    <a href={`/admin/clientes/${order.cliente_id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-sm truncate hover:underline">
+                      {order.cliente_nombre}
+                    </a>
+                  ) : (
+                    <span className="font-semibold text-sm truncate">{order.cliente_nombre}</span>
+                  )}
                   {order.cliente_telefono && (
                     <a href={`https://wa.me/54${order.cliente_telefono.replace(/\D/g, '')}?text=Hola%20${encodeURIComponent(order.cliente_nombre)}%2C%20te%20recuerdo%20que%20el%20plazo%20de%20devoluci%C3%B3n%20de%20la%20consignaci%C3%B3n%20est%C3%A1%20pr%C3%B3ximo.`}
                       target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
