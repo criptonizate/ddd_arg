@@ -315,6 +315,16 @@ export default function PresupuestoClient() {
     return s + u * p
   }, 0)
 
+  // Total si no hubiera ningún descuento (solo filas positivas, al precio de lista)
+  const totalSinDescuento = items.reduce((s, i) => {
+    const u = Number(i.unidades) || 0
+    const p = Number(i.precio) || 0
+    if (p <= 0) return s // excluye fila "Descuento Mayorista"
+    return s + u * p
+  }, 0)
+  const ahorro = totalSinDescuento - subtotal
+  const hayDescuento = ahorro > 1
+
   function addDescuento() {
     const pct = parseFloat(descuentoPct)
     if (!pct || pct <= 0 || pct > 100) return
@@ -995,27 +1005,59 @@ export default function PresupuestoClient() {
               )
             })}
 
-            {/* Sub-total */}
-            <tr style={{ fontWeight: 'bold' }}>
-              <td colSpan={2} style={{ padding: '6px 12px', border: '1px solid #ccc' }} />
-              <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
-                SUB-TOTAL
-              </td>
-              <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center' }}>
-                {formatNum(subtotal)}
-              </td>
-            </tr>
-
-            {/* Total */}
-            <tr style={{ fontWeight: 'bold' }}>
-              <td colSpan={2} style={{ padding: '6px 12px', border: '1px solid #ccc' }} />
-              <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
-                TOTAL PRESUPUESTADO
-              </td>
-              <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
-                {formatNum(subtotal)}
-              </td>
-            </tr>
+            {/* Totales — con o sin descuento */}
+            {hayDescuento ? (
+              <>
+                {/* Precio de lista tachado */}
+                <tr>
+                  <td colSpan={2} style={{ padding: '5px 12px', border: '1px solid #ccc' }} />
+                  <td style={{ padding: '5px 12px', border: '1px solid #ccc', textAlign: 'center', color: '#999', fontSize: '11px' }}>
+                    Precio de lista
+                  </td>
+                  <td style={{ padding: '5px 12px', border: '1px solid #ccc', textAlign: 'center', color: '#999', fontSize: '11px', textDecoration: 'line-through' }}>
+                    {formatNum(totalSinDescuento)}
+                  </td>
+                </tr>
+                {/* Callout ahorro + total final */}
+                <tr>
+                  <td colSpan={2} style={{ padding: '9px 14px', border: '1px solid #ccc', background: '#f0fff4' }}>
+                    <span style={{ display: 'inline-block', background: '#16a34a', color: 'white', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', marginRight: '8px' }}>
+                      ✦ Precio especial
+                    </span>
+                    <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 'bold' }}>
+                      Ahorrás {formatNum(ahorro)}
+                    </span>
+                  </td>
+                  <td style={{ padding: '9px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold', background: '#f0fff4', color: '#15803d', fontSize: '12px' }}>
+                    TOTAL A PAGAR
+                  </td>
+                  <td style={{ padding: '9px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', background: '#f0fff4', color: '#15803d' }}>
+                    {formatNum(subtotal)}
+                  </td>
+                </tr>
+              </>
+            ) : (
+              <>
+                <tr style={{ fontWeight: 'bold' }}>
+                  <td colSpan={2} style={{ padding: '6px 12px', border: '1px solid #ccc' }} />
+                  <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
+                    SUB-TOTAL
+                  </td>
+                  <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center' }}>
+                    {formatNum(subtotal)}
+                  </td>
+                </tr>
+                <tr style={{ fontWeight: 'bold' }}>
+                  <td colSpan={2} style={{ padding: '6px 12px', border: '1px solid #ccc' }} />
+                  <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
+                    TOTAL PRESUPUESTADO
+                  </td>
+                  <td style={{ padding: '6px 12px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 'bold' }}>
+                    {formatNum(subtotal)}
+                  </td>
+                </tr>
+              </>
+            )}
             {/* Condiciones de pago */}
             {condicionesPago.trim() && (
               <tr>
