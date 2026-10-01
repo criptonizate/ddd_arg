@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock, Banknote } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
@@ -179,6 +179,8 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   const [editAmount, setEditAmount] = useState('')
   const [pendingEdit, setPendingEdit] = useState<{ entry: GastoEntry; newAmount: number } | null>(null)
   const [postponingEntry, setPostponingEntry] = useState<GastoEntry | null>(null)
+  const [partialPayEntry, setPartialPayEntry] = useState<GastoEntry | null>(null)
+  const [partialInput, setPartialInput] = useState('')
   const [, startTransition] = useTransition()
   // form
   const [fConcept,  setFConcept]  = useState('')
@@ -214,10 +216,36 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
     startTransition(() => upsertGasto(updated))
   }
 
+  function montoPendiente(e: GastoEntry): number {
+    return Math.max(0, e.amount - (e.monto_pagado ?? 0))
+  }
+  function esParcial(e: GastoEntry): boolean {
+    const mp = e.monto_pagado ?? 0
+    return e.status !== 'pagado' && mp > 0 && mp < e.amount
+  }
+
   function toggleStatus(id: string) {
     const entry = entries.find(e => e.id === id)
     if (!entry) return
-    mutate({ ...entry, status: entry.status === 'pagado' ? 'pendiente' : 'pagado' })
+    if (entry.status === 'pagado') {
+      mutate({ ...entry, status: 'pendiente', monto_pagado: 0 })
+    } else {
+      mutate({ ...entry, status: 'pagado', monto_pagado: entry.amount })
+    }
+  }
+
+  function confirmPartialPay() {
+    if (!partialPayEntry) return
+    const monto = parseFloat(partialInput.replace(/\./g, '').replace(',', '.')) || 0
+    if (monto <= 0) { setPartialPayEntry(null); setPartialInput(''); return }
+    const newMontoPagado = Math.min(monto, partialPayEntry.amount)
+    if (newMontoPagado >= partialPayEntry.amount) {
+      mutate({ ...partialPayEntry, status: 'pagado', monto_pagado: partialPayEntry.amount })
+    } else {
+      mutate({ ...partialPayEntry, status: 'pendiente', monto_pagado: newMontoPagado })
+    }
+    setPartialPayEntry(null)
+    setPartialInput('')
   }
 
   function startEdit(entry: GastoEntry) {
@@ -330,7 +358,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
       .sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date)),
     [monthEntries]
   )
-  const totalPendiente = useMemo(() => pendientes.reduce((s, e) => s + e.amount, 0), [pendientes])
+  const totalPendiente = useMemo(() => pendientes.reduce((s, e) => s + montoPendiente(e), 0), [pendientes])
 
   const trends = useMemo(() => {
     const byName: Record<string, GastoEntry[]> = {}
@@ -479,6 +507,77 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
         )
       })()}
 
+      {/* Modal: Pago parcial */}
+      {partialPayEntry && (() => {
+        const ya = partialPayEntry.monto_pagado ?? 0
+        const resta = montoPendiente(partialPayEntry)
+        const inputNum = parseFloat(partialInput.replace(/\./g, '').replace(',', '.')) || 0
+        const quedaría = Math.max(0, partialPayEntry.amount - Math.min(inputNum, partialPayEntry.amount))
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-card border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+              <div>
+                <p className="font-semibold text-base">Pago parcial</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">
+                  {conceptIcon(partialPayEntry.concept)} {partialPayEntry.concept}
+                </p>
+              </div>
+              <div className="bg-secondary/40 rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total del gasto</span>
+                  <span className="font-semibold">{fmt(partialPayEntry.amount)}</span>
+                </div>
+                {ya > 0 && (
+                  <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                    <span>Ya registrado</span>
+                    <span className="font-semibold">{fmt(ya)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-red-500">
+                  <span>Pendiente actual</span>
+                  <span className="font-semibold">{fmt(resta)}</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1.5">¿Cuánto pagás en total? $</label>
+                <input
+                  type="number"
+                  value={partialInput}
+                  onChange={e => setPartialInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmPartialPay(); if (e.key === 'Escape') { setPartialPayEntry(null); setPartialInput('') } }}
+                  placeholder={`0 — ${fmt(partialPayEntry.amount)} para pagar todo`}
+                  autoFocus
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                />
+                {inputNum > 0 && inputNum < partialPayEntry.amount && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+                    Quedaría pendiente: <strong>{fmt(quedaría)}</strong>
+                  </p>
+                )}
+                {inputNum >= partialPayEntry.amount && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1.5">✓ Se marcará como pagado completo</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmPartialPay}
+                  disabled={!inputNum || inputNum <= 0}
+                  className="flex-1 py-2 text-sm font-medium bg-foreground text-primary-foreground hover:bg-foreground/90 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => { setPartialPayEntry(null); setPartialInput('') }}
+                  className="px-4 py-2 rounded-lg border border-border hover:bg-secondary transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -523,7 +622,7 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
               const isEditing = editingId === entry.id
               const day = entry.date.split('-')[2]
               return (
-                <div key={entry.id} className={cn('border-b border-border last:border-0', !isEditing && entry.status === 'pagado' && 'opacity-50')}>
+                <div key={entry.id} className={cn('border-b border-border last:border-0', !isEditing && entry.status === 'pagado' && 'opacity-50', !isEditing && esParcial(entry) && 'bg-amber-50/50 dark:bg-amber-900/10')}>
                   {isEditing ? (
                     <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20">
                       <input value={editConcept} onChange={ev => setEditConcept(ev.target.value)}
@@ -540,25 +639,32 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                   ) : (
                     <div
                       className="group grid items-center gap-2 py-3 px-4 cursor-pointer hover:bg-secondary/20 transition-colors"
-                      style={{ gridTemplateColumns: '32px 1fr auto auto 26px 26px' }}
+                      style={{ gridTemplateColumns: '32px 1fr auto auto 26px 26px 26px' }}
                       onClick={() => toggleStatus(entry.id)}
-                      title={entry.status === 'pagado' ? 'Click para volver a pendiente' : 'Click para marcar como pagado'}
+                      title={entry.status === 'pagado' ? 'Click para volver a pendiente' : esParcial(entry) ? 'Click para marcar como pagado completo' : 'Click para marcar como pagado'}
                     >
                       <span className="text-xs font-mono text-muted-foreground">{day}</span>
                       <div className="min-w-0">
-                        <span className={cn('text-sm', entry.status === 'pagado' && 'line-through')}>
-                          <span className="mr-1.5">{conceptIcon(entry.concept)}</span>{entry.concept}
-                        </span>
-                        <span className="ml-2 text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
-                          {entry.category}
-                        </span>
+                        <div>
+                          <span className={cn('text-sm', entry.status === 'pagado' && 'line-through')}>
+                            <span className="mr-1.5">{conceptIcon(entry.concept)}</span>{entry.concept}
+                          </span>
+                          <span className="ml-2 text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
+                            {entry.category}
+                          </span>
+                        </div>
+                        {esParcial(entry) && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-mono">
+                            Pagado {fmt(entry.monto_pagado ?? 0)} — resta {fmt(montoPendiente(entry))}
+                          </p>
+                        )}
                       </div>
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">
-                        {entry.status === 'pendiente' ? 'Pendiente' : ''}
+                      <span className={cn('text-[10px] uppercase font-semibold', esParcial(entry) ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
+                        {esParcial(entry) ? 'Parcial' : entry.status === 'pendiente' ? 'Pendiente' : ''}
                       </span>
                       <span className={cn(
                         'text-sm font-mono font-semibold whitespace-nowrap',
-                        entry.type === 'ingreso' ? 'text-green-600 dark:text-green-400' : 'text-red-500',
+                        entry.type === 'ingreso' ? 'text-green-600 dark:text-green-400' : esParcial(entry) ? 'text-amber-600 dark:text-amber-400' : 'text-red-500',
                         entry.status === 'pagado' && 'line-through'
                       )}>
                         {entry.type === 'gasto' ? '−' : '+'}{fmt(entry.amount)}
@@ -571,15 +677,24 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                         <Pencil size={11} />
                       </button>
                       {entry.status === 'pendiente' ? (
-                        <button
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-border text-muted-foreground transition-all"
-                          title="Posponer al mes siguiente"
-                          onClick={ev => { ev.stopPropagation(); setPostponingEntry(entry) }}
-                        >
-                          <Clock size={11} />
-                        </button>
+                        <>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-border text-muted-foreground transition-all"
+                            title="Posponer al mes siguiente"
+                            onClick={ev => { ev.stopPropagation(); setPostponingEntry(entry) }}
+                          >
+                            <Clock size={11} />
+                          </button>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-border text-amber-500 transition-all"
+                            title="Registrar pago parcial"
+                            onClick={ev => { ev.stopPropagation(); setPartialPayEntry(entry); setPartialInput(String(entry.monto_pagado ?? '')) }}
+                          >
+                            <Banknote size={11} />
+                          </button>
+                        </>
                       ) : (
-                        <span />
+                        <><span /><span /></>
                       )}
                     </div>
                   )}
@@ -609,8 +724,18 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
                 <div className="min-w-0">
                   <p className="text-sm truncate"><span className="mr-1">{conceptIcon(entry.concept)}</span>{entry.concept}</p>
                   <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
+                  {esParcial(entry) && (
+                    <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400">Pagado {fmt(entry.monto_pagado ?? 0)}</p>
+                  )}
                 </div>
-                <span className="text-sm font-mono font-semibold text-muted-foreground shrink-0">{fmt(entry.amount)}</span>
+                <div className="flex flex-col items-end shrink-0">
+                  <span className={cn('text-sm font-mono font-semibold', esParcial(entry) ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
+                    {fmt(montoPendiente(entry))}
+                  </span>
+                  {esParcial(entry) && (
+                    <span className="text-[9px] text-muted-foreground line-through font-mono">{fmt(entry.amount)}</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

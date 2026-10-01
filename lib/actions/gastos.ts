@@ -11,13 +11,14 @@ export interface GastoEntry {
   date: string
   status: 'pagado' | 'pendiente'
   due: string | null
+  monto_pagado?: number
 }
 
 export async function getGastos(): Promise<GastoEntry[]> {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('gastos_personales')
-    .select('id, concept, type, category, amount, date, status, due')
+    .select('id, concept, type, category, amount, date, status, due, monto_pagado')
     .order('date', { ascending: true })
   return (data ?? []) as GastoEntry[]
 }
