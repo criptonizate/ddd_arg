@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock, Banknote } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Check, X, Clock, Banknote, GripVertical } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import { cn } from '@/lib/utils'
 import type { GastoEntry } from '@/lib/actions/gastos'
@@ -181,6 +181,8 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
   const [postponingEntry, setPostponingEntry] = useState<GastoEntry | null>(null)
   const [partialPayEntry, setPartialPayEntry] = useState<GastoEntry | null>(null)
   const [partialInput, setPartialInput] = useState('')
+  const [priorityOrder, setPriorityOrder] = useState<string[]>([])
+  const [dragId, setDragId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
   // form
   const [fConcept,  setFConcept]  = useState('')
@@ -210,6 +212,21 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
     const now = new Date()
     setViewMonth({ year: now.getFullYear(), month: now.getMonth() })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cargar/guardar orden de prioridades en localStorage por mes
+  const priorityKey = `gastos-priority-${viewMonth.year}-${String(viewMonth.month + 1).padStart(2, '0')}`
+  useEffect(() => {
+    if (!viewMonth.year) return
+    try {
+      const saved = localStorage.getItem(priorityKey)
+      setPriorityOrder(saved ? JSON.parse(saved) : [])
+    } catch { setPriorityOrder([]) }
+  }, [priorityKey])
+
+  function savePriority(order: string[]) {
+    setPriorityOrder(order)
+    try { localStorage.setItem(priorityKey, JSON.stringify(order)) } catch { /* */ }
+  }
 
   function mutate(updated: GastoEntry) {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e))
@@ -358,6 +375,17 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
       .sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date)),
     [monthEntries]
   )
+
+  const sortedPendientes = useMemo(() => {
+    if (!priorityOrder.length) return pendientes
+    const posMap = new Map(priorityOrder.map((id, i) => [id, i]))
+    return [...pendientes].sort((a, b) => {
+      const pa = posMap.has(a.id) ? posMap.get(a.id)! : 9999
+      const pb = posMap.has(b.id) ? posMap.get(b.id)! : 9999
+      return pa - pb
+    })
+  }, [pendientes, priorityOrder])
+
   const totalPendiente = useMemo(() => pendientes.reduce((s, e) => s + montoPendiente(e), 0), [pendientes])
 
   const trends = useMemo(() => {
@@ -712,21 +740,57 @@ export default function GastosClient({ initialEntries }: { initialEntries: Gasto
               <h2 className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">Pendientes del mes</h2>
               <span className="text-sm font-mono font-bold text-red-500">{fmt(totalPendiente)}</span>
             </div>
-            {pendientes.length === 0 ? (
+            {sortedPendientes.length === 0 ? (
               <p className="text-xs text-muted-foreground py-1">Sin pendientes para este mes.</p>
-            ) : pendientes.map(entry => (
+            ) : sortedPendientes.map((entry, idx) => (
               <div
                 key={entry.id}
-                className="flex items-center justify-between gap-2 py-2 px-1 rounded-lg cursor-pointer hover:bg-secondary/30 transition-colors border-b border-border/50 last:border-0"
-                title="Click para marcar como pagado"
-                onClick={() => toggleStatus(entry.id)}
+                draggable
+                onDragStart={() => setDragId(entry.id)}
+                onDragEnd={() => setDragId(null)}
+                onDragOver={ev => { ev.preventDefault() }}
+                onDrop={ev => {
+                  ev.preventDefault()
+                  if (!dragId || dragId === entry.id) return
+                  const ids = sortedPendientes.map(e => e.id)
+                  const fromIdx = ids.indexOf(dragId)
+                  const toIdx = ids.indexOf(entry.id)
+                  if (fromIdx === -1 || toIdx === -1) return
+                  const next = [...ids]
+                  next.splice(fromIdx, 1)
+                  next.splice(toIdx, 0, dragId)
+                  savePriority(next)
+                  setDragId(null)
+                }}
+                className={cn(
+                  'group flex items-center justify-between gap-2 py-2 px-1 rounded-lg border-b border-border/50 last:border-0 transition-colors',
+                  dragId === entry.id ? 'opacity-40' : 'cursor-pointer hover:bg-secondary/30'
+                )}
+                onClick={() => { if (!dragId) toggleStatus(entry.id) }}
+                title="Arrastrá para reordenar · Click para marcar como pagado"
               >
-                <div className="min-w-0">
-                  <p className="text-sm truncate"><span className="mr-1">{conceptIcon(entry.concept)}</span>{entry.concept}</p>
-                  <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
-                  {esParcial(entry) && (
-                    <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400">Pagado {fmt(entry.monto_pagado ?? 0)}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing text-muted-foreground/50 shrink-0 transition-opacity"
+                    onMouseDown={ev => ev.stopPropagation()}
+                  >
+                    <GripVertical size={12} />
+                  </span>
+                  {idx < 3 && (
+                    <span className={cn(
+                      'shrink-0 w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center text-white',
+                      idx === 0 ? 'bg-red-500' : idx === 1 ? 'bg-orange-400' : 'bg-yellow-400'
+                    )}>
+                      {idx + 1}
+                    </span>
                   )}
+                  <div className="min-w-0">
+                    <p className="text-sm truncate"><span className="mr-1">{conceptIcon(entry.concept)}</span>{entry.concept}</p>
+                    <p className="text-[10px] font-mono text-blue-500 dark:text-blue-300">vence {entry.due || entry.date}</p>
+                    {esParcial(entry) && (
+                      <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400">Pagado {fmt(entry.monto_pagado ?? 0)}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
                   <span className={cn('text-sm font-mono font-semibold', esParcial(entry) ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
