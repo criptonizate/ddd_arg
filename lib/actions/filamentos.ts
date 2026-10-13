@@ -158,9 +158,23 @@ export async function deleteMovimiento(
 
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 
+// Retorna los kg totales vendidos a un cliente en el mes dado (formato 'YYYY-MM')
+export async function getKgMensualesCliente(clienteId: string, mes: string): Promise<number> {
+  await getAdminUser()
+  if (!clienteId) return 0
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('gramos')
+    .eq('cliente_id', clienteId)
+    .gte('fecha', `${mes}-01`)
+    .lte('fecha', `${mes}-31`)
+  return (data ?? []).reduce((s: number, r: { gramos: number }) => s + r.gramos / 1000, 0)
+}
+
 export async function registrarVentaFilamento(
   filamentoId: string,
-  venta: { gramos: number; precio_kg: number; costo_kg: number; cliente: string; nota: string; fecha: string }
+  venta: { gramos: number; precio_kg: number; costo_kg: number; cliente: string; cliente_id?: string | null; nota: string; fecha: string }
 ): Promise<{ venta?: VentaFilamento; filamento?: Filamento; error?: string }> {
   await getAdminUser()
   if (venta.gramos <= 0) return { error: 'Los gramos deben ser mayores a 0' }

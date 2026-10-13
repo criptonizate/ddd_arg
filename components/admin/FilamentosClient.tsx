@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp } from 'lucide-react'
-import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
+import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
   updateFilamento,
@@ -15,7 +15,10 @@ import {
   getVentasFilamento,
   deleteVentaFilamento,
   getHistorialVentasFilamentos,
+  getKgMensualesCliente,
 } from '@/lib/actions/filamentos'
+
+type ClienteBasic = { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,10 +215,12 @@ function NuevoFilamentoModal({
 
 function FilamentoCard({
   filamento: initial,
+  clientes,
   onUpdate,
   onDelete,
 }: {
   filamento: Filamento
+  clientes: ClienteBasic[]
   onUpdate: (updated: Filamento) => void
   onDelete: () => void
 }) {
@@ -243,8 +248,11 @@ function FilamentoCard({
   // Formulario venta
   const [showVenta, setShowVenta] = useState(false)
   const [ventaKg, setVentaKg] = useState(1)
-  const [ventaPrecioKg, setVentaPrecioKg] = useState('20000')
+  const [ventaPrecioKg, setVentaPrecioKg] = useState('22000')
   const [ventaCliente, setVentaCliente] = useState('')
+  const [ventaClienteId, setVentaClienteId] = useState<string | null>(null)
+  const [ventaClienteKgMes, setVentaClienteKgMes] = useState<number | null>(null)
+  const [ventaClienteSearch, setVentaClienteSearch] = useState('')
   const [ventaFecha, setVentaFecha] = useState(today)
   const [ventaError, setVentaError] = useState('')
 
@@ -354,12 +362,12 @@ function FilamentoCard({
     startTransition(async () => {
       const res = await registrarVentaFilamento(fil.id, {
         gramos, precio_kg: precio, costo_kg: fil.costo_kg,
-        cliente: ventaCliente, nota: '', fecha: ventaFecha,
+        cliente: ventaCliente, cliente_id: ventaClienteId, nota: '', fecha: ventaFecha,
       })
       if (res.error) { setVentaError(res.error); return }
       if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
       if (res.venta) setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
-      setVentaKg(1); setVentaCliente(''); setVentaFecha(today); setShowVenta(false)
+      setVentaKg(1); clearCliente(); setVentaFecha(today); setShowVenta(false)
     })
   }
 
@@ -415,6 +423,28 @@ function FilamentoCard({
   const ventaCostoTotal = ventaKgNum * fil.costo_kg
   const ventaGanancia = ventaPrecioTotal - ventaCostoTotal
   const ventaMargen = ventaPrecioTotal > 0 ? (ventaGanancia / ventaPrecioTotal) * 100 : 0
+  // Tier de precio basado en acumulado mensual del cliente
+  const kgMesAcum = (ventaClienteKgMes ?? 0) + ventaKgNum
+  const tierSugerido = tierPrecio(kgMesAcum)
+
+  async function onClienteSelect(c: ClienteBasic) {
+    setVentaClienteId(c.id)
+    setVentaCliente(c.nombre)
+    setVentaClienteSearch(c.nombre)
+    setVentaClienteKgMes(null)
+    const mes = ventaFecha.slice(0, 7)
+    const kg = await getKgMensualesCliente(c.id, mes)
+    setVentaClienteKgMes(kg)
+    setVentaPrecioKg(String(tierPrecio(kg + ventaKgNum)))
+  }
+
+  function clearCliente() {
+    setVentaClienteId(null)
+    setVentaCliente('')
+    setVentaClienteSearch('')
+    setVentaClienteKgMes(null)
+    setVentaPrecioKg('22000')
+  }
 
   return (
     <div className={`bg-card border border-border rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
@@ -661,20 +691,98 @@ function FilamentoCard({
                       className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
                   </div>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="text-xs text-muted-foreground block mb-1">Cliente</label>
-                  <input placeholder="Nombre del cliente"
-                    value={ventaCliente}
-                    onChange={(e) => setVentaCliente(e.target.value)}
-                    className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
+                  {ventaClienteId ? (
+                    <div className="flex items-center gap-2 border border-green-400/50 bg-green-50 dark:bg-green-950/30 rounded-lg px-2.5 py-1.5">
+                      <span className="text-sm flex-1 truncate font-medium">{ventaCliente}</span>
+                      {ventaClienteKgMes !== null && (
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          ya compró {ventaClienteKgMes.toFixed(1)} kg este mes
+                        </span>
+                      )}
+                      <button type="button" onClick={clearCliente} className="text-muted-foreground hover:text-foreground">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        placeholder="Buscar cliente..."
+                        value={ventaClienteSearch}
+                        onChange={(e) => setVentaClienteSearch(e.target.value)}
+                        className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40"
+                      />
+                      {ventaClienteSearch.length >= 1 && (
+                        <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {clientes
+                            .filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase()))
+                            .slice(0, 6)
+                            .map(c => (
+                              <button key={c.id} type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                                onClick={() => onClienteSelect(c)}
+                              >
+                                {c.nombre}
+                              </button>
+                            ))
+                          }
+                          {clientes.filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase())).length === 0 && (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">Sin resultados</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Fecha</label>
                   <input type="date" value={ventaFecha}
-                    onChange={(e) => setVentaFecha(e.target.value)}
+                    onChange={async (e) => {
+                      const fecha = e.target.value
+                      setVentaFecha(fecha)
+                      if (ventaClienteId) {
+                        const kg = await getKgMensualesCliente(ventaClienteId, fecha.slice(0, 7))
+                        setVentaClienteKgMes(kg)
+                        setVentaPrecioKg(String(tierPrecio(kg + ventaKgNum)))
+                      }
+                    }}
                     className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40" />
                 </div>
               </div>
+
+              {/* Banner tier de precio por cliente */}
+              {ventaClienteId && ventaClienteKgMes !== null && (
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      Escala mensual — {ventaCliente}
+                    </p>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                      Acumulado: {ventaClienteKgMes.toFixed(1)} kg + {ventaKgNum} kg = {kgMesAcum.toFixed(1)} kg
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {PRECIO_TIERS.map(t => (
+                      <span key={t.min} className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
+                        tierSugerido === t.precio
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'text-muted-foreground border-border'
+                      }`}>
+                        {t.min === 0 ? '<5' : `${t.min}+`} kg → ${(t.precio / 1000).toFixed(0)}k
+                      </span>
+                    ))}
+                  </div>
+                  {tierSugerido !== ventaPrecioKgNum && (
+                    <button type="button"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 underline"
+                      onClick={() => setVentaPrecioKg(String(tierSugerido))}
+                    >
+                      Aplicar precio sugerido ${(tierSugerido / 1000).toFixed(0)}k/kg
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Preview ganancia */}
               {ventaKgNum > 0 && (
@@ -929,7 +1037,7 @@ function HistorialVentas() {
 
 // ── Vista principal ────────────────────────────────────────────────────────────
 
-export default function FilamentosClient({ initialFilamentos }: { initialFilamentos: Filamento[] }) {
+export default function FilamentosClient({ initialFilamentos, clientes = [] }: { initialFilamentos: Filamento[]; clientes?: ClienteBasic[] }) {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
   const [tab, setTab] = useState<'stock' | 'ventas'>('stock')
@@ -1201,7 +1309,7 @@ export default function FilamentosClient({ initialFilamentos }: { initialFilamen
                   )}
                   <div className="space-y-2">
                     {items.map((f) => (
-                      <FilamentoCard key={f.id} filamento={f} onUpdate={handleUpdate} onDelete={() => handleDelete(f.id)} />
+                      <FilamentoCard key={f.id} filamento={f} clientes={clientes} onUpdate={handleUpdate} onDelete={() => handleDelete(f.id)} />
                     ))}
                   </div>
                 </section>
