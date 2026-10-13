@@ -17,8 +17,9 @@ import {
   getHistorialVentasFilamentos,
   getKgMensualesCliente,
 } from '@/lib/actions/filamentos'
+import { createClienteRapido } from '@/lib/actions/clientes'
 
-type ClienteBasic = { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }
+type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -255,6 +256,12 @@ function FilamentoCard({
   const [ventaClienteSearch, setVentaClienteSearch] = useState('')
   const [ventaFecha, setVentaFecha] = useState(today)
   const [ventaError, setVentaError] = useState('')
+  // Crear cliente nuevo inline
+  const [showNuevoCliente, setShowNuevoCliente] = useState(false)
+  const [nuevoClienteNombre, setNuevoClienteNombre] = useState('')
+  const [nuevoClienteDni, setNuevoClienteDni] = useState('')
+  const [nuevoClienteError, setNuevoClienteError] = useState('')
+  const [clientesLocal, setClientesLocal] = useState<ClienteBasic[]>(clientes)
 
   // Formulario uso propio
   const [showUsoPropio, setShowUsoPropio] = useState(false)
@@ -444,6 +451,19 @@ function FilamentoCard({
     setVentaClienteSearch('')
     setVentaClienteKgMes(null)
     setVentaPrecioKg('22000')
+  }
+
+  async function handleCrearCliente() {
+    if (!nuevoClienteNombre.trim()) { setNuevoClienteError('El nombre es requerido'); return }
+    setNuevoClienteError('')
+    const res = await createClienteRapido(nuevoClienteNombre.trim(), nuevoClienteDni.trim() || undefined)
+    if ('error' in res) { setNuevoClienteError(res.error); return }
+    const nuevo: ClienteBasic = { id: res.id, nombre: res.nombre, dni: res.dni, telefono: null, email: null, direccion: null }
+    setClientesLocal(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+    setShowNuevoCliente(false)
+    setNuevoClienteNombre('')
+    setNuevoClienteDni('')
+    await onClienteSelect(nuevo)
   }
 
   return (
@@ -714,22 +734,29 @@ function FilamentoCard({
                         className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40"
                       />
                       {ventaClienteSearch.length >= 1 && (
-                        <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {clientes
-                            .filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase()))
-                            .slice(0, 6)
+                        <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                          {clientesLocal
+                            .filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase()) || (c.dni ?? '').includes(ventaClienteSearch))
+                            .slice(0, 7)
                             .map(c => (
                               <button key={c.id} type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors flex items-center justify-between gap-2"
                                 onClick={() => onClienteSelect(c)}
                               >
-                                {c.nombre}
+                                <span>{c.nombre}</span>
+                                {c.dni && <span className="text-[10px] text-muted-foreground font-mono">DNI {c.dni}</span>}
                               </button>
                             ))
                           }
-                          {clientes.filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase())).length === 0 && (
+                          {clientesLocal.filter(c => c.nombre.toLowerCase().includes(ventaClienteSearch.toLowerCase()) || (c.dni ?? '').includes(ventaClienteSearch)).length === 0 && (
                             <p className="px-3 py-2 text-xs text-muted-foreground">Sin resultados</p>
                           )}
+                          <button type="button"
+                            className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-secondary border-t border-border transition-colors flex items-center gap-1.5"
+                            onClick={() => { setShowNuevoCliente(true); setNuevoClienteNombre(ventaClienteSearch) }}
+                          >
+                            <Plus size={11} /> Crear cliente nuevo
+                          </button>
                         </div>
                       )}
                     </div>
@@ -751,34 +778,83 @@ function FilamentoCard({
                 </div>
               </div>
 
+              {/* Mini-form nuevo cliente */}
+              {showNuevoCliente && (
+                <div className="rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Nuevo cliente</p>
+                  {nuevoClienteError && <p className="text-xs text-red-500">{nuevoClienteError}</p>}
+                  <input
+                    autoFocus
+                    placeholder="Nombre completo *"
+                    value={nuevoClienteNombre}
+                    onChange={e => setNuevoClienteNombre(e.target.value)}
+                    className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                  />
+                  <input
+                    placeholder="DNI (opcional)"
+                    value={nuevoClienteDni}
+                    onChange={e => setNuevoClienteDni(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCrearCliente()}
+                    className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setShowNuevoCliente(false); setNuevoClienteError('') }}
+                      className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">
+                      Cancelar
+                    </button>
+                    <button type="button" onClick={handleCrearCliente} disabled={isPending}
+                      className="flex-1 text-xs bg-blue-600 text-white rounded-lg py-1.5 hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                      Guardar y seleccionar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Banner tier de precio por cliente */}
               {ventaClienteId && ventaClienteKgMes !== null && (
-                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 space-y-1">
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2.5 space-y-2">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                       Escala mensual — {ventaCliente}
                     </p>
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400">
-                      Acumulado: {ventaClienteKgMes.toFixed(1)} kg + {ventaKgNum} kg = {kgMesAcum.toFixed(1)} kg
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono">
+                      {ventaClienteKgMes.toFixed(0)} kg anteriores + {ventaKgNum} kg = {kgMesAcum.toFixed(0)} kg este mes
                     </span>
                   </div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {PRECIO_TIERS.map(t => (
-                      <span key={t.min} className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
-                        tierSugerido === t.precio
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'text-muted-foreground border-border'
-                      }`}>
-                        {t.min === 0 ? '<5' : `${t.min}+`} kg → ${(t.precio / 1000).toFixed(0)}k
-                      </span>
-                    ))}
+                  {/* Barra de progreso de tiers */}
+                  <div className="space-y-1">
+                    {[...PRECIO_TIERS].reverse().map((t, i, arr) => {
+                      const nextTier = arr[i + 1]
+                      const max = nextTier ? nextTier.min : t.min + 5
+                      const from = t.min
+                      const active = tierSugerido === t.precio
+                      const pct = Math.min(100, Math.max(0, ((kgMesAcum - from) / (max - from)) * 100))
+                      const llegó = kgMesAcum >= from
+                      return (
+                        <div key={t.min} className={`rounded-md px-2 py-1.5 border ${active ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/40' : 'border-border bg-secondary/30'}`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-[10px] font-semibold ${active ? 'text-blue-700 dark:text-blue-300' : llegó ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                              {t.min === 0 ? 'Precio público' : `${t.min}+ kg`} {active && '← actual'}
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${active ? 'text-blue-700 dark:text-blue-300' : 'text-muted-foreground'}`}>
+                              ${(t.precio / 1000).toFixed(0)}k/kg
+                            </span>
+                          </div>
+                          {active && max && (
+                            <div className="h-1 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                   {tierSugerido !== ventaPrecioKgNum && (
                     <button type="button"
-                      className="text-[10px] text-blue-600 dark:text-blue-400 underline"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 underline w-full text-left"
                       onClick={() => setVentaPrecioKg(String(tierSugerido))}
                     >
-                      Aplicar precio sugerido ${(tierSugerido / 1000).toFixed(0)}k/kg
+                      ↳ Aplicar precio de escala: ${(tierSugerido / 1000).toFixed(0)}k/kg
                     </button>
                   )}
                 </div>

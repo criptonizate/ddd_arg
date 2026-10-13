@@ -233,9 +233,23 @@ export async function getClientesFacturacion(ids: string[]): Promise<Record<stri
   }
 }
 
-export async function getClientesBasic(): Promise<{ id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }[]> {
+export async function getClientesBasic(): Promise<{ id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }[]> {
   await getAdminUser()
   const supabase = createServiceClient()
-  const { data } = await supabase.from('clientes').select('id, nombre, telefono, email, direccion').order('nombre')
-  return (data ?? []) as { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null }[]
+  const { data } = await supabase.from('clientes').select('id, nombre, dni, telefono, email, direccion').order('nombre')
+  return (data ?? []) as { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }[]
+}
+
+export async function createClienteRapido(nombre: string, dni?: string): Promise<{ id: string; nombre: string; dni: string | null } | { error: string }> {
+  await getAdminUser()
+  if (!nombre.trim()) return { error: 'El nombre es requerido' }
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('clientes')
+    .insert({ nombre: nombre.trim(), dni: dni?.trim() || null })
+    .select('id, nombre, dni')
+    .single()
+  if (error) return { error: error.message }
+  revalidatePath('/admin/clientes')
+  return data as { id: string; nombre: string; dni: string | null }
 }
