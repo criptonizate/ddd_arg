@@ -1111,11 +1111,314 @@ function HistorialVentas() {
   )
 }
 
+// ── Modal de venta global (multi-filamento) ────────────────────────────────────
+
+type ItemVenta = { filamentoId: string; kg: number }
+
+function VentaGlobalModal({
+  filamentos,
+  clientes,
+  onClose,
+  onVendido,
+}: {
+  filamentos: Filamento[]
+  clientes: ClienteBasic[]
+  onClose: () => void
+  onVendido: (updated: Filamento[]) => void
+}) {
+  const today = new Date().toISOString().split('T')[0]
+  const [isPending, startTransition] = useTransition()
+
+  // Cliente
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const [clienteNombre, setClienteNombre] = useState('')
+  const [clienteSearch, setClienteSearch] = useState('')
+  const [clienteKgMes, setClienteKgMes] = useState<number | null>(null)
+  const [showNuevoCliente, setShowNuevoCliente] = useState(false)
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoDni, setNuevoDni] = useState('')
+  const [nuevoClienteErr, setNuevoClienteErr] = useState('')
+  const [clientesLocal, setClientesLocal] = useState(clientes)
+
+  // Items
+  const [items, setItems] = useState<ItemVenta[]>([{ filamentoId: '', kg: 1 }])
+  const [fecha, setFecha] = useState(today)
+  const [error, setError] = useState('')
+
+  const filamentosConStock = filamentos.filter(f => totalGramos(f) >= 1000)
+
+  const totalKgVenta = items.reduce((s, i) => s + (i.kg || 0), 0)
+  const kgMesTotal = (clienteKgMes ?? 0) + totalKgVenta
+  const tier = tierPrecio(kgMesTotal)
+  const precioKg = tier
+
+  async function onClienteSelect(c: ClienteBasic) {
+    setClienteId(c.id)
+    setClienteNombre(c.nombre)
+    setClienteSearch(c.nombre)
+    setClienteKgMes(null)
+    const kg = await getKgMensualesCliente(c.id, fecha.slice(0, 7))
+    setClienteKgMes(kg)
+  }
+
+  function clearCliente() {
+    setClienteId(null)
+    setClienteNombre('')
+    setClienteSearch('')
+    setClienteKgMes(null)
+  }
+
+  async function handleCrearCliente() {
+    if (!nuevoNombre.trim()) { setNuevoClienteErr('El nombre es requerido'); return }
+    setNuevoClienteErr('')
+    const res = await createClienteRapido(nuevoNombre.trim(), nuevoDni.trim() || undefined)
+    if ('error' in res) { setNuevoClienteErr(res.error); return }
+    const nuevo: ClienteBasic = { id: res.id, nombre: res.nombre, dni: res.dni, telefono: null, email: null, direccion: null }
+    setClientesLocal(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+    setShowNuevoCliente(false)
+    setNuevoNombre(''); setNuevoDni('')
+    await onClienteSelect(nuevo)
+  }
+
+  function addItem() {
+    setItems(prev => [...prev, { filamentoId: '', kg: 1 }])
+  }
+
+  function removeItem(idx: number) {
+    setItems(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  function updateItem(idx: number, field: keyof ItemVenta, value: string | number) {
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
+  function stockDisp(filId: string): number {
+    const f = filamentos.find(f => f.id === filId)
+    return f ? Math.floor(totalGramos(f) / 1000) : 0
+  }
+
+  function handleConfirmar() {
+    if (!clienteId) { setError('Seleccioná un cliente'); return }
+    const validos = items.filter(i => i.filamentoId && i.kg > 0)
+    if (!validos.length) { setError('Agregá al menos un filamento'); return }
+    for (const item of validos) {
+      if (item.kg > stockDisp(item.filamentoId)) { setError('Stock insuficiente en algún filamento'); return }
+    }
+    setError('')
+    startTransition(async () => {
+      const updated: Filamento[] = []
+      for (const item of validos) {
+        const res = await registrarVentaFilamento(item.filamentoId, {
+          gramos: item.kg * 1000,
+          precio_kg: precioKg,
+          costo_kg: filamentos.find(f => f.id === item.filamentoId)?.costo_kg ?? 0,
+          cliente: clienteNombre,
+          cliente_id: clienteId,
+          nota: '',
+          fecha,
+        })
+        if (res.filamento) updated.push(res.filamento)
+      }
+      onVendido(updated)
+    })
+  }
+
+  const totalVenta = totalKgVenta * precioKg
+  const totalCosto = items.reduce((s, i) => {
+    const f = filamentos.find(f => f.id === i.filamentoId)
+    return s + (f?.costo_kg ?? 0) * i.kg
+  }, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between">
+          <h2 className="text-base font-bold">Nueva venta de filamento</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* ── Cliente ── */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-2">Cliente</label>
+            {clienteId ? (
+              <div className="flex items-center gap-2 border border-green-400/50 bg-green-50 dark:bg-green-950/30 rounded-lg px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{clienteNombre}</p>
+                  {clienteKgMes !== null && (
+                    <p className="text-[10px] text-muted-foreground">Ya compró {clienteKgMes.toFixed(0)} kg este mes</p>
+                  )}
+                </div>
+                <button onClick={clearCliente} className="text-muted-foreground hover:text-foreground shrink-0"><X size={14} /></button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    autoFocus
+                    placeholder="Buscar por nombre o DNI..."
+                    value={clienteSearch}
+                    onChange={e => setClienteSearch(e.target.value)}
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40"
+                  />
+                  {clienteSearch.length >= 1 && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                      {clientesLocal
+                        .filter(c => c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || (c.dni ?? '').includes(clienteSearch))
+                        .slice(0, 7)
+                        .map(c => (
+                          <button key={c.id} type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors flex items-center justify-between gap-2"
+                            onClick={() => onClienteSelect(c)}
+                          >
+                            <span>{c.nombre}</span>
+                            {c.dni && <span className="text-[10px] text-muted-foreground font-mono">DNI {c.dni}</span>}
+                          </button>
+                        ))
+                      }
+                      <button type="button"
+                        className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-secondary border-t border-border transition-colors flex items-center gap-1.5"
+                        onClick={() => { setShowNuevoCliente(true); setNuevoNombre(clienteSearch) }}
+                      >
+                        <Plus size={11} /> Crear cliente nuevo
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {showNuevoCliente && (
+                  <div className="rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Nuevo cliente</p>
+                    {nuevoClienteErr && <p className="text-xs text-red-500">{nuevoClienteErr}</p>}
+                    <input autoFocus placeholder="Nombre completo *" value={nuevoNombre}
+                      onChange={e => setNuevoNombre(e.target.value)}
+                      className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
+                    <input placeholder="DNI (opcional)" value={nuevoDni}
+                      onChange={e => setNuevoDni(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCrearCliente()}
+                      className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setShowNuevoCliente(false); setNuevoClienteErr('') }}
+                        className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">Cancelar</button>
+                      <button type="button" onClick={handleCrearCliente}
+                        className="flex-1 text-xs bg-blue-600 text-white rounded-lg py-1.5 hover:bg-blue-700 transition-colors">Guardar y seleccionar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Filamentos ── */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-2">Filamentos</label>
+            <div className="space-y-2">
+              {items.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <select
+                    value={item.filamentoId}
+                    onChange={e => updateItem(idx, 'filamentoId', e.target.value)}
+                    className="flex-1 text-sm border border-border rounded-lg px-2.5 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40 min-w-0"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {filamentosConStock.map(f => (
+                      <option key={f.id} value={f.id}>
+                        {f.marca} {f.nombre} — {f.color} ({f.rollos_cerrados} rol)
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" onClick={() => updateItem(idx, 'kg', Math.max(1, item.kg - 1))}
+                      className="w-7 h-7 flex items-center justify-center rounded border border-border hover:bg-secondary text-sm font-bold">−</button>
+                    <span className="w-8 text-center text-sm font-mono font-bold">{item.kg}</span>
+                    <button type="button"
+                      onClick={() => updateItem(idx, 'kg', Math.min(stockDisp(item.filamentoId) || 99, item.kg + 1))}
+                      className="w-7 h-7 flex items-center justify-center rounded border border-border hover:bg-secondary text-sm font-bold">+</button>
+                    <span className="text-xs text-muted-foreground w-4">kg</span>
+                  </div>
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(idx)} className="text-muted-foreground hover:text-red-500 shrink-0">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={addItem}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Plus size={12} /> Agregar otro filamento
+              </button>
+            </div>
+          </div>
+
+          {/* ── Escala de precio ── */}
+          {clienteId && clienteKgMes !== null && totalKgVenta > 0 && (
+            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2.5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Precio por escala mensual</p>
+                <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">
+                  {clienteKgMes.toFixed(0)} kg previos + {totalKgVenta} kg = {kgMesTotal.toFixed(0)} kg
+                </span>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {[...PRECIO_TIERS].map(t => (
+                  <span key={t.min} className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
+                    tier === t.precio ? 'bg-blue-600 text-white border-blue-600' : 'text-muted-foreground border-border'
+                  }`}>
+                    {t.min === 0 ? '<5' : `${t.min}+`} kg → ${(t.precio / 1000).toFixed(0)}k
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Fecha + resumen ── */}
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Fecha</label>
+              <input type="date" value={fecha}
+                onChange={async e => {
+                  setFecha(e.target.value)
+                  if (clienteId) {
+                    const kg = await getKgMensualesCliente(clienteId, e.target.value.slice(0, 7))
+                    setClienteKgMes(kg)
+                  }
+                }}
+                className="w-full text-sm border border-border rounded-lg px-2.5 py-2 bg-background focus:outline-none" />
+            </div>
+            {totalKgVenta > 0 && (
+              <div className="bg-secondary/40 rounded-lg p-2.5 space-y-0.5 text-right">
+                <p className="text-[10px] text-muted-foreground">{totalKgVenta} kg · ${(precioKg / 1000).toFixed(0)}k/kg</p>
+                <p className="text-sm font-bold">{fmtARS(totalVenta)}</p>
+                <p className="text-[10px] text-green-600 dark:text-green-400">
+                  Ganancia {fmtARS(totalVenta - totalCosto)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose}
+              className="flex-1 text-sm border border-border rounded-lg py-2 hover:bg-secondary transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleConfirmar} disabled={isPending}
+              className="flex-1 text-sm bg-green-600 text-white rounded-lg py-2 hover:bg-green-700 disabled:opacity-50 transition-colors font-medium">
+              {isPending ? 'Registrando...' : `Confirmar venta · ${fmtARS(totalVenta)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Vista principal ────────────────────────────────────────────────────────────
 
 export default function FilamentosClient({ initialFilamentos, clientes = [] }: { initialFilamentos: Filamento[]; clientes?: ClienteBasic[] }) {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
+  const [showVentaGlobal, setShowVentaGlobal] = useState(false)
   const [tab, setTab] = useState<'stock' | 'ventas'>('stock')
 
   // Filtros
@@ -1213,6 +1516,17 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
       {showNuevo && (
         <NuevoFilamentoModal onClose={() => setShowNuevo(false)} onCreated={handleCreated} />
       )}
+      {showVentaGlobal && (
+        <VentaGlobalModal
+          filamentos={filamentos}
+          clientes={clientes}
+          onClose={() => setShowVentaGlobal(false)}
+          onVendido={(updatedFilamentos) => {
+            updatedFilamentos.forEach(handleUpdate)
+            setShowVentaGlobal(false)
+          }}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1224,12 +1538,20 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
             {totalRollos > 0 && ` · ${totalRollos} rollo${totalRollos !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button
-          onClick={() => setShowNuevo(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          <Plus size={14} /> Nuevo filamento
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowVentaGlobal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+          >
+            <ShoppingBag size={14} /> Venta
+          </button>
+          <button
+            onClick={() => setShowNuevo(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus size={14} /> Nuevo filamento
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
