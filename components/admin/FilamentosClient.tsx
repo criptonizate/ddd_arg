@@ -62,6 +62,26 @@ function colorDot(color: string): string {
   return 'bg-gradient-to-br from-secondary to-muted-foreground/30'
 }
 
+function colorToCss(color: string): string {
+  const c = color.toLowerCase()
+  if (c.includes('black'))                          return '#111111'
+  if (c.includes('white'))                          return '#f5f5f5'
+  if (c.includes('grey') || c.includes('gray'))     return '#9ca3af'
+  if (c.includes('vermilion') || c.includes('ruby')) return '#c0392b'
+  if (c.includes('berry') || c.includes('red'))     return '#e53e3e'
+  if (c.includes('blue'))                           return '#3b82f6'
+  if (c.includes('teal'))                           return '#14b8a6'
+  if (c.includes('olive'))                          return '#84a830'
+  if (c.includes('green'))                          return '#22c55e'
+  if (c.includes('yellow') || c.includes('sunshine')) return '#eab308'
+  if (c.includes('orange'))                         return '#f97316'
+  if (c.includes('taro') || c.includes('purple'))   return '#a855f7'
+  if (c.includes('pink'))                           return '#ec4899'
+  if (c.includes('brown') || c.includes('madera'))  return '#92400e'
+  if (c.includes('silk') || c.includes('gold'))     return '#d97706'
+  return '#94a3b8'
+}
+
 function fmtGr(gr: number): string {
   if (gr >= 1000) return `${(gr / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg`
   return `${Math.round(gr).toLocaleString('es-AR')} g`
@@ -1152,7 +1172,10 @@ function VentaGlobalModal({
   const [showOverride, setShowOverride] = useState(false)
   const [overrideInput, setOverrideInput] = useState('')
 
-  const filamentosConStock = filamentos.filter(f => totalGramos(f) >= 1000)
+  const [openDropIdx, setOpenDropIdx] = useState<number | null>(null)
+
+  const filamentosConStock = [...filamentos.filter(f => totalGramos(f) >= 1000)]
+    .sort((a, b) => totalGramos(b) - totalGramos(a))
 
   const totalKgVenta = items.reduce((s, i) => s + (i.kg || 0), 0)
   const kgMesTotal = (clienteKgMes ?? 0) + totalKgVenta
@@ -1324,20 +1347,54 @@ function VentaGlobalModal({
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-2">Filamentos</label>
             <div className="space-y-2">
-              {items.map((item, idx) => (
+              {items.map((item, idx) => {
+                const selFil = filamentosConStock.find(f => f.id === item.filamentoId)
+                return (
                 <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={item.filamentoId}
-                    onChange={e => updateItem(idx, 'filamentoId', e.target.value)}
-                    className="flex-1 text-sm border border-border rounded-lg px-2.5 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/40 min-w-0"
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {filamentosConStock.map(f => (
-                      <option key={f.id} value={f.id}>
-                        {f.marca} {f.nombre} — {f.color} ({f.rollos_cerrados} rol)
-                      </option>
-                    ))}
-                  </select>
+                  {/* Dropdown custom con círculo de color */}
+                  <div className="relative flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropIdx(openDropIdx === idx ? null : idx)}
+                      className="w-full flex items-center gap-2 text-sm border border-border rounded-lg px-2.5 py-2 bg-background hover:bg-secondary/50 transition-colors text-left"
+                    >
+                      {selFil ? (
+                        <>
+                          <span className="w-4 h-4 rounded-full shrink-0 border border-black/10"
+                            style={{ backgroundColor: colorToCss(selFil.color) }} />
+                          <span className="truncate flex-1">{selFil.marca} {selFil.nombre} — {selFil.color}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{selFil.rollos_cerrados} rol</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground flex-1">— Seleccionar filamento —</span>
+                      )}
+                      <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+                    </button>
+                    {openDropIdx === idx && (
+                      <div className="absolute z-30 top-full left-0 right-0 mt-0.5 bg-card border border-border rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                        {filamentosConStock.map(f => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left ${item.filamentoId === f.id ? 'bg-secondary/60' : ''}`}
+                            onClick={() => { updateItem(idx, 'filamentoId', f.id); setOpenDropIdx(null) }}
+                          >
+                            <span className="w-4 h-4 rounded-full shrink-0 border border-black/10"
+                              style={{ backgroundColor: colorToCss(f.color) }} />
+                            <span className="flex-1 min-w-0">
+                              <span className="block truncate">{f.marca} {f.nombre} — {f.color}</span>
+                              <span className="text-[10px] text-muted-foreground">{f.material} · {f.tipo}</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                              {f.rollos_cerrados > 0 && `${f.rollos_cerrados} rol`}
+                              {f.rollos_cerrados > 0 && f.gramos_sueltos > 0 && ' + '}
+                              {f.gramos_sueltos > 0 && `${f.gramos_sueltos}g`}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button type="button" onClick={() => updateItem(idx, 'kg', Math.max(1, item.kg - 1))}
                       className="w-7 h-7 flex items-center justify-center rounded border border-border hover:bg-secondary text-sm font-bold">−</button>
@@ -1353,7 +1410,7 @@ function VentaGlobalModal({
                     </button>
                   )}
                 </div>
-              ))}
+              )})}
               <button type="button" onClick={addItem}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                 <Plus size={12} /> Agregar otro filamento
