@@ -158,6 +158,23 @@ export async function deleteMovimiento(
 
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 
+export async function getVentasDeCliente(clienteId: string): Promise<VentaFilamento[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('*, filamentos(nombre, color, material, marca)')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: false })
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    filamento_nombre: r.filamentos?.nombre ?? '',
+    filamento_color: r.filamentos?.color ?? '',
+    filamento_material: r.filamentos?.material ?? '',
+    filamento_marca: r.filamentos?.marca ?? '',
+  })) as VentaFilamento[]
+}
+
 // Retorna los kg totales vendidos a un cliente en el mes dado (formato 'YYYY-MM')
 export async function getKgMensualesCliente(clienteId: string, mes: string): Promise<number> {
   await getAdminUser()

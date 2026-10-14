@@ -240,16 +240,72 @@ export async function getClientesBasic(): Promise<{ id: string; nombre: string; 
   return (data ?? []) as { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }[]
 }
 
-export async function createClienteRapido(nombre: string, dni?: string): Promise<{ id: string; nombre: string; dni: string | null } | { error: string }> {
+export async function createClienteRapido(
+  nombre: string,
+  dni?: string,
+  telefono?: string,
+): Promise<{ id: string; nombre: string; dni: string | null; telefono: string | null } | { error: string }> {
   await getAdminUser()
   if (!nombre.trim()) return { error: 'El nombre es requerido' }
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('clientes')
-    .insert({ nombre: nombre.trim(), dni: dni?.trim() || null })
-    .select('id, nombre, dni')
+    .insert({ nombre: nombre.trim(), dni: dni?.trim() || null, telefono: telefono?.trim() || null })
+    .select('id, nombre, dni, telefono')
     .single()
   if (error) return { error: error.message }
   revalidatePath('/admin/clientes')
-  return data as { id: string; nombre: string; dni: string | null }
+  return data as { id: string; nombre: string; dni: string | null; telefono: string | null }
+}
+
+export async function updateClienteBasico(
+  id: string,
+  data: { nombre?: string; dni?: string | null; telefono?: string | null }
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('clientes').update(data).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/clientes')
+  revalidatePath('/admin/filamentos')
+  return {}
+}
+
+export interface ClienteFilamentoStats {
+  id: string
+  nombre: string
+  dni: string | null
+  telefono: string | null
+  totalKg: number
+  totalVentas: number
+  cantVentas: number
+  ultimaCompra: string | null
+}
+
+export async function getClientesConVentasFilamento(): Promise<ClienteFilamentoStats[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('cliente_id, gramos, precio_kg, fecha, clientes(id, nombre, dni, telefono)')
+    .not('cliente_id', 'is', null)
+    .order('fecha', { ascending: false })
+  if (!data?.length) return []
+  const map = new Map<string, ClienteFilamentoStats>()
+  for (const row of data as any[]) {
+    const c = row.clientes
+    if (!c) continue
+    const existing = map.get(c.id)
+    const kg = (row.gramos ?? 0) / 1000
+    const venta = kg * (row.precio_kg ?? 0)
+    if (existing) {
+      existing.totalKg += kg
+      existing.totalVentas += venta
+      existing.cantVentas += 1
+      if (!existing.ultimaCompra || row.fecha > existing.ultimaCompra) existing.ultimaCompra = row.fecha
+    } else {
+      map.set(c.id, { id: c.id, nombre: c.nombre, dni: c.dni, telefono: c.telefono, totalKg: kg, totalVentas: venta, cantVentas: 1, ultimaCompra: row.fecha })
+    }
+  }
+  return [...map.values()].sort((a, b) => (b.ultimaCompra ?? '').localeCompare(a.ultimaCompra ?? ''))
 }

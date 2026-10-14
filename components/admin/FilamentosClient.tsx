@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp } from 'lucide-react'
+import { useState, useEffect, useTransition } from 'react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -17,7 +17,8 @@ import {
   getHistorialVentasFilamentos,
   getKgMensualesCliente,
 } from '@/lib/actions/filamentos'
-import { createClienteRapido } from '@/lib/actions/clientes'
+import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
+import { getVentasDeCliente } from '@/lib/actions/filamentos'
 
 type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
 
@@ -1137,6 +1138,7 @@ function VentaGlobalModal({
   const [showNuevoCliente, setShowNuevoCliente] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoDni, setNuevoDni] = useState('')
+  const [nuevoTelefono, setNuevoTelefono] = useState('')
   const [nuevoClienteErr, setNuevoClienteErr] = useState('')
   const [clientesLocal, setClientesLocal] = useState(clientes)
 
@@ -1145,12 +1147,17 @@ function VentaGlobalModal({
   const [fecha, setFecha] = useState(today)
   const [error, setError] = useState('')
 
+  // Precio override (amigos / excepciones)
+  const [precioOverride, setPrecioOverride] = useState<number | null>(null)
+  const [showOverride, setShowOverride] = useState(false)
+  const [overrideInput, setOverrideInput] = useState('')
+
   const filamentosConStock = filamentos.filter(f => totalGramos(f) >= 1000)
 
   const totalKgVenta = items.reduce((s, i) => s + (i.kg || 0), 0)
   const kgMesTotal = (clienteKgMes ?? 0) + totalKgVenta
   const tier = tierPrecio(kgMesTotal)
-  const precioKg = tier
+  const precioKg = precioOverride ?? tier
 
   async function onClienteSelect(c: ClienteBasic) {
     setClienteId(c.id)
@@ -1171,12 +1178,12 @@ function VentaGlobalModal({
   async function handleCrearCliente() {
     if (!nuevoNombre.trim()) { setNuevoClienteErr('El nombre es requerido'); return }
     setNuevoClienteErr('')
-    const res = await createClienteRapido(nuevoNombre.trim(), nuevoDni.trim() || undefined)
+    const res = await createClienteRapido(nuevoNombre.trim(), nuevoDni.trim() || undefined, nuevoTelefono.trim() || undefined)
     if ('error' in res) { setNuevoClienteErr(res.error); return }
-    const nuevo: ClienteBasic = { id: res.id, nombre: res.nombre, dni: res.dni, telefono: null, email: null, direccion: null }
+    const nuevo: ClienteBasic = { id: res.id, nombre: res.nombre, dni: res.dni, telefono: res.telefono, email: null, direccion: null }
     setClientesLocal(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
     setShowNuevoCliente(false)
-    setNuevoNombre(''); setNuevoDni('')
+    setNuevoNombre(''); setNuevoDni(''); setNuevoTelefono('')
     await onClienteSelect(nuevo)
   }
 
@@ -1292,10 +1299,15 @@ function VentaGlobalModal({
                     <input autoFocus placeholder="Nombre completo *" value={nuevoNombre}
                       onChange={e => setNuevoNombre(e.target.value)}
                       className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
-                    <input placeholder="DNI (opcional)" value={nuevoDni}
-                      onChange={e => setNuevoDni(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleCrearCliente()}
-                      className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input placeholder="DNI (opcional)" value={nuevoDni}
+                        onChange={e => setNuevoDni(e.target.value)}
+                        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
+                      <input placeholder="Teléfono (opcional)" value={nuevoTelefono}
+                        onChange={e => setNuevoTelefono(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleCrearCliente()}
+                        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400/40" />
+                    </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => { setShowNuevoCliente(false); setNuevoClienteErr('') }}
                         className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">Cancelar</button>
@@ -1395,6 +1407,41 @@ function VentaGlobalModal({
             )}
           </div>
 
+          {/* ── Precio especial (override) ── */}
+          <div className="border border-border rounded-lg p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={showOverride}
+                onChange={e => {
+                  setShowOverride(e.target.checked)
+                  if (!e.target.checked) { setPrecioOverride(null); setOverrideInput('') }
+                }}
+                className="w-3.5 h-3.5 accent-orange-500"
+              />
+              <span className="text-xs font-medium">Precio especial (amigo / excepción)</span>
+              {precioOverride && (
+                <span className="text-[10px] bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded-full font-mono">
+                  ${(precioOverride / 1000).toFixed(0)}k/kg
+                </span>
+              )}
+            </label>
+            {showOverride && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Precio/kg $</span>
+                <input
+                  type="number" min="0" placeholder="ej: 20000"
+                  value={overrideInput}
+                  onChange={e => {
+                    setOverrideInput(e.target.value)
+                    const v = parseFloat(e.target.value)
+                    setPrecioOverride(v > 0 ? v : null)
+                  }}
+                  className="w-28 text-sm border border-orange-300 dark:border-orange-700 rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+                />
+                <span className="text-[10px] text-muted-foreground">(normal: ${(tier / 1000).toFixed(0)}k)</span>
+              </div>
+            )}
+          </div>
+
           {error && <p className="text-xs text-red-500">{error}</p>}
 
           <div className="flex gap-2 pt-1">
@@ -1413,13 +1460,156 @@ function VentaGlobalModal({
   )
 }
 
+// ── Tab Clientes ──────────────────────────────────────────────────────────────
+
+function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
+  const [stats, setStats] = useState<ClienteFilamentoStats[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [ventasCliente, setVentasCliente] = useState<Record<string, VentaFilamento[]>>({})
+  const [loadingVentas, setLoadingVentas] = useState<Record<string, boolean>>({})
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editNombre, setEditNombre] = useState('')
+  const [editDni, setEditDni] = useState('')
+  const [editTel, setEditTel] = useState('')
+  const [editError, setEditError] = useState('')
+  const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    setLoading(true)
+    getClientesConVentasFilamento().then(data => { setStats(data); setLoading(false) })
+  }, [])
+
+  const lista = (stats ?? []).filter(c =>
+    c.nombre.toLowerCase().includes(search.toLowerCase()) ||
+    (c.dni ?? '').includes(search) ||
+    (c.telefono ?? '').includes(search)
+  )
+
+  async function toggleExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    if (!ventasCliente[id]) {
+      setLoadingVentas(p => ({ ...p, [id]: true }))
+      const data = await getVentasDeCliente(id)
+      setVentasCliente(p => ({ ...p, [id]: data }))
+      setLoadingVentas(p => ({ ...p, [id]: false }))
+    }
+  }
+
+  function startEdit(c: ClienteFilamentoStats) {
+    setEditId(c.id); setEditNombre(c.nombre); setEditDni(c.dni ?? ''); setEditTel(c.telefono ?? ''); setEditError('')
+  }
+
+  function saveEdit(id: string) {
+    if (!editNombre.trim()) { setEditError('El nombre es requerido'); return }
+    setEditError('')
+    startTransition(async () => {
+      const res = await updateClienteBasico(id, { nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null })
+      if (res.error) { setEditError(res.error); return }
+      setStats(prev => prev ? prev.map(c => c.id === id ? { ...c, nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null } : c) : prev)
+      setEditId(null)
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <input
+        placeholder="Buscar por nombre, DNI o teléfono..."
+        value={search} onChange={e => setSearch(e.target.value)}
+        className="w-full text-sm border border-border rounded-xl px-4 py-2.5 bg-card focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+      />
+      {loading && <p className="text-sm text-muted-foreground py-4 text-center">Cargando clientes...</p>}
+      {!loading && lista.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          {search ? 'Sin resultados' : 'Todavía no hay ventas de filamento registradas con cliente.'}
+        </p>
+      )}
+      <div className="space-y-2">
+        {lista.map(c => (
+          <div key={c.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            {/* Fila cliente */}
+            {editId === c.id ? (
+              <div className="p-4 space-y-2">
+                {editError && <p className="text-xs text-red-500">{editError}</p>}
+                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} placeholder="Nombre *"
+                  className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={editDni} onChange={e => setEditDni(e.target.value)} placeholder="DNI"
+                    className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none" />
+                  <input value={editTel} onChange={e => setEditTel(e.target.value)} placeholder="Teléfono"
+                    className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditId(null)} className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">Cancelar</button>
+                  <button onClick={() => saveEdit(c.id)} className="flex-1 text-xs bg-foreground text-background rounded-lg py-1.5 hover:opacity-90 transition-opacity">Guardar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{c.nombre.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold truncate">{c.nombre}</p>
+                    {c.dni && <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">DNI {c.dni}</span>}
+                    {c.telefono && <span className="text-[10px] text-muted-foreground">📱 {c.telefono}</span>}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {c.cantVentas} {c.cantVentas === 1 ? 'compra' : 'compras'} · {c.totalKg.toFixed(1)} kg · {fmtARS(c.totalVentas)}
+                    {c.ultimaCompra && ` · última: ${c.ultimaCompra}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => startEdit(c)}
+                    className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="Editar">
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => toggleExpand(c.id)}
+                    className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="Ver historial">
+                    {expandedId === c.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* Historial expandido */}
+            {expandedId === c.id && (
+              <div className="border-t border-border bg-secondary/20 divide-y divide-border">
+                {loadingVentas[c.id] && <p className="text-xs text-muted-foreground px-4 py-3">Cargando...</p>}
+                {!loadingVentas[c.id] && (ventasCliente[c.id] ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground px-4 py-3">Sin ventas registradas.</p>
+                )}
+                {(ventasCliente[c.id] ?? []).map(v => (
+                  <div key={v.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">
+                        {v.filamento_marca && `${v.filamento_marca} `}{v.filamento_nombre} — {v.filamento_color}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{v.fecha} · {(v.gramos / 1000).toFixed(1)} kg · ${(v.precio_kg / 1000).toFixed(0)}k/kg</p>
+                    </div>
+                    <span className="text-sm font-mono font-semibold shrink-0 text-green-600 dark:text-green-400">
+                      {fmtARS((v.gramos / 1000) * v.precio_kg)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Vista principal ────────────────────────────────────────────────────────────
 
 export default function FilamentosClient({ initialFilamentos, clientes = [] }: { initialFilamentos: Filamento[]; clientes?: ClienteBasic[] }) {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
   const [showVentaGlobal, setShowVentaGlobal] = useState(false)
-  const [tab, setTab] = useState<'stock' | 'ventas'>('stock')
+  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes'>('stock')
 
   // Filtros
   const [filtroMarca, setFiltroMarca] = useState('')
@@ -1564,9 +1754,14 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'ventas' ? 'bg-green-600 text-white border-green-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-green-400'}`}>
           <TrendingUp size={13} /> Historial ventas
         </button>
+        <button onClick={() => setTab('clientes')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'clientes' ? 'bg-blue-600 text-white border-blue-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-blue-400'}`}>
+          👤 Clientes
+        </button>
       </div>
 
       {tab === 'ventas' && <HistorialVentas />}
+      {tab === 'clientes' && <ClientesFilamentoTab clientes={clientes} />}
 
       {tab === 'stock' && (
         <>

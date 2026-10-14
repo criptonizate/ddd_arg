@@ -49,6 +49,7 @@ export interface VentaFilamento {
   filamento_nombre?: string
   filamento_color?: string
   filamento_material?: string
+  filamento_marca?: string
 }
 
 export interface FilamentoMovimiento {
