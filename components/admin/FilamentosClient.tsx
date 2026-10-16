@@ -62,6 +62,10 @@ function colorDot(color: string): string {
   return 'bg-gradient-to-br from-secondary to-muted-foreground/30'
 }
 
+function shortNombre(nombre: string): string {
+  return nombre.replace(/\s+high\s+speed\b/gi, '').replace(/\s+hs\b/gi, '').trim()
+}
+
 function colorToCss(color: string): string {
   const c = color.toLowerCase()
   if (c.includes('black'))                          return '#111111'
@@ -1362,7 +1366,7 @@ function VentaGlobalModal({
                         <>
                           <span className="w-4 h-4 rounded-full shrink-0 border border-black/10"
                             style={{ backgroundColor: colorToCss(selFil.color) }} />
-                          <span className="truncate flex-1">{selFil.marca} {selFil.nombre} — {selFil.color}</span>
+                          <span className="truncate flex-1">{selFil.color} — {selFil.material} · {selFil.marca} {shortNombre(selFil.nombre)}</span>
                           <span className="text-[10px] text-muted-foreground shrink-0">{selFil.rollos_cerrados} rol</span>
                         </>
                       ) : (
@@ -1382,8 +1386,8 @@ function VentaGlobalModal({
                             <span className="w-4 h-4 rounded-full shrink-0 border border-black/10"
                               style={{ backgroundColor: colorToCss(f.color) }} />
                             <span className="flex-1 min-w-0">
-                              <span className="block truncate">{f.marca} {f.nombre} — {f.color}</span>
-                              <span className="text-[10px] text-muted-foreground">{f.material} · {f.tipo}</span>
+                              <span className="block truncate font-medium">{f.color} — {f.material}</span>
+                              <span className="text-[10px] text-muted-foreground">{f.marca} {shortNombre(f.nombre)}</span>
                             </span>
                             <span className="text-[10px] font-mono text-muted-foreground shrink-0">
                               {f.rollos_cerrados > 0 && `${f.rollos_cerrados} rol`}
@@ -1642,7 +1646,7 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
                   <div key={v.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate">
-                        {v.filamento_marca && `${v.filamento_marca} `}{v.filamento_nombre} — {v.filamento_color}
+                        {v.filamento_color} — {v.filamento_material}{v.filamento_marca && ` · ${v.filamento_marca} ${shortNombre(v.filamento_nombre ?? '')}`}
                       </p>
                       <p className="text-[10px] text-muted-foreground">{v.fecha} · {(v.gramos / 1000).toFixed(1)} kg · ${(v.precio_kg / 1000).toFixed(0)}k/kg</p>
                     </div>
