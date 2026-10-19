@@ -50,42 +50,42 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  /* DDD ARG brand — off-white cálido como fondo */
-  --background: oklch(0.985 0.003 90);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --radius: 0.5rem;
+  /* DDD ARG store — gris neutro e-commerce + carbón + naranja primario */
+  --background: oklch(0.967 0 0);        /* #f5f5f5 — gris neutro, no blanco puro */
+  --foreground: oklch(0.138 0 0);        /* #222 — carbón, igual que el logo */
+  --card: oklch(1 0 0);                  /* blanco puro — cards flotan sobre el gris */
+  --card-foreground: oklch(0.138 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.961 0.002 80);
-  --secondary-foreground: oklch(0.145 0 0);
-  --muted: oklch(0.961 0.002 80);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.961 0.002 80);
-  --accent-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.138 0 0);
+  /* Naranja como color primario del sitio */
+  --primary: oklch(0.603 0.199 43.6);    /* #EA580C — naranja DDD */
+  --primary-foreground: oklch(1 0 0);    /* texto blanco sobre naranja */
+  --secondary: oklch(0.942 0 0);         /* #f0f0f0 — gris un tono más oscuro */
+  --secondary-foreground: oklch(0.138 0 0);
+  --muted: oklch(0.942 0 0);
+  --muted-foreground: oklch(0.525 0 0);  /* #808080 — gris medio */
+  --accent: oklch(0.978 0.018 55);       /* naranja muy suave — hover/foco */
+  --accent-foreground: oklch(0.603 0.199 43.6);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #FFFFFF;
-  --border: oklch(0.916 0.004 75);
-  --input: oklch(0.916 0.004 75);
-  --ring: oklch(0.145 0 0);
-  /* Naranja filamento — solo badges, alertas y series de gráficos */
+  --border: oklch(0.905 0 0);            /* #e5e5e5 — borde neutro limpio */
+  --input: oklch(0.905 0 0);
+  --ring: oklch(0.603 0.199 43.6);       /* naranja para focus ring */
   --brand-orange: #EA580C;
-  --chart-1: oklch(0.65 0.22 33);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.603 0.199 43.6);   /* naranja */
+  --chart-2: oklch(0.52 0 0);
+  --chart-3: oklch(0.42 0 0);
+  --chart-4: oklch(0.35 0 0);
+  --chart-5: oklch(0.25 0 0);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.138 0 0);
+  --sidebar-primary: oklch(0.603 0.199 43.6);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.942 0 0);
+  --sidebar-accent-foreground: oklch(0.138 0 0);
+  --sidebar-border: oklch(0.905 0 0);
+  --sidebar-ring: oklch(0.603 0.199 43.6);
 }
 
 * {

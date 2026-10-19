@@ -46,16 +46,16 @@ export default function StoreHeader() {
     ?? 'Cuenta'
 
   return (
-    <header className="sticky top-0 z-40 bg-background/90 backdrop-blur border-b border-border">
+    <header className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          <Image src="/LogoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-9 w-auto" priority />
+          <Image src="/LogoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-8 w-auto" priority />
         </Link>
 
         <nav className="flex items-center gap-1">
           <Link
             href="/filamentos"
-            className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
             Filamentos
           </Link>

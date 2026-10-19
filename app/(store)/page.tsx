@@ -28,14 +28,14 @@ export default async function HomePage() {
 
       {/* ── Hero ── */}
       <section className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-secondary rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground mb-6">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-orange)]" />
+        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-xs font-semibold text-primary mb-6">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
           Impresión 3D en Argentina
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
           Tus ideas
           <br />
-          <span className="text-muted-foreground">hechas realidad en 3D</span>
+          <span className="text-primary">hechas realidad en 3D</span>
         </h1>
         <p className="text-base text-muted-foreground max-w-md mx-auto">
           Imprimimos lo que imaginás. Diseños personalizados, colores a elección y entrega en todo el país.
@@ -72,7 +72,7 @@ export default async function HomePage() {
                   {item.icon}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground mb-1">PASO {item.step}</p>
+                  <p className="text-xs font-bold text-primary mb-1">PASO {item.step}</p>
                   <h3 className="font-semibold text-base">{item.title}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
@@ -94,7 +94,7 @@ export default async function HomePage() {
             </div>
             <Link
               href="/catalogo"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
             >
               Ver todo →
             </Link>

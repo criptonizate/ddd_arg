@@ -13,25 +13,25 @@ function InstagramIcon() {
 
 export default function StoreFooter() {
   return (
-    <footer className="border-t border-border py-8 mt-16">
+    <footer className="bg-card border-t border-border py-8 mt-16">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Image src="/LogoDDDARG.png" alt="DDD ARG" width={511} height={339} className="h-7 w-auto" />
-          <span>— Impresión 3D en Argentina</span>
+          <span className="text-xs">Impresión 3D · Argentina</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
+          <Link href="/filamentos" className="hover:text-primary transition-colors font-medium">
+            Filamentos
+          </Link>
           <a
             href="https://instagram.com/DDD_ARG"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 hover:text-primary transition-colors"
           >
             <InstagramIcon />
             @DDD_ARG
           </a>
-          <Link href="/catalogo" className="hover:text-foreground transition-colors">
-            Catálogo
-          </Link>
         </div>
       </div>
     </footer>
