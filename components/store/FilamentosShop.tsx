@@ -397,7 +397,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       <div className="flex gap-6 items-start">
 
         {/* Sidebar desktop */}
-        <aside className="hidden lg:block w-52 shrink-0 sticky top-[106px] bg-card border border-border rounded-2xl p-4">
+        <aside className="hidden lg:block w-52 shrink-0 sticky top-[72px] bg-card border border-border rounded-2xl p-4">
           {filterSidebar}
         </aside>
 
