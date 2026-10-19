@@ -252,22 +252,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════
-          INSTAGRAM
-      ══════════════════════════════════════════════════ */}
-      <section className="bg-[#1c1c1c] py-10 text-center">
-        <p className="text-gray-400 text-sm mb-4">Seguinos para ver los últimos trabajos</p>
-        <a
-          href="https://instagram.com/DDD_ARG"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2.5 text-white font-bold text-base hover:text-orange-400 transition-colors"
-        >
-          <InstagramIcon />
-          @DDD_ARG
-        </a>
-      </section>
-
     </div>
   )
 }
