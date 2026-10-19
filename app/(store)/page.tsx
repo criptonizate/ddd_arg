@@ -236,49 +236,6 @@ export default async function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════════════
-          CÓMO FUNCIONA — pasos simples y directos
-      ══════════════════════════════════════════════════ */}
-      <section className="py-10 sm:py-14 bg-background">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="text-center mb-6 sm:mb-10">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Simple y directo</p>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground">¿Cómo hacés tu pedido?</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            {[
-              {
-                n: '01',
-                icon: '💬',
-                title: 'Me contás tu idea',
-                desc: 'Escribime por WhatsApp con el diseño que tenés en mente. Si no tenés el archivo, lo conseguimos juntos.',
-              },
-              {
-                n: '02',
-                icon: '🎨',
-                title: 'Elegís color y material',
-                desc: 'Te muestro los filamentos disponibles. Te mando una cotización con precio y tiempo estimado.',
-              },
-              {
-                n: '03',
-                icon: '📦',
-                title: 'Imprimimos y enviamos',
-                desc: 'Confirmado el pedido, lo imprimimos y enviamos a todo el país o lo retirás en persona.',
-              },
-            ].map((s) => (
-              <div key={s.n} className="relative bg-card border border-border rounded-2xl p-6">
-                <span className="absolute -top-3 left-5 bg-primary text-white text-xs font-black px-2.5 py-0.5 rounded-full">
-                  {s.n}
-                </span>
-                <div className="text-3xl mb-3 mt-1">{s.icon}</div>
-                <h3 className="font-bold text-base mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
           CTA FINAL — fondo naranja, contacto directo
       ══════════════════════════════════════════════════ */}
       <section className="bg-primary">
