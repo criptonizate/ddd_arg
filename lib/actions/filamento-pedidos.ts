@@ -42,6 +42,15 @@ export async function crearPedidoFilamento(data: {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (!data.items.length) return { error: 'El carrito está vacío' }
 
+  // Intentar obtener el user_id si el cliente está logueado
+  let userId: string | null = null
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabaseAuth = await createClient()
+    const { data: { user } } = await supabaseAuth.auth.getUser()
+    userId = user?.id ?? null
+  } catch { /* anonymous order */ }
+
   const supabase = createServiceClient()
   const { data: row, error } = await supabase
     .from('filamento_pedidos')
@@ -53,12 +62,14 @@ export async function crearPedidoFilamento(data: {
       descuento_por_rollo: data.descuento_por_rollo,
       total: data.total,
       estado: 'pendiente',
+      user_id: userId,
     })
     .select('id, numero')
     .single()
 
   if (error) return { error: error.message }
   revalidatePath('/admin/filamentos')
+  revalidatePath('/cuenta')
   return { numero: row.numero, id: row.id }
 }
 
