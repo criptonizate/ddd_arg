@@ -8,12 +8,12 @@ import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 const WHATSAPP_NUMBER = '543804559909'
 const PRECIO_BASE = 22000  // precio por rollo (1kg) sin descuento
 
-// Descuentos públicos por volumen (total rollos en el carrito)
+// Descuentos públicos por volumen (total kg en el carrito)
 const DESCUENTOS = [
-  { min: 15, descuento: 4000, label: '15+ rollos' },
-  { min: 10, descuento: 3000, label: '10+ rollos' },
-  { min:  5, descuento: 2000, label:  '5+ rollos' },
-  { min:  0, descuento:    0, label:         '' },
+  { min: 15, descuento: 4000, label: '15+ kg' },
+  { min: 10, descuento: 3000, label: '10+ kg' },
+  { min:  5, descuento: 2000, label:  '5+ kg' },
+  { min:  0, descuento:    0, label:      '' },
 ] as const
 
 function getDescuento(totalRollos: number): { descuento: number; label: string } {
@@ -137,10 +137,10 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
         `• ${i.rollos}x ${i.filamento.color} — ${i.filamento.material} (${i.filamento.marca} ${shortNombre(i.filamento.nombre)})`
       ),
       ``,
-      `📦 *${totalRollos} rollo${totalRollos !== 1 ? 's' : ''}*  ·  💰 *Total estimado: ${fmtARS(subtotal)}*`,
-      descuento > 0 ? `🏷️ Descuento aplicado: -${fmtARS(descuento)}/rollo (${descLabel})` : null,
+      `📦 *${totalRollos} kg*  ·  💰 *Total estimado: ${fmtARS(subtotal)}*`,
+      descuento > 0 ? `🏷️ Descuento aplicado: -${fmtARS(descuento)}/kg (${descLabel})` : null,
       ``,
-      `Quedo esperando tu confirmación para separar los rollos.`,
+      `Quedo esperando tu confirmación para separar los filamentos.`,
       `Entiendo que una vez que confirmes disponibilidad voy a abonar una seña o el total para que me los reservés. 🙌`,
     ].filter(Boolean).join('\n')
 
@@ -226,19 +226,29 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       </div>
 
       {/* ── Descuentos banner ── */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        {[
-          { min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 },
-        ].map(t => (
-          <div key={t.min} className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1.5 transition-all ${
-            totalRollos >= t.min
-              ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 font-semibold'
-              : 'border-border text-muted-foreground'
-          }`}>
-            {totalRollos >= t.min && '✓ '}
-            {t.min}+ rollos → -{fmtARS(t.desc)}/rollo
-          </div>
-        ))}
+      <div className="mb-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Descuentos por volumen</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { min:  5, desc: 2000, activeClass: 'bg-yellow-400 border-yellow-500 text-yellow-950 shadow-yellow-200 dark:shadow-yellow-900' },
+            { min: 10, desc: 3000, activeClass: 'bg-orange-500 border-orange-600 text-white shadow-orange-200 dark:shadow-orange-900' },
+            { min: 15, desc: 4000, activeClass: 'bg-red-500 border-red-600 text-white shadow-red-200 dark:shadow-red-900' },
+          ].map(t => {
+            const activo = totalRollos >= t.min
+            return (
+              <div key={t.min} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
+                activo
+                  ? `${t.activeClass} shadow-md scale-105`
+                  : 'border-dashed border-border text-muted-foreground'
+              }`}>
+                {activo && <span>✓</span>}
+                <span>{t.min}+ kg</span>
+                <span className={activo ? 'opacity-80' : ''}>→</span>
+                <span>-{fmtARS(t.desc)} <span className="font-normal text-xs">off/kg</span></span>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Grid de filamentos ── */}
@@ -275,7 +285,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                     {descuento > 0 && (
                       <p className="text-[10px] text-muted-foreground line-through">{fmtARS(PRECIO_BASE)}</p>
                     )}
-                    <p className="text-[10px] text-muted-foreground">por rollo</p>
+                    <p className="text-[10px] text-muted-foreground">por kg</p>
                   </div>
                 </div>
 
@@ -296,7 +306,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                     >
                       <Minus size={13} />
                     </button>
-                    <span className="text-sm font-bold flex-1 text-center">{enCart} rollo{enCart !== 1 ? 's' : ''}</span>
+                    <span className="text-sm font-bold flex-1 text-center">{enCart} kg</span>
                     <button
                       onClick={() => setRollos(f.id, enCart + 1)}
                       className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
@@ -318,7 +328,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
           className="fixed bottom-6 right-4 z-40 flex items-center gap-2.5 bg-foreground text-background rounded-2xl px-4 py-3 shadow-xl hover:opacity-90 transition-opacity"
         >
           <ShoppingCart size={18} />
-          <span className="text-sm font-bold">{totalRollos} rollo{totalRollos !== 1 ? 's' : ''}</span>
+          <span className="text-sm font-bold">{totalRollos} kg</span>
           <span className="text-sm">{fmtARS(subtotal)}</span>
           {descLabel && (
             <span className="text-[10px] bg-green-400 text-black font-bold px-1.5 py-0.5 rounded-full">
@@ -378,8 +388,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                     <div key={t.min} className={`text-xs flex justify-between items-center px-2.5 py-1.5 rounded-lg ${
                       activo ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300' : 'text-muted-foreground'
                     }`}>
-                      <span>{activo ? '✓' : `+${faltan}`} {t.min}+ rollos</span>
-                      <span className="font-semibold">-{fmtARS(t.desc)}/rollo</span>
+                      <span>{activo ? '✓' : `+${faltan}`} {t.min}+ kg</span>
+                      <span className="font-semibold">-{fmtARS(t.desc)}/kg</span>
                     </div>
                   )
                 })}
@@ -387,7 +397,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
               <div className="space-y-1 pt-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{totalRollos} rollo{totalRollos !== 1 ? 's' : ''} × {fmtARS(precioUnitario)}</span>
+                  <span className="text-muted-foreground">{totalRollos} kg × {fmtARS(precioUnitario)}</span>
                   <span>{fmtARS(subtotal)}</span>
                 </div>
                 {descuento > 0 && (
@@ -442,12 +452,12 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                       </div>
                     ))}
                     <div className="border-t border-border mt-2 pt-2 flex justify-between text-sm font-bold">
-                      <span>{totalRollos} rollo{totalRollos !== 1 ? 's' : ''}</span>
+                      <span>{totalRollos} kg</span>
                       <span>{fmtARS(subtotal)}</span>
                     </div>
                     {descuento > 0 && (
                       <p className="text-[10px] text-green-600 dark:text-green-400 text-center">
-                        Descuento aplicado: -{fmtARS(descuento)}/rollo ({descLabel})
+                        Descuento aplicado: -{fmtARS(descuento)}/kg ({descLabel})
                       </p>
                     )}
                   </div>
@@ -484,7 +494,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     Una vez que confirmes el pedido, te voy a revisar el stock y te aviso por WhatsApp.
-                    Para separar los rollos se requiere abonar una seña o el total.
+                    Para separar los filamentos se requiere abonar una seña o el total.
                   </p>
                 </div>
 
@@ -512,7 +522,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                   <p className="text-xl font-bold mb-1">¡Pedido N° {pedidoNumero} registrado!</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Ahora avisame por WhatsApp para que revise el stock y te confirme.
-                    Una vez que lo confirmemos, coordinamos la seña o el pago total para separarte los rollos. 🙌
+                    Una vez que lo confirmemos, coordinamos la seña o el pago total para separarte los filamentos. 🙌
                   </p>
                 </div>
                 <button
