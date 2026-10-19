@@ -48,6 +48,16 @@ function fmtARS(n: number) {
   return `$${n.toLocaleString('es-AR')}`
 }
 
+function maxKg(f: Filamento): number {
+  return Math.floor((f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos) / 1000)
+}
+
+function stockColor(kg: number): string {
+  if (kg >= 10) return 'text-green-600 dark:text-green-400'
+  if (kg >= 3)  return 'text-yellow-600 dark:text-yellow-400'
+  return 'text-red-600 dark:text-red-400'
+}
+
 type CartItem = { filamento: Filamento; rollos: number }
 
 const MATERIAL_BADGE: Record<string, string> = {
@@ -100,16 +110,21 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   const subtotal = totalRollos * precioUnitario
 
   function addToCart(f: Filamento) {
+    const max = maxKg(f)
     setCart(prev => {
       const existing = prev.find(i => i.filamento.id === f.id)
-      if (existing) return prev.map(i => i.filamento.id === f.id ? { ...i, rollos: i.rollos + 1 } : i)
+      if (existing) {
+        if (existing.rollos >= max) return prev
+        return prev.map(i => i.filamento.id === f.id ? { ...i, rollos: i.rollos + 1 } : i)
+      }
       return [...prev, { filamento: f, rollos: 1 }]
     })
   }
 
   function setRollos(id: string, rollos: number) {
+    const max = cart.find(i => i.filamento.id === id) ? maxKg(cart.find(i => i.filamento.id === id)!.filamento) : 999
     if (rollos <= 0) setCart(prev => prev.filter(i => i.filamento.id !== id))
-    else setCart(prev => prev.map(i => i.filamento.id === id ? { ...i, rollos } : i))
+    else setCart(prev => prev.map(i => i.filamento.id === id ? { ...i, rollos: Math.min(rollos, max) } : i))
   }
 
   function removeFromCart(id: string) {
@@ -261,6 +276,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(f => {
             const enCart = getCartRollos(f.id)
+            const disponible = maxKg(f)
+            const enMax = enCart >= disponible
             return (
               <div
                 key={f.id}
@@ -286,6 +303,9 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                       <p className="text-[10px] text-muted-foreground line-through">{fmtARS(PRECIO_BASE)}</p>
                     )}
                     <p className="text-[10px] text-muted-foreground">por kg</p>
+                    <p className={`text-[10px] font-semibold mt-0.5 ${stockColor(disponible)}`}>
+                      {disponible} kg disp.
+                    </p>
                   </div>
                 </div>
 
@@ -293,26 +313,35 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                 {enCart === 0 ? (
                   <button
                     onClick={() => addToCart(f)}
-                    className="w-full flex items-center justify-center gap-2 text-sm font-medium border border-border rounded-lg py-2 hover:bg-secondary transition-colors"
+                    disabled={disponible === 0}
+                    className="w-full flex items-center justify-center gap-2 text-sm font-medium border border-border rounded-lg py-2 hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus size={14} />
                     Agregar
                   </button>
                 ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => setRollos(f.id, enCart - 1)}
-                      className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
-                    >
-                      <Minus size={13} />
-                    </button>
-                    <span className="text-sm font-bold flex-1 text-center">{enCart} kg</span>
-                    <button
-                      onClick={() => setRollos(f.id, enCart + 1)}
-                      className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
-                    >
-                      <Plus size={13} />
-                    </button>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => setRollos(f.id, enCart - 1)}
+                        className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <span className="text-sm font-bold flex-1 text-center">{enCart} kg</span>
+                      <button
+                        onClick={() => setRollos(f.id, enCart + 1)}
+                        disabled={enMax}
+                        className="p-1.5 rounded-lg border border-border hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                    {enMax && (
+                      <p className="text-[10px] text-center text-amber-600 dark:text-amber-400 font-medium">
+                        Máximo stock disponible ({disponible} kg)
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
