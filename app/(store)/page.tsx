@@ -58,7 +58,6 @@ export default async function HomePage() {
   const filamentos = await getFilamentosDisponibles()
 
   const materiales = Array.from(new Set(filamentos.map(f => f.material))).sort()
-  const coloresPreview = filamentos.slice(0, 18)
   const totalColores = filamentos.length
 
   return (
@@ -103,24 +102,28 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* Círculos de color — preview de filamentos */}
-            <div className="flex-none w-full md:w-auto">
-              <div className="grid grid-cols-6 sm:grid-cols-6 gap-2 sm:gap-2.5 max-w-[280px] sm:max-w-none mx-auto">
-                {coloresPreview.map((f) => (
-                  <div
-                    key={f.id}
-                    title={`${f.color} — ${f.material}`}
-                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white/10 shadow-md transition-transform hover:scale-110"
-                    style={{ backgroundColor: colorToCss(f.color) }}
-                  />
-                ))}
-                {totalColores > 18 && (
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-white/70">
-                    +{totalColores - 18}
-                  </div>
-                )}
+            {/* Cartel Precios Mayoristas */}
+            <div className="flex-none w-full md:w-auto flex justify-center md:justify-end">
+              <div className="relative">
+                {/* Fondo con rotación leve */}
+                <div className="absolute inset-0 bg-orange-500 rounded-2xl rotate-2 opacity-40" />
+                <div className="relative bg-orange-500 border-2 border-orange-400 rounded-2xl px-7 sm:px-10 py-6 sm:py-8 text-center shadow-2xl shadow-orange-500/40">
+                  <p className="text-orange-100 text-xs sm:text-sm font-bold uppercase tracking-[0.2em] mb-1">
+                    ★ Accedé a
+                  </p>
+                  <p className="text-white text-3xl sm:text-4xl font-black leading-none uppercase tracking-tight">
+                    Precios
+                  </p>
+                  <p className="text-white text-3xl sm:text-4xl font-black leading-none uppercase tracking-tight">
+                    Mayoristas
+                  </p>
+                  <div className="mt-3 h-px bg-white/30" />
+                  <p className="mt-3 text-orange-100 text-xs sm:text-sm leading-snug">
+                    5+ kg · 10+ kg · 15+ kg<br />
+                    <span className="font-bold text-white">hasta $4.000 off por kg</span>
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-gray-400 text-center mt-2 sm:mt-3">{totalColores} colores en stock</p>
             </div>
           </div>
         </div>
