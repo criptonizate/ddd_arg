@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { ShoppingCart, Plus, Minus, X, Trash2 } from 'lucide-react'
+import { useState, useMemo, useTransition } from 'react'
+import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2 } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
+import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 
 const WHATSAPP_NUMBER = '543804559909'
 const PRECIO_BASE = 22000  // precio por rollo (1kg) sin descuento
@@ -57,12 +58,23 @@ const MATERIAL_BADGE: Record<string, string> = {
   ASA:  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
 }
 
+type CheckoutStep = 'form' | 'saving' | 'done'
+
 export default function FilamentosShop({ filamentos }: { filamentos: Filamento[] }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [search, setSearch] = useState('')
   const [matFilter, setMatFilter] = useState<string>('')
   const [marcaFilter, setMarcaFilter] = useState<string>('')
+
+  // Checkout modal
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
+  const [clienteNombre, setClienteNombre] = useState('')
+  const [clienteTelefono, setClienteTelefono] = useState('')
+  const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [, startTransition] = useTransition()
 
   const marcas = useMemo(() => Array.from(new Set(filamentos.map(f => f.marca))).sort(), [filamentos])
   const materiales = useMemo(() => Array.from(new Set(filamentos.map(f => f.material))).sort(), [filamentos])
@@ -108,34 +120,64 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
     return cart.find(i => i.filamento.id === id)?.rollos ?? 0
   }
 
-  function handleCheckout() {
+  function abrirCheckout() {
     if (!cart.length) return
-    const nextTier = DESCUENTOS.find(t => t.min > totalRollos && t.min > 0)
+    setShowCheckout(true)
+    setCheckoutStep('form')
+    setCheckoutError('')
+    setPedidoNumero(null)
+  }
 
-    const lines: string[] = [
-      'Hola! Me gustaría hacer un pedido de filamentos:',
-      '',
-      '🎨 *Detalle del pedido:*',
+  function abrirWhatsApp(numero: number, nombre: string) {
+    const lines = [
+      `Hola! Acabo de hacer el pedido N° ${numero} en tu web. 🎉`,
+      ``,
+      `📋 *Detalle:*`,
       ...cart.map(i =>
         `• ${i.rollos}x ${i.filamento.color} — ${i.filamento.material} (${i.filamento.marca} ${shortNombre(i.filamento.nombre)})`
       ),
-      '',
-      `📦 Total: *${totalRollos} rollo${totalRollos !== 1 ? 's'  : ''}*`,
-    ]
+      ``,
+      `📦 *${totalRollos} rollo${totalRollos !== 1 ? 's' : ''}*  ·  💰 *Total estimado: ${fmtARS(subtotal)}*`,
+      descuento > 0 ? `🏷️ Descuento aplicado: -${fmtARS(descuento)}/rollo (${descLabel})` : null,
+      ``,
+      `Quedo esperando tu confirmación para separar los rollos.`,
+      `Entiendo que una vez que confirmes disponibilidad voy a abonar una seña o el total para que me los reservés. 🙌`,
+    ].filter(Boolean).join('\n')
 
-    if (descuento > 0) {
-      lines.push(`🏷️ Descuento por volumen (${descLabel}): -${fmtARS(descuento)} por rollo`)
-    }
-    lines.push(`💰 *Total estimado: ${fmtARS(subtotal)}*`)
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines)}`, '_blank')
+  }
 
-    if (nextTier && nextTier.descuento > 0) {
-      const faltanRollos = nextTier.min - totalRollos
-      lines.push(``)
-      lines.push(`💡 Agregando ${faltanRollos} rollo${faltanRollos !== 1 ? 's' : ''} más obtenés -${fmtARS(nextTier.descuento)}/rollo`)
-    }
-
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join('\n'))}`
-    window.open(url, '_blank')
+  function handleConfirmarPedido() {
+    if (!clienteNombre.trim()) { setCheckoutError('Tu nombre es requerido'); return }
+    setCheckoutError('')
+    setCheckoutStep('saving')
+    startTransition(async () => {
+      const result = await crearPedidoFilamento({
+        cliente_nombre: clienteNombre,
+        cliente_telefono: clienteTelefono,
+        items: cart.map(i => ({
+          filamento_id: i.filamento.id,
+          nombre: i.filamento.nombre,
+          color: i.filamento.color,
+          material: i.filamento.material,
+          marca: i.filamento.marca,
+          rollos: i.rollos,
+          precio_unitario: precioUnitario,
+        })),
+        total_rollos: totalRollos,
+        descuento_por_rollo: descuento,
+        total: subtotal,
+      })
+      if (result.error) {
+        setCheckoutError(result.error)
+        setCheckoutStep('form')
+        return
+      }
+      setPedidoNumero(result.numero!)
+      setCheckoutStep('done')
+      setCart([])
+      setShowCart(false)
+    })
   }
 
   return (
@@ -362,16 +404,135 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
               </div>
 
               <button
-                onClick={handleCheckout}
-                className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5a] text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors"
+                onClick={() => { setShowCart(false); abrirCheckout() }}
+                className="w-full flex items-center justify-center gap-2 bg-foreground hover:opacity-90 text-background rounded-xl py-3 text-sm font-bold shadow-sm transition-opacity"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                  <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.936.53 3.744 1.452 5.29L2.046 22l4.799-1.396A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zm.001 18a7.96 7.96 0 01-4.073-1.117l-.291-.174-3.028.881.86-3.105-.19-.3A7.96 7.96 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
-                </svg>
-                Pedir por WhatsApp
+                Confirmar pedido →
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de checkout ── */}
+      {showCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl overflow-hidden">
+
+            {checkoutStep !== 'done' ? (
+              <>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                  <h2 className="font-bold text-base">Confirmar pedido</h2>
+                  {checkoutStep === 'form' && (
+                    <button onClick={() => setShowCheckout(false)} className="p-1.5 rounded-lg hover:bg-secondary">
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {/* Resumen */}
+                  <div className="bg-secondary/40 rounded-xl px-4 py-3 space-y-1">
+                    {cart.map(i => (
+                      <div key={i.filamento.id} className="flex items-center gap-2 text-sm">
+                        <span className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                          style={{ backgroundColor: colorToCss(i.filamento.color) }} />
+                        <span className="flex-1 truncate text-xs">{i.rollos}x {i.filamento.color} — {i.filamento.material}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * precioUnitario)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-border mt-2 pt-2 flex justify-between text-sm font-bold">
+                      <span>{totalRollos} rollo{totalRollos !== 1 ? 's' : ''}</span>
+                      <span>{fmtARS(subtotal)}</span>
+                    </div>
+                    {descuento > 0 && (
+                      <p className="text-[10px] text-green-600 dark:text-green-400 text-center">
+                        Descuento aplicado: -{fmtARS(descuento)}/rollo ({descLabel})
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Datos del cliente */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
+                      <input
+                        type="text"
+                        value={clienteNombre}
+                        onChange={e => setClienteNombre(e.target.value)}
+                        placeholder="¿Cómo te llamás?"
+                        disabled={checkoutStep === 'saving'}
+                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-foreground/20 disabled:opacity-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
+                      <input
+                        type="tel"
+                        value={clienteTelefono}
+                        onChange={e => setClienteTelefono(e.target.value)}
+                        placeholder="Para coordinar la entrega"
+                        disabled={checkoutStep === 'saving'}
+                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-foreground/20 disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  {checkoutError && (
+                    <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>
+                  )}
+
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Una vez que confirmes el pedido, te voy a revisar el stock y te aviso por WhatsApp.
+                    Para separar los rollos se requiere abonar una seña o el total.
+                  </p>
+                </div>
+
+                <div className="px-6 pb-5">
+                  <button
+                    onClick={handleConfirmarPedido}
+                    disabled={checkoutStep === 'saving' || !clienteNombre.trim()}
+                    className="w-full flex items-center justify-center gap-2 bg-foreground hover:opacity-90 text-background disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-opacity"
+                  >
+                    {checkoutStep === 'saving' ? (
+                      <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</>
+                    ) : (
+                      'Hacer el pedido'
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── Paso: pedido guardado ── */
+              <div className="px-6 py-8 text-center space-y-4">
+                <div className="flex justify-center">
+                  <CheckCircle2 size={52} className="text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold mb-1">¡Pedido N° {pedidoNumero} registrado!</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Ahora avisame por WhatsApp para que revise el stock y te confirme.
+                    Una vez que lo confirmemos, coordinamos la seña o el pago total para separarte los rollos. 🙌
+                  </p>
+                </div>
+                <button
+                  onClick={() => { abrirWhatsApp(pedidoNumero!, clienteNombre); setShowCheckout(false) }}
+                  className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5a] text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                    <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.936.53 3.744 1.452 5.29L2.046 22l4.799-1.396A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zm.001 18a7.96 7.96 0 01-4.073-1.117l-.291-.174-3.028.881.86-3.105-.19-.3A7.96 7.96 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
+                  </svg>
+                  Avisar por WhatsApp
+                </button>
+                <button
+                  onClick={() => setShowCheckout(false)}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground underline py-1"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
