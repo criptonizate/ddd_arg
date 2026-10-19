@@ -88,10 +88,10 @@ export default function ContactoWhatsapp({ dark = false }: { dark?: boolean }) {
           <button
             onClick={handleEnviar}
             disabled={!valid}
-            className={`w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors rounded-xl py-3 text-sm font-bold ${
+            className={`w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded-xl py-3 text-sm font-bold ${
               dark
                 ? 'bg-white text-orange-600 hover:bg-white/90'
-                : 'bg-[#25D366] hover:bg-[#1ebe5a]'
+                : 'bg-[#25D366] hover:bg-[#1ebe5a] text-white'
             }`}
           >
             <WhatsAppIcon />

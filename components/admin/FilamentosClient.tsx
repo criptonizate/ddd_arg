@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil } from 'lucide-react'
+import { useState, useEffect, useTransition, useRef } from 'react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -19,6 +19,8 @@ import {
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
+import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
+import { createBrowserClient } from '@supabase/ssr'
 
 type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
 
@@ -293,6 +295,35 @@ function FilamentoCard({
   const [usoPropioGr, setUsoPropioGr] = useState('')
   const [usoPropioError, setUsoPropioError] = useState('')
 
+  // Imagen
+  const [uploadingImg, setUploadingImg] = useState(false)
+  const imgInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleImageUpload(file: File) {
+    if (!file) return
+    setUploadingImg(true)
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${fil.id}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('filamentos-fotos')
+        .upload(path, file, { upsert: true })
+      if (upErr) { alert('Error subiendo imagen: ' + upErr.message); return }
+      const { data } = supabase.storage.from('filamentos-fotos').getPublicUrl(path)
+      const url = data.publicUrl
+      await updateFilamento(fil.id, { imagen_url: url })
+      const updated = { ...fil, imagen_url: url }
+      setFil(updated)
+      onUpdate(updated)
+    } finally {
+      setUploadingImg(false)
+    }
+  }
+
   const totalGr = fil.rollos_cerrados * fil.peso_rollo_gr + fil.gramos_sueltos
 
   function handleExpand() {
@@ -495,7 +526,11 @@ function FilamentoCard({
     <div className={`bg-card border border-border rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
       {/* ── Header siempre visible ── */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <div className={`w-3 h-3 rounded-full shrink-0 ${colorDot(fil.color)}`} />
+        {fil.imagen_url ? (
+          <img src={fil.imagen_url} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border" />
+        ) : (
+          <div className={`w-3 h-3 rounded-full shrink-0 ${colorDot(fil.color)}`} />
+        )}
 
         <button onClick={handleExpand} className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -530,6 +565,52 @@ function FilamentoCard({
       {/* ── Panel expandido ── */}
       {expanded && (
         <div className="border-t border-border space-y-5 px-4 pt-4 pb-4">
+
+          {/* Imagen del filamento */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-2">Imagen del producto</label>
+            <div className="flex items-center gap-3">
+              {fil.imagen_url ? (
+                <img src={fil.imagen_url} alt="" className="w-16 h-16 rounded-xl object-cover border border-border" />
+              ) : (
+                <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center text-muted-foreground/40">
+                  <ImageIcon size={22} />
+                </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => imgInputRef.current?.click()}
+                  disabled={uploadingImg}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-secondary text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  {uploadingImg ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                  {uploadingImg ? 'Subiendo...' : fil.imagen_url ? 'Cambiar foto' : 'Subir foto'}
+                </button>
+                {fil.imagen_url && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await updateFilamento(fil.id, { imagen_url: null })
+                      const updated = { ...fil, imagen_url: null }
+                      setFil(updated)
+                      onUpdate(updated)
+                    }}
+                    className="text-[10px] text-muted-foreground hover:text-red-500 underline text-left transition-colors"
+                  >
+                    Quitar imagen
+                  </button>
+                )}
+              </div>
+              <input
+                ref={imgInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }}
+              />
+            </div>
+          </div>
 
           {/* Rollos cerrados con +/- */}
           <div>
@@ -1664,13 +1745,315 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
   )
 }
 
+// ── Tab Pedidos Web ────────────────────────────────────────────────────────────
+
+function PedidosPendientesTab() {
+  const [pedidos, setPedidos] = useState<FilamentoPedido[]>([])
+  const [loading, setLoading] = useState(true)
+  const [subtab, setSubtab] = useState<'pendiente' | 'confirmado' | 'cancelado'>('pendiente')
+  const [procesando, setProcesando] = useState<string | null>(null)
+  const [expandido, setExpandido] = useState<string | null>(null)
+  const [notaModal, setNotaModal] = useState<{ id: string; accion: 'confirmar' | 'cancelar' } | null>(null)
+  const [notaTexto, setNotaTexto] = useState('')
+  const [error, setError] = useState('')
+  const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    getFilamentoPedidos().then((data) => {
+      setPedidos(data)
+      setLoading(false)
+    })
+  }, [])
+
+  const lista = pedidos.filter(p => p.estado === subtab)
+
+  function fmtFecha(d: string) {
+    return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
+
+  function handleAccion(id: string, accion: 'confirmar' | 'cancelar') {
+    setNotaModal({ id, accion })
+    setNotaTexto('')
+    setError('')
+  }
+
+  function ejecutarAccion() {
+    if (!notaModal) return
+    const { id, accion } = notaModal
+    setNotaModal(null)
+    setProcesando(id)
+    setError('')
+    startTransition(async () => {
+      let result: { error?: string }
+      if (accion === 'confirmar') {
+        result = await confirmarPedidoYDescontarStock(id, notaTexto || undefined)
+      } else {
+        result = await updateEstadoPedidoFilamento(id, 'cancelado', notaTexto || undefined)
+      }
+      if (result.error) {
+        setError(result.error)
+        setProcesando(null)
+        return
+      }
+      // Actualizar localmente
+      const nuevoEstado = accion === 'confirmar' ? 'confirmado' : 'cancelado'
+      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: nuevoEstado as FilamentoPedido['estado'], nota: notaTexto || p.nota } : p))
+      setProcesando(null)
+      setSubtab(nuevoEstado as 'confirmado' | 'cancelado')
+    })
+  }
+
+  function marcarEntregado(id: string) {
+    setProcesando(id)
+    startTransition(async () => {
+      await updateEstadoPedidoFilamento(id, 'entregado')
+      setPedidos(prev => prev.filter(p => p.id !== id))
+      setProcesando(null)
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Subtabs */}
+      <div className="flex gap-2 flex-wrap">
+        {(['pendiente', 'confirmado', 'cancelado'] as const).map((st) => {
+          const count = pedidos.filter(p => p.estado === st).length
+          const colors: Record<string, string> = {
+            pendiente: 'bg-yellow-500 text-white border-yellow-500',
+            confirmado: 'bg-green-600 text-white border-green-600',
+            cancelado: 'bg-secondary text-muted-foreground border-border',
+          }
+          const inactiveHover: Record<string, string> = {
+            pendiente: 'hover:border-yellow-400',
+            confirmado: 'hover:border-green-400',
+            cancelado: 'hover:border-border',
+          }
+          return (
+            <button
+              key={st}
+              onClick={() => setSubtab(st)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors capitalize ${
+                subtab === st ? colors[st] : `border-border text-muted-foreground ${inactiveHover[st]}`
+              }`}
+            >
+              {st === 'pendiente' && <Clock size={13} />}
+              {st === 'confirmado' && <CheckCircle2 size={13} />}
+              {st === 'cancelado' && <X size={13} />}
+              {st.charAt(0).toUpperCase() + st.slice(1)}
+              {count > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${subtab === st ? 'bg-white/20' : 'bg-secondary'}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-400">
+          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="text-center py-12 text-muted-foreground text-sm">Cargando pedidos...</div>
+      )}
+
+      {!loading && lista.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-3xl mb-3">{subtab === 'pendiente' ? '📭' : subtab === 'confirmado' ? '✅' : '🚫'}</p>
+          <p className="font-medium">No hay pedidos {subtab === 'pendiente' ? 'pendientes' : subtab === 'confirmado' ? 'confirmados' : 'cancelados'}</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {lista.map((p) => {
+          const isExpanded = expandido === p.id
+          const isProcesando = procesando === p.id
+          return (
+            <div key={p.id} className={`bg-card border rounded-xl overflow-hidden transition-all ${
+              p.estado === 'pendiente' ? 'border-yellow-300 dark:border-yellow-700' : 'border-border'
+            }`}>
+              {/* Header del pedido */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary/30 transition-colors"
+                onClick={() => setExpandido(isExpanded ? null : p.id)}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm">N° {p.numero}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      p.estado === 'pendiente' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                      : p.estado === 'confirmado' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      : 'bg-secondary text-muted-foreground'
+                    }`}>
+                      {p.estado}
+                    </span>
+                    <span className="text-sm font-semibold">{p.cliente_nombre}</span>
+                    {p.cliente_telefono && (
+                      <a
+                        href={`https://wa.me/${p.cliente_telefono.replace(/\D/g, '')}`}
+                        target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 hover:underline"
+                      >
+                        <Phone size={10} />
+                        {p.cliente_telefono}
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                    <span>{fmtFecha(p.created_at)}</span>
+                    <span>{p.total_rollos} kg · ${p.total.toLocaleString('es-AR')}</span>
+                    {p.descuento_por_rollo > 0 && (
+                      <span className="text-orange-600 dark:text-orange-400">-${p.descuento_por_rollo.toLocaleString('es-AR')}/kg</span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Detalle expandido */}
+              {isExpanded && (
+                <div className="border-t border-border px-4 py-4 space-y-4">
+                  {/* Items */}
+                  <div className="space-y-2">
+                    {p.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted-foreground/20 border border-border" />
+                        <span className="flex-1 min-w-0">
+                          <span className="font-medium">{item.color}</span>
+                          <span className="text-muted-foreground ml-1">— {item.material} · {item.marca}</span>
+                        </span>
+                        <span className="font-semibold tabular-nums shrink-0">{item.rollos} kg</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0 text-xs">${item.precio_unitario.toLocaleString('es-AR')}/kg</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Totales */}
+                  <div className="bg-secondary/30 rounded-lg px-3 py-2.5 text-sm">
+                    <div className="flex justify-between font-bold">
+                      <span>{p.total_rollos} kg total</span>
+                      <span>${p.total.toLocaleString('es-AR')}</span>
+                    </div>
+                    {p.descuento_por_rollo > 0 && (
+                      <p className="text-[11px] text-orange-600 dark:text-orange-400 mt-0.5">
+                        Descuento aplicado: -${p.descuento_por_rollo.toLocaleString('es-AR')} por kg
+                      </p>
+                    )}
+                  </div>
+
+                  {p.nota && (
+                    <p className="text-xs text-muted-foreground italic">Nota: {p.nota}</p>
+                  )}
+
+                  {/* Acciones */}
+                  <div className="flex gap-2 flex-wrap">
+                    {p.estado === 'pendiente' && (
+                      <>
+                        <button
+                          onClick={() => handleAccion(p.id, 'confirmar')}
+                          disabled={isProcesando}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {isProcesando ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                          Confirmar y descontar stock
+                        </button>
+                        <button
+                          onClick={() => handleAccion(p.id, 'cancelar')}
+                          disabled={isProcesando}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          <X size={13} />
+                          Cancelar pedido
+                        </button>
+                        {p.cliente_telefono && (
+                          <a
+                            href={`https://wa.me/${p.cliente_telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${p.cliente_nombre.split(' ')[0]}! Revisé tu pedido N°${p.numero} y está confirmado. Por favor aboná una seña para que te lo reserve. 🙌`)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#25D366] hover:bg-[#1ebe5a] text-white text-sm font-medium transition-colors"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.936.53 3.744 1.452 5.29L2.046 22l4.799-1.396A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zm.001 18a7.96 7.96 0 01-4.073-1.117l-.291-.174-3.028.881.86-3.105-.19-.3A7.96 7.96 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
+                            Avisar al cliente
+                          </a>
+                        )}
+                      </>
+                    )}
+                    {p.estado === 'confirmado' && (
+                      <button
+                        onClick={() => marcarEntregado(p.id)}
+                        disabled={isProcesando}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        <Package size={13} />
+                        Marcar como entregado
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Modal confirmación de acción */}
+      {notaModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm">
+            <div className="p-5 space-y-4">
+              <h3 className="font-semibold">
+                {notaModal.accion === 'confirmar' ? '✅ Confirmar pedido y descontar stock' : '🚫 Cancelar pedido'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {notaModal.accion === 'confirmar'
+                  ? 'Se confirmará el pedido y se descontará el stock automáticamente de cada filamento.'
+                  : 'El pedido se marcará como cancelado. El stock NO se modifica.'}
+              </p>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Nota interna (opcional)</label>
+                <input
+                  type="text"
+                  value={notaTexto}
+                  onChange={e => setNotaTexto(e.target.value)}
+                  placeholder={notaModal.accion === 'confirmar' ? 'ej. Cliente pagó seña' : 'ej. Sin stock disponible'}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setNotaModal(null)}
+                  className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary transition-colors"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={ejecutarAccion}
+                  className={`flex-1 px-4 py-2 text-sm rounded-lg text-white font-medium transition-colors ${
+                    notaModal.accion === 'confirmar' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
+                  }`}
+                >
+                  {notaModal.accion === 'confirmar' ? 'Sí, confirmar' : 'Sí, cancelar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Vista principal ────────────────────────────────────────────────────────────
 
 export default function FilamentosClient({ initialFilamentos, clientes = [] }: { initialFilamentos: Filamento[]; clientes?: ClienteBasic[] }) {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
   const [showVentaGlobal, setShowVentaGlobal] = useState(false)
-  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes'>('stock')
+  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes' | 'pedidos'>('stock')
 
   // Filtros
   const [filtroMarca, setFiltroMarca] = useState('')
@@ -1806,10 +2189,14 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button onClick={() => setTab('stock')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'stock' ? 'bg-foreground text-primary-foreground border-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}>
           🧵 Stock
+        </button>
+        <button onClick={() => setTab('pedidos')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'pedidos' ? 'bg-yellow-500 text-white border-yellow-500' : 'border-border text-muted-foreground hover:text-foreground hover:border-yellow-400'}`}>
+          <Package size={13} /> Pedidos web
         </button>
         <button onClick={() => setTab('ventas')}
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'ventas' ? 'bg-green-600 text-white border-green-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-green-400'}`}>
@@ -1821,6 +2208,7 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
         </button>
       </div>
 
+      {tab === 'pedidos' && <PedidosPendientesTab />}
       {tab === 'ventas' && <HistorialVentas />}
       {tab === 'clientes' && <ClientesFilamentoTab clientes={clientes} />}
 

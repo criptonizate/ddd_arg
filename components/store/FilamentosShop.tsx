@@ -88,25 +88,44 @@ function FilamentoCard({
   return (
     <div className={`bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'border-orange-400 ring-1 ring-orange-300' : 'border-border'}`}>
 
-      {/* ── Área de color (imagen) ── */}
+      {/* ── Área de color / imagen ── */}
       <div
-        className="relative h-36 flex items-center justify-center"
-        style={{
+        className="relative h-36 flex items-center justify-center overflow-hidden"
+        style={f.imagen_url ? {} : {
           backgroundColor: css,
           backgroundImage: `radial-gradient(circle at 30% 30%, ${isLight ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)'} 0%, transparent 60%)`,
           ...(isWhite ? { border: '1px solid #e5e7eb' } : {}),
         }}
       >
+        {/* Foto real si existe */}
+        {f.imagen_url ? (
+          <img
+            src={f.imagen_url}
+            alt={`${f.color} ${f.material}`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          /* Color circle grande */
+          <span
+            className="w-16 h-16 rounded-full shadow-lg border-4"
+            style={{
+              backgroundColor: css,
+              borderColor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)',
+              filter: 'brightness(0.92) saturate(1.1)',
+            }}
+          />
+        )}
+
         {/* Material badge */}
         <span
-          className="absolute top-2.5 left-2.5 text-[10px] font-black px-2 py-0.5 rounded-full"
+          className="absolute top-2.5 left-2.5 text-[10px] font-black px-2 py-0.5 rounded-full z-10"
           style={{ backgroundColor: MAT_COLORS[f.material] ?? '#94a3b8', color: '#fff' }}
         >
           {f.material}
         </span>
 
         {/* Stock badge */}
-        <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+        <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 ${
           disponible >= 10 ? 'bg-green-500 text-white'
           : disponible >= 3 ? 'bg-yellow-400 text-yellow-950'
           : 'bg-red-500 text-white'
@@ -114,19 +133,9 @@ function FilamentoCard({
           {disponible} kg
         </span>
 
-        {/* Color circle grande */}
-        <span
-          className="w-16 h-16 rounded-full shadow-lg border-4"
-          style={{
-            backgroundColor: css,
-            borderColor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)',
-            filter: 'brightness(0.92) saturate(1.1)',
-          }}
-        />
-
         {/* Indicador en carrito */}
         {enCart > 0 && (
-          <span className="absolute bottom-2 right-2 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+          <span className="absolute bottom-2 right-2 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10">
             {enCart} kg en carrito
           </span>
         )}
