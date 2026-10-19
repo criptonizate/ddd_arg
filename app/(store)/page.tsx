@@ -1,11 +1,45 @@
+import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
 import { getActiveProducts } from '@/lib/actions/products'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
 import ProductCard from '@/components/store/ProductCard'
 import Link from 'next/link'
 
-function InstagramIcon({ size = 16 }: { size?: number }) {
+export const metadata = {
+  title: 'DDD ARG — Impresión 3D',
+  description: 'Impresión 3D en Argentina. Filamentos, productos 3D y pedidos personalizados.',
+}
+
+export const dynamic = 'force-dynamic'
+
+const WHATSAPP = '543804559909'
+
+function colorToCss(color: string): string {
+  const c = color.toLowerCase()
+  if (c.includes('black'))                            return '#1a1a1a'
+  if (c.includes('white'))                            return '#f0f0f0'
+  if (c.includes('grey') || c.includes('gray'))       return '#9ca3af'
+  if (c.includes('vermilion') || c.includes('ruby'))  return '#c0392b'
+  if (c.includes('berry') || c.includes('red'))       return '#e53e3e'
+  if (c.includes('blue'))                             return '#3b82f6'
+  if (c.includes('teal'))                             return '#14b8a6'
+  if (c.includes('olive'))                            return '#84a830'
+  if (c.includes('green'))                            return '#22c55e'
+  if (c.includes('yellow') || c.includes('sunshine')) return '#eab308'
+  if (c.includes('orange'))                           return '#f97316'
+  if (c.includes('taro') || c.includes('purple'))     return '#a855f7'
+  if (c.includes('pink'))                             return '#ec4899'
+  if (c.includes('brown') || c.includes('madera'))    return '#92400e'
+  if (c.includes('silk') || c.includes('gold'))       return '#d97706'
+  return '#94a3b8'
+}
+
+const MAT_BADGE: Record<string, string> = {
+  PLA: '#22c55e', PETG: '#3b82f6', TPU: '#a855f7', ABS: '#f97316', ASA: '#eab308',
+}
+
+function InstagramIcon() {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
       <circle cx="12" cy="12" r="4" />
       <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
@@ -13,136 +47,290 @@ function InstagramIcon({ size = 16 }: { size?: number }) {
   )
 }
 
-export const metadata = {
-  title: 'DDD ARG — Impresión 3D',
-  description: 'Impresión 3D en Argentina. Pedidos personalizados, calculadora de precios y contacto directo.',
+function WhatsAppIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.936.53 3.744 1.452 5.29L2.046 22l4.799-1.396A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zm.001 18a7.96 7.96 0 01-4.073-1.117l-.291-.174-3.028.881.86-3.105-.19-.3A7.96 7.96 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
+    </svg>
+  )
 }
 
-export const dynamic = 'force-dynamic'
-
 export default async function HomePage() {
-  const products = await getActiveProducts()
+  const [filamentos, products] = await Promise.all([
+    getFilamentosDisponibles(),
+    getActiveProducts(),
+  ])
+
+  const materiales = Array.from(new Set(filamentos.map(f => f.material))).sort()
+  const coloresPreview = filamentos.slice(0, 18)
+  const totalColores = filamentos.length
 
   return (
-    <div className="space-y-0">
+    <div>
 
-      {/* ── Hero ── */}
-      <section className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-xs font-semibold text-primary mb-6">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-          Impresión 3D en Argentina
+      {/* ══════════════════════════════════════════════════
+          HERO — fondo carbón oscuro, headline bold
+      ══════════════════════════════════════════════════ */}
+      <section className="bg-[#1c1c1c] text-white">
+        <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+
+            {/* Texto */}
+            <div className="flex-1 text-center lg:text-left">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-400 mb-4">
+                <span className="w-6 h-px bg-orange-400" />
+                Impresión 3D · La Rioja, Argentina
+              </p>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-5">
+                Imprimimos
+                <br />
+                <span className="text-orange-500">lo que imaginás</span>
+              </h1>
+              <p className="text-base sm:text-lg text-gray-300 max-w-md mx-auto lg:mx-0 mb-8 leading-relaxed">
+                Diseños personalizados, filamentos premium y entrega en todo el país. Pedidos directos sin vueltas.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <Link
+                  href="/filamentos"
+                  className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl px-6 py-3.5 transition-colors shadow-lg shadow-orange-500/30"
+                >
+                  Ver filamentos disponibles →
+                </Link>
+                <a
+                  href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola! Quiero hacer un pedido de impresión 3D.')}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm rounded-xl px-6 py-3.5 transition-colors"
+                >
+                  <WhatsAppIcon />
+                  Consultar por WhatsApp
+                </a>
+              </div>
+            </div>
+
+            {/* Círculos de color — preview de filamentos */}
+            <div className="flex-none">
+              <div className="grid grid-cols-6 gap-2.5">
+                {coloresPreview.map((f, i) => (
+                  <div
+                    key={f.id}
+                    title={`${f.color} — ${f.material}`}
+                    className="w-9 h-9 rounded-full border-2 border-white/10 shadow-md transition-transform hover:scale-110"
+                    style={{ backgroundColor: colorToCss(f.color) }}
+                  />
+                ))}
+                {totalColores > 18 && (
+                  <div className="w-9 h-9 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-[9px] font-bold text-white/70">
+                    +{totalColores - 18}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 text-center mt-3">{totalColores} colores en stock</p>
+            </div>
+          </div>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
-          Tus ideas
-          <br />
-          <span className="text-primary">hechas realidad en 3D</span>
-        </h1>
-        <p className="text-base text-muted-foreground max-w-md mx-auto">
-          Imprimimos lo que imaginás. Diseños personalizados, colores a elección y entrega en todo el país.
-        </p>
       </section>
 
-      {/* ── Cómo funciona ── */}
-      <section className="bg-secondary/30 border-y border-border py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-center mb-10">¿Cómo funciona?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* ══════════════════════════════════════════════════
+          TRUST BAR — íconos + texto en una línea
+      ══════════════════════════════════════════════════ */}
+      <section className="bg-card border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             {[
-              {
-                step: '01',
-                icon: '💬',
-                title: 'Me contás tu idea',
-                desc: 'Escribime por WhatsApp o Instagram con el diseño que tenés en mente. Si no tenés el archivo, lo conseguimos juntos.',
-              },
-              {
-                step: '02',
-                icon: '🎨',
-                title: 'Elegís los detalles',
-                desc: 'Color de filamento, material, tamaño y acabado. Te mando una cotización con el precio y el tiempo estimado.',
-              },
-              {
-                step: '03',
-                icon: '📦',
-                title: 'Lo imprimimos y enviamos',
-                desc: 'Una vez confirmado el pedido, lo imprimimos y te lo mandamos a todo el país o lo retirás en persona.',
-              },
+              { icon: '🚚', title: 'Envío a todo el país', sub: 'Correo Argentino y moto' },
+              { icon: '📍', title: 'Retiro en local', sub: 'Capital, La Rioja' },
+              { icon: '💬', title: 'Atención directa', sub: 'Respondemos por WhatsApp' },
+              { icon: '🎨', title: `+${totalColores} colores disponibles`, sub: 'PLA · PETG · TPU y más' },
             ].map((item) => (
-              <div key={item.step} className="bg-card border border-border rounded-2xl p-6 text-center space-y-3">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-foreground/5 text-2xl mb-1">
-                  {item.icon}
-                </div>
+              <div key={item.title} className="flex items-center gap-3">
+                <span className="text-2xl">{item.icon}</span>
                 <div>
-                  <p className="text-xs font-bold text-primary mb-1">PASO {item.step}</p>
-                  <h3 className="font-semibold text-base">{item.title}</h3>
+                  <p className="font-semibold text-foreground text-xs leading-tight">{item.title}</p>
+                  <p className="text-muted-foreground text-xs">{item.sub}</p>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Productos destacados ── */}
-      {products.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 py-16">
+      {/* ══════════════════════════════════════════════════
+          FILAMENTOS — sección con colores vivos
+      ══════════════════════════════════════════════════ */}
+      <section className="py-14 bg-background">
+        <div className="max-w-6xl mx-auto px-4">
+
           <div className="flex items-end justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold">Nuestros productos</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Piezas listas para llevar. Precios en pesos argentinos.
-              </p>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Stock disponible</p>
+              <h2 className="text-2xl sm:text-3xl font-black text-foreground">Filamentos</h2>
+              <p className="text-sm text-muted-foreground mt-1">Precio por kg · Descuentos automáticos por volumen</p>
             </div>
             <Link
-              href="/catalogo"
-              className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+              href="/filamentos"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
             >
-              Ver todo →
+              Ver todos ({totalColores}) →
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {products.slice(0, 8).map((p) => (
-              <ProductCard key={p.id} product={p} />
+
+          {/* Materiales disponibles */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {materiales.map(mat => (
+              <Link
+                key={mat}
+                href={`/filamentos`}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border border-border bg-card hover:border-primary hover:text-primary transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: MAT_BADGE[mat] ?? '#94a3b8' }} />
+                {mat}
+                <span className="text-muted-foreground font-normal">({filamentos.filter(f => f.material === mat).length})</span>
+              </Link>
             ))}
           </div>
-          {products.length > 8 && (
-            <div className="text-center mt-8">
+
+          {/* Grid de colores */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
+            {filamentos.slice(0, 18).map((f) => {
+              const css = colorToCss(f.color)
+              const kg = Math.floor((f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos) / 1000)
+              return (
+                <Link
+                  key={f.id}
+                  href="/filamentos"
+                  title={`${f.color} — ${f.material} (${kg} kg)`}
+                  className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-md hover:border-primary/40 transition-all"
+                >
+                  <div
+                    className="h-14 w-full"
+                    style={{
+                      backgroundColor: css,
+                      backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%)',
+                    }}
+                  />
+                  <div className="px-1.5 py-1.5 text-center">
+                    <p className="text-[9px] font-semibold truncate leading-tight">{f.color}</p>
+                    <p className="text-[8px] text-muted-foreground">{f.material}</p>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+
+          {totalColores > 18 && (
+            <div className="mt-5 text-center">
               <Link
-                href="/catalogo"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+                href="/filamentos"
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl px-6 py-3 transition-colors shadow-sm"
               >
-                Ver catálogo completo ({products.length} productos)
+                Ver los {totalColores} colores disponibles →
               </Link>
             </div>
           )}
-        </section>
-      )}
-
-      {/* ── Contacto WhatsApp ── */}
-      <section className="bg-secondary/30 border-y border-border py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">Hacé tu consulta</h2>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Completá el formulario y te mando un mensaje directo por WhatsApp con tu consulta ya redactada.
-            </p>
-          </div>
-          <ContactoWhatsapp />
         </div>
       </section>
 
-      {/* ── Instagram ── */}
-      <section className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold mb-2">Seguinos en Instagram</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          Mirá los últimos trabajos, materiales y novedades en nuestro perfil.
-        </p>
+      {/* ══════════════════════════════════════════════════
+          PRODUCTOS DESTACADOS
+      ══════════════════════════════════════════════════ */}
+      {products.length > 0 && (
+        <section className="py-14 bg-card border-y border-border">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Listos para llevar</p>
+                <h2 className="text-2xl sm:text-3xl font-black text-foreground">Nuestros productos</h2>
+                <p className="text-sm text-muted-foreground mt-1">Piezas 3D listas. Precios en pesos argentinos.</p>
+              </div>
+              <Link
+                href="/catalogo"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
+              >
+                Ver catálogo →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {products.slice(0, 8).map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          CÓMO FUNCIONA — pasos simples y directos
+      ══════════════════════════════════════════════════ */}
+      <section className="py-14 bg-background">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Simple y directo</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-foreground">¿Cómo hacés tu pedido?</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              {
+                n: '01',
+                icon: '💬',
+                title: 'Me contás tu idea',
+                desc: 'Escribime por WhatsApp con el diseño que tenés en mente. Si no tenés el archivo, lo conseguimos juntos.',
+              },
+              {
+                n: '02',
+                icon: '🎨',
+                title: 'Elegís color y material',
+                desc: 'Te muestro los filamentos disponibles. Te mando una cotización con precio y tiempo estimado.',
+              },
+              {
+                n: '03',
+                icon: '📦',
+                title: 'Imprimimos y enviamos',
+                desc: 'Confirmado el pedido, lo imprimimos y enviamos a todo el país o lo retirás en persona.',
+              },
+            ].map((s) => (
+              <div key={s.n} className="relative bg-card border border-border rounded-2xl p-6">
+                <span className="absolute -top-3 left-5 bg-primary text-white text-xs font-black px-2.5 py-0.5 rounded-full">
+                  {s.n}
+                </span>
+                <div className="text-3xl mb-3 mt-1">{s.icon}</div>
+                <h3 className="font-bold text-base mb-2">{s.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════
+          CTA FINAL — fondo naranja, contacto directo
+      ══════════════════════════════════════════════════ */}
+      <section className="bg-primary">
+        <div className="max-w-4xl mx-auto px-4 py-14 text-center">
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">
+            ¿Tenés una idea? Hablemos.
+          </h2>
+          <p className="text-white/80 text-base mb-8 max-w-md mx-auto">
+            Completá el formulario o escribinos directo por WhatsApp. Respondemos rápido.
+          </p>
+          <div className="max-w-xl mx-auto">
+            <ContactoWhatsapp dark />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════
+          INSTAGRAM
+      ══════════════════════════════════════════════════ */}
+      <section className="bg-[#1c1c1c] py-10 text-center">
+        <p className="text-gray-400 text-sm mb-4">Seguinos para ver los últimos trabajos</p>
         <a
           href="https://instagram.com/DDD_ARG"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white hover:opacity-90 transition-opacity rounded-xl px-6 py-3 text-sm font-semibold shadow-sm"
+          className="inline-flex items-center gap-2.5 text-white font-bold text-base hover:text-orange-400 transition-colors"
         >
-          <InstagramIcon size={18} />
+          <InstagramIcon />
           @DDD_ARG
         </a>
       </section>

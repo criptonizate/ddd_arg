@@ -6,7 +6,7 @@ const WHATSAPP_NUMBER = '543804559909'
 
 const MATERIALES = ['PLA', 'PETG', 'TPU (flexible)', 'No sé / que me recomienden']
 
-export default function ContactoWhatsapp() {
+export default function ContactoWhatsapp({ dark = false }: { dark?: boolean }) {
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [material, setMaterial] = useState('PLA')
@@ -28,40 +28,45 @@ export default function ContactoWhatsapp() {
 
   const valid = nombre.trim().length > 0 && descripcion.trim().length > 0
 
+  const labelCls = dark ? 'block text-sm font-medium mb-1.5 text-white/90' : 'block text-sm font-medium mb-1.5'
+  const inputCls = dark
+    ? 'w-full border border-white/20 rounded-xl px-4 py-3 text-sm bg-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/40'
+    : 'w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring'
+
   return (
     <div className="w-full max-w-lg mx-auto">
-      <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+      <div className={`rounded-2xl overflow-hidden ${dark ? '' : 'bg-card border border-border shadow-sm'}`}>
         <div className="px-6 py-5 space-y-4">
 
           <div>
-            <label className="block text-sm font-medium mb-1.5">Tu nombre</label>
+            <label className={labelCls}>Tu nombre</label>
             <input
               type="text"
               placeholder="ej. Juan"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              className={inputCls}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1.5">¿Qué querés imprimir?</label>
+            <label className={labelCls}>¿Qué querés imprimir?</label>
             <textarea
               placeholder="ej. Un porta auriculares con el logo de mi empresa, aprox. 15cm de alto"
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               rows={3}
-              className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className={`${inputCls} resize-none`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Material</label>
+              <label className={labelCls}>Material</label>
               <select
                 value={material}
                 onChange={(e) => setMaterial(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className={inputCls}
               >
                 {MATERIALES.map((m) => (
                   <option key={m} value={m}>{m}</option>
@@ -69,13 +74,13 @@ export default function ContactoWhatsapp() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Cantidad</label>
+              <label className={labelCls}>Cantidad</label>
               <input
                 type="number"
                 min="1"
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className={inputCls}
               />
             </div>
           </div>
@@ -83,13 +88,17 @@ export default function ContactoWhatsapp() {
           <button
             onClick={handleEnviar}
             disabled={!valid}
-            className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors rounded-xl py-3 text-sm font-semibold"
+            className={`w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors rounded-xl py-3 text-sm font-bold ${
+              dark
+                ? 'bg-white text-orange-600 hover:bg-white/90'
+                : 'bg-[#25D366] hover:bg-[#1ebe5a]'
+            }`}
           >
             <WhatsAppIcon />
             Enviar consulta por WhatsApp
           </button>
 
-          <p className="text-xs text-muted-foreground text-center">
+          <p className={`text-xs text-center ${dark ? 'text-white/60' : 'text-muted-foreground'}`}>
             Se va a abrir WhatsApp con el mensaje ya redactado. Solo confirmás el envío.
           </p>
         </div>
