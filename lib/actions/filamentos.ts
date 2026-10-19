@@ -18,6 +18,18 @@ export async function getFilamentos(): Promise<Filamento[]> {
   return (data ?? []) as Filamento[]
 }
 
+// Público — sin auth, solo filamentos con stock disponible
+export async function getFilamentosDisponibles(): Promise<Filamento[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamentos')
+    .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr')
+    .or('rollos_cerrados.gt.0,gramos_sueltos.gt.100')
+    .order('material')
+    .order('color')
+  return (data ?? []) as Filamento[]
+}
+
 export async function createFilamento(data: {
   nombre: string
   material: Material

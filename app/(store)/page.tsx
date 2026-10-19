@@ -1,6 +1,4 @@
-import { getCalculadoraConfig } from '@/lib/actions/calculadora'
 import { getActiveProducts } from '@/lib/actions/products'
-import CalculadoraPublica from '@/components/store/CalculadoraPublica'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
 import ProductCard from '@/components/store/ProductCard'
 import Link from 'next/link'
@@ -23,10 +21,7 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const [config, products] = await Promise.all([
-    getCalculadoraConfig(),
-    getActiveProducts(),
-  ])
+  const products = await getActiveProducts()
 
   return (
     <div className="space-y-0">
@@ -121,17 +116,6 @@ export default async function HomePage() {
           )}
         </section>
       )}
-
-      {/* ── Calculadora ── */}
-      <section className="max-w-4xl mx-auto px-4 py-16">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold mb-2">Calculadora de precios</h2>
-          <p className="text-sm text-muted-foreground">
-            Ingresá los datos de tu pieza para tener una referencia de precio antes de consultar.
-          </p>
-        </div>
-        <CalculadoraPublica config={config} />
-      </section>
 
       {/* ── Contacto WhatsApp ── */}
       <section className="bg-secondary/30 border-y border-border py-16">

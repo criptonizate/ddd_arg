@@ -23,6 +23,12 @@ export default function StoreHeader() {
             Catálogo
           </Link>
           <Link
+            href="/filamentos"
+            className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            Filamentos
+          </Link>
+          <Link
             href="/auth/login"
             className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
