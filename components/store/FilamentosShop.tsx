@@ -397,7 +397,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       <div className="flex gap-6 items-start">
 
         {/* Sidebar desktop */}
-        <aside className="hidden lg:block w-52 shrink-0 sticky top-20 bg-card border border-border rounded-2xl p-4">
+        <aside className="hidden lg:block w-52 shrink-0 sticky top-[106px] bg-card border border-border rounded-2xl p-4">
           {filterSidebar}
         </aside>
 
@@ -433,14 +433,14 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
           )}
 
           {/* Resultado count */}
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} filamento{filtered.length !== 1 ? 's' : ''} disponible{filtered.length !== 1 ? 's' : ''}
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <p className="text-xs sm:text-sm text-muted-foreground shrink-0">
+              {filtered.length} disponible{filtered.length !== 1 ? 's' : ''}
             </p>
             {totalKg > 0 && (
-              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400">
-                {totalKg} kg en carrito · {fmtARS(subtotal)}
-                {descuento > 0 && ` (desc. ${fmtARS(descuento)}/kg)`}
+              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 text-right truncate">
+                {totalKg} kg · {fmtARS(subtotal)}
+                {descuento > 0 && <span className="hidden sm:inline"> ({fmtARS(descuento)}/kg off)</span>}
               </p>
             )}
           </div>
@@ -474,13 +474,14 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       {totalKg > 0 && (
         <button
           onClick={() => setShowCart(true)}
-          className="fixed bottom-6 right-4 z-40 flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-4 py-3 shadow-xl transition-colors"
+          className="fixed bottom-[env(safe-area-inset-bottom,0px)] mb-5 right-3 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none"
+          style={{ marginBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}
         >
-          <ShoppingCart size={18} />
-          <span className="text-sm font-bold">{totalKg} kg</span>
-          <span className="text-sm font-bold">{fmtARS(subtotal)}</span>
+          <ShoppingCart size={16} className="shrink-0" />
+          <span className="text-xs sm:text-sm font-bold">{totalKg} kg</span>
+          <span className="text-xs sm:text-sm font-bold">{fmtARS(subtotal)}</span>
           {descuento > 0 && (
-            <span className="text-[10px] bg-white/20 font-bold px-1.5 py-0.5 rounded-full">
+            <span className="hidden xs:inline text-[10px] bg-white/20 font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
               -{fmtARS(descuento)}/kg
             </span>
           )}
@@ -490,8 +491,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       {/* ── Panel del carrito ── */}
       {showCart && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/40" onClick={() => setShowCart(false)} />
-          <div className="w-full max-w-sm bg-background border-l border-border flex flex-col shadow-2xl">
+          <div className="flex-1 min-w-0 bg-black/40" onClick={() => setShowCart(false)} />
+          <div className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="font-bold text-base">Tu carrito</h2>
               <button onClick={() => setShowCart(false)} className="p-1.5 rounded-lg hover:bg-secondary">
@@ -561,8 +562,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
       {/* ── Modal de checkout ── */}
       {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50">
+          <div className="w-full sm:max-w-md bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto" style={{ maxHeight: '92dvh' }}>
 
             {checkoutStep !== 'done' ? (
               <>

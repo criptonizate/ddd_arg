@@ -68,34 +68,34 @@ export default async function HomePage() {
           HERO — fondo carbón oscuro, headline bold
       ══════════════════════════════════════════════════ */}
       <section className="bg-[#1c1c1c] text-white">
-        <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
-          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+        <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14 md:py-20">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 lg:gap-16">
 
             {/* Texto */}
-            <div className="flex-1 text-center lg:text-left">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-400 mb-4">
+            <div className="flex-1 text-center md:text-left">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-400 mb-3 sm:mb-4">
                 <span className="w-6 h-px bg-orange-400" />
                 Impresión 3D · La Rioja, Argentina
               </p>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-5">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-4 sm:mb-5">
                 Imprimimos
                 <br />
                 <span className="text-orange-500">lo que imaginás</span>
               </h1>
-              <p className="text-base sm:text-lg text-gray-300 max-w-md mx-auto lg:mx-0 mb-8 leading-relaxed">
+              <p className="text-sm sm:text-base text-gray-300 max-w-md mx-auto md:mx-0 mb-6 sm:mb-8 leading-relaxed">
                 Diseños personalizados, filamentos premium y entrega en todo el país. Pedidos directos sin vueltas.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+              <div className="flex flex-col xs:flex-row gap-2.5 sm:gap-3 justify-center md:justify-start">
                 <Link
                   href="/filamentos"
-                  className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl px-6 py-3.5 transition-colors shadow-lg shadow-orange-500/30"
+                  className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl px-5 sm:px-6 py-3 sm:py-3.5 transition-colors shadow-lg shadow-orange-500/30"
                 >
-                  Ver filamentos disponibles →
+                  Ver filamentos →
                 </Link>
                 <a
                   href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola! Quiero hacer un pedido de impresión 3D.')}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm rounded-xl px-6 py-3.5 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm rounded-xl px-5 sm:px-6 py-3 sm:py-3.5 transition-colors"
                 >
                   <WhatsAppIcon />
                   Consultar por WhatsApp
@@ -104,23 +104,23 @@ export default async function HomePage() {
             </div>
 
             {/* Círculos de color — preview de filamentos */}
-            <div className="flex-none">
-              <div className="grid grid-cols-6 gap-2.5">
-                {coloresPreview.map((f, i) => (
+            <div className="flex-none w-full md:w-auto">
+              <div className="grid grid-cols-6 sm:grid-cols-6 gap-2 sm:gap-2.5 max-w-[280px] sm:max-w-none mx-auto">
+                {coloresPreview.map((f) => (
                   <div
                     key={f.id}
                     title={`${f.color} — ${f.material}`}
-                    className="w-9 h-9 rounded-full border-2 border-white/10 shadow-md transition-transform hover:scale-110"
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white/10 shadow-md transition-transform hover:scale-110"
                     style={{ backgroundColor: colorToCss(f.color) }}
                   />
                 ))}
                 {totalColores > 18 && (
-                  <div className="w-9 h-9 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-[9px] font-bold text-white/70">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-white/70">
                     +{totalColores - 18}
                   </div>
                 )}
               </div>
-              <p className="text-xs text-gray-400 text-center mt-3">{totalColores} colores en stock</p>
+              <p className="text-xs text-gray-400 text-center mt-2 sm:mt-3">{totalColores} colores en stock</p>
             </div>
           </div>
         </div>
@@ -130,19 +130,19 @@ export default async function HomePage() {
           TRUST BAR — íconos + texto en una línea
       ══════════════════════════════════════════════════ */}
       <section className="bg-card border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {[
-              { icon: '🚚', title: 'Envío a todo el país', sub: 'Correo Argentino y moto' },
-              { icon: '📍', title: 'Retiro en local', sub: 'Capital, La Rioja' },
-              { icon: '💬', title: 'Atención directa', sub: 'Respondemos por WhatsApp' },
-              { icon: '🎨', title: `+${totalColores} colores disponibles`, sub: 'PLA · PETG · TPU y más' },
+              { icon: '🚚', title: 'Envío a todo el país', sub: 'Correo y moto' },
+              { icon: '📍', title: 'Retiro en local', sub: 'Cap. La Rioja' },
+              { icon: '💬', title: 'Atención directa', sub: 'Por WhatsApp' },
+              { icon: '🎨', title: `+${totalColores} colores`, sub: 'PLA · PETG · TPU' },
             ].map((item) => (
-              <div key={item.title} className="flex items-center gap-3">
-                <span className="text-2xl">{item.icon}</span>
-                <div>
-                  <p className="font-semibold text-foreground text-xs leading-tight">{item.title}</p>
-                  <p className="text-muted-foreground text-xs">{item.sub}</p>
+              <div key={item.title} className="flex items-center gap-2 sm:gap-3">
+                <span className="text-xl sm:text-2xl shrink-0">{item.icon}</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground text-[11px] sm:text-xs leading-tight truncate">{item.title}</p>
+                  <p className="text-muted-foreground text-[10px] sm:text-xs">{item.sub}</p>
                 </div>
               </div>
             ))}
@@ -153,32 +153,32 @@ export default async function HomePage() {
       {/* ══════════════════════════════════════════════════
           FILAMENTOS — sección con colores vivos
       ══════════════════════════════════════════════════ */}
-      <section className="py-14 bg-background">
+      <section className="py-10 sm:py-14 bg-background">
         <div className="max-w-6xl mx-auto px-4">
 
-          <div className="flex items-end justify-between mb-8">
+          <div className="flex items-end justify-between mb-5 sm:mb-8">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Stock disponible</p>
-              <h2 className="text-2xl sm:text-3xl font-black text-foreground">Filamentos</h2>
-              <p className="text-sm text-muted-foreground mt-1">Precio por kg · Descuentos automáticos por volumen</p>
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground">Filamentos</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">Precio por kg · Descuentos automáticos por volumen</p>
             </div>
             <Link
               href="/filamentos"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
+              className="text-xs sm:text-sm font-bold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
             >
               Ver todos ({totalColores}) →
             </Link>
           </div>
 
           {/* Materiales disponibles */}
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-6">
             {materiales.map(mat => (
               <Link
                 key={mat}
-                href={`/filamentos`}
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border border-border bg-card hover:border-primary hover:text-primary transition-colors"
+                href="/filamentos"
+                className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-border bg-card hover:border-primary hover:text-primary transition-colors"
               >
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: MAT_BADGE[mat] ?? '#94a3b8' }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: MAT_BADGE[mat] ?? '#94a3b8' }} />
                 {mat}
                 <span className="text-muted-foreground font-normal">({filamentos.filter(f => f.material === mat).length})</span>
               </Link>
@@ -186,7 +186,7 @@ export default async function HomePage() {
           </div>
 
           {/* Grid de colores */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-9 gap-1.5 sm:gap-2">
             {filamentos.slice(0, 18).map((f) => {
               const css = colorToCss(f.color)
               const kg = Math.floor((f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos) / 1000)
@@ -195,47 +195,45 @@ export default async function HomePage() {
                   key={f.id}
                   href="/filamentos"
                   title={`${f.color} — ${f.material} (${kg} kg)`}
-                  className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-md hover:border-primary/40 transition-all"
+                  className="group bg-card border border-border rounded-lg sm:rounded-xl overflow-hidden hover:shadow-md hover:border-primary/40 transition-all"
                 >
                   <div
-                    className="h-14 w-full"
+                    className="h-10 sm:h-14 w-full"
                     style={{
                       backgroundColor: css,
                       backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%)',
                     }}
                   />
-                  <div className="px-1.5 py-1.5 text-center">
-                    <p className="text-[9px] font-semibold truncate leading-tight">{f.color}</p>
-                    <p className="text-[8px] text-muted-foreground">{f.material}</p>
+                  <div className="px-1 py-1 sm:px-1.5 sm:py-1.5 text-center">
+                    <p className="text-[8px] sm:text-[9px] font-semibold truncate leading-tight">{f.color}</p>
+                    <p className="hidden sm:block text-[8px] text-muted-foreground">{f.material}</p>
                   </div>
                 </Link>
               )
             })}
           </div>
 
-          {totalColores > 18 && (
-            <div className="mt-5 text-center">
-              <Link
-                href="/filamentos"
-                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl px-6 py-3 transition-colors shadow-sm"
-              >
-                Ver los {totalColores} colores disponibles →
-              </Link>
-            </div>
-          )}
+          <div className="mt-4 sm:mt-5 text-center">
+            <Link
+              href="/filamentos"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 transition-colors shadow-sm"
+            >
+              Ver los {totalColores} colores disponibles →
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════════════════
           CÓMO FUNCIONA — pasos simples y directos
       ══════════════════════════════════════════════════ */}
-      <section className="py-14 bg-background">
+      <section className="py-10 sm:py-14 bg-background">
         <div className="max-w-5xl mx-auto px-4">
-          <div className="text-center mb-10">
+          <div className="text-center mb-6 sm:mb-10">
             <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Simple y directo</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-foreground">¿Cómo hacés tu pedido?</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground">¿Cómo hacés tu pedido?</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
                 n: '01',
@@ -273,11 +271,11 @@ export default async function HomePage() {
           CTA FINAL — fondo naranja, contacto directo
       ══════════════════════════════════════════════════ */}
       <section className="bg-primary">
-        <div className="max-w-4xl mx-auto px-4 py-14 text-center">
-          <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">
+        <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14 text-center">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-2 sm:mb-3">
             ¿Tenés una idea? Hablemos.
           </h2>
-          <p className="text-white/80 text-base mb-8 max-w-md mx-auto">
+          <p className="text-white/80 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto">
             Completá el formulario o escribinos directo por WhatsApp. Respondemos rápido.
           </p>
           <div className="max-w-xl mx-auto">

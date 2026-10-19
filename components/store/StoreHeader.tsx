@@ -71,31 +71,28 @@ export default function StoreHeader() {
 
       {/* ── Barra superior — carbón con info y acceso rápido ── */}
       <div className="bg-[#1c1c1c] text-white">
-        <div className="max-w-6xl mx-auto px-4 h-9 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 h-8 flex items-center justify-between gap-2 overflow-hidden">
 
-          {/* Izquierda: ubicación */}
-          <div className="flex items-center gap-1.5 text-[11px] text-gray-300">
-            <MapPin size={11} className="text-orange-400 shrink-0" />
-            <span>Capital, La Rioja</span>
-            <span className="text-gray-600 mx-1">·</span>
-            <span className="text-orange-400 font-semibold">Envío a todo el país</span>
+          {/* Izquierda: envío */}
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-orange-400 font-semibold truncate">
+            <span className="shrink-0">🚚</span>
+            <span className="truncate">Envío a todo el país · Capital, La Rioja</span>
           </div>
 
           {/* Derecha: redes + WhatsApp */}
-          <div className="flex items-center gap-3 text-[11px]">
+          <div className="flex items-center gap-3 text-[11px] shrink-0">
             <a
               href={`https://wa.me/${WHATSAPP}`}
               target="_blank" rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1.5 text-[#25D366] hover:text-green-400 font-semibold transition-colors"
+              className="hidden sm:flex items-center gap-1.5 text-[#25D366] hover:text-green-400 font-semibold transition-colors whitespace-nowrap"
             >
               <WhatsAppIcon />
               WhatsApp
             </a>
-            <span className="hidden sm:block text-gray-700">·</span>
             <a
               href="https://instagram.com/DDD_ARG"
               target="_blank" rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1 text-gray-300 hover:text-pink-400 transition-colors"
+              className="hidden sm:flex items-center gap-1 text-gray-300 hover:text-pink-400 transition-colors whitespace-nowrap"
             >
               <InstagramIcon />
               @DDD_ARG
@@ -109,7 +106,7 @@ export default function StoreHeader() {
 
       {/* ── Barra principal — blanca, logo grande ── */}
       <div className="bg-card border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
 
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
@@ -117,7 +114,7 @@ export default function StoreHeader() {
               src="/LogoDDDARG.png"
               alt="DDD ARG"
               width={511} height={339}
-              className="h-11 w-auto"
+              className="h-8 sm:h-10 md:h-11 w-auto"
               priority
             />
           </Link>
@@ -138,7 +135,7 @@ export default function StoreHeader() {
             {/* Mobile: link filamentos */}
             <Link
               href="/filamentos"
-              className="md:hidden flex items-center gap-1 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+              className="md:hidden flex items-center gap-1 bg-primary text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"
             >
               🎨 Filamentos
             </Link>
