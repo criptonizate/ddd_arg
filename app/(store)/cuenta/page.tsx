@@ -107,8 +107,8 @@ export default async function CuentaPage() {
                   {/* Footer */}
                   <div className="flex items-center justify-between px-5 py-3 bg-secondary/20 border-t border-border">
                     <span className="text-xs text-muted-foreground">
-                      {p.total_rollos} rollo{p.total_rollos !== 1 ? 's' : ''}
-                      {p.descuento_por_rollo > 0 && ` · Desc. ${fmtARS(p.descuento_por_rollo)}/rollo`}
+                      {p.total_rollos} kg
+                      {p.descuento_por_rollo > 0 && ` · Desc. ${fmtARS(p.descuento_por_rollo)}/kg`}
                     </span>
                     <span className="font-bold text-sm">{fmtARS(p.total)}</span>
                   </div>
