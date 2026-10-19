@@ -149,10 +149,10 @@ export default function StoreHeader() {
               <form action={signInWithGoogleCliente}>
                 <button
                   type="submit"
-                  aria-label="Ingresar con Google"
-                  className="p-2 rounded-lg hover:bg-black/5 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-black/5 transition-colors text-xs font-semibold text-foreground/70"
                 >
                   <GoogleIcon />
+                  <span>Mi Cuenta</span>
                 </button>
               </form>
             )
