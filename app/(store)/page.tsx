@@ -1,4 +1,5 @@
 import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+import { PRECIO_TIERS } from '@/lib/filamentos-helpers'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
 import Link from 'next/link'
 
@@ -59,6 +60,10 @@ export default async function HomePage() {
 
   const materiales = Array.from(new Set(filamentos.map(f => f.material))).sort()
   const totalColores = filamentos.length
+  const precioBase = PRECIO_TIERS[PRECIO_TIERS.length - 1].precio        // precio sin descuento
+  const mejorPrecio = Math.min(...PRECIO_TIERS.map(t => t.precio))       // precio más bajo
+  const mejorDescuento = PRECIO_TIERS.find(t => t.precio === mejorPrecio)
+  const fmtARS = (n: number) => `$${n.toLocaleString('es-AR')}`
 
   return (
     <div>
@@ -119,8 +124,11 @@ export default async function HomePage() {
                   </p>
                   <div className="mt-3 h-px bg-white/30" />
                   <p className="mt-3 text-orange-100 text-xs sm:text-sm leading-snug">
-                    5+ kg · 10+ kg · 15+ kg<br />
-                    <span className="font-bold text-white">hasta $4.000 off por kg</span>
+                    Comprando {mejorDescuento?.min}+ kg<br />
+                    <span className="font-black text-white text-base sm:text-lg">{fmtARS(mejorPrecio)} / kg</span>
+                    <span className="block text-orange-200 text-[10px] sm:text-xs mt-0.5">
+                      precio de lista {fmtARS(precioBase)}
+                    </span>
                   </p>
                 </div>
               </div>
