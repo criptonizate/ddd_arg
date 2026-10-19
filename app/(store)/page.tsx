@@ -1,7 +1,5 @@
 import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
-import { getActiveProducts } from '@/lib/actions/products'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
-import ProductCard from '@/components/store/ProductCard'
 import Link from 'next/link'
 
 export const metadata = {
@@ -57,10 +55,7 @@ function WhatsAppIcon() {
 }
 
 export default async function HomePage() {
-  const [filamentos, products] = await Promise.all([
-    getFilamentosDisponibles(),
-    getActiveProducts(),
-  ])
+  const filamentos = await getFilamentosDisponibles()
 
   const materiales = Array.from(new Set(filamentos.map(f => f.material))).sort()
   const coloresPreview = filamentos.slice(0, 18)
@@ -230,34 +225,6 @@ export default async function HomePage() {
           )}
         </div>
       </section>
-
-      {/* ══════════════════════════════════════════════════
-          PRODUCTOS DESTACADOS
-      ══════════════════════════════════════════════════ */}
-      {products.length > 0 && (
-        <section className="py-14 bg-card border-y border-border">
-          <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Listos para llevar</p>
-                <h2 className="text-2xl sm:text-3xl font-black text-foreground">Nuestros productos</h2>
-                <p className="text-sm text-muted-foreground mt-1">Piezas 3D listas. Precios en pesos argentinos.</p>
-              </div>
-              <Link
-                href="/catalogo"
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
-              >
-                Ver catálogo →
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {products.slice(0, 8).map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* ══════════════════════════════════════════════════
           CÓMO FUNCIONA — pasos simples y directos
