@@ -356,9 +356,12 @@ export default async function CuentaPage({
                 Por eso creamos el programa mayorista — no como un truco de marketing, sino porque
                 si imprimís en serio, queremos que el precio del filamento no sea el freno.
               </p>
-              <p className="text-sm text-gray-200 leading-relaxed">
+              <p className="text-sm text-gray-200 leading-relaxed mb-3">
                 No hay letra chica. No hay cuota mensual. Solo comprás, el sistema lo detecta,
                 y el descuento se aplica solo en tu próximo pedido.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: '#86efac' }}>
+                💡 El descuento aplica <strong style={{ color: '#f0fdf4' }}>dentro del mismo pedido</strong>: si ya tenés 4 kg acumulados y agregás 1 kg más, ese último kilogramo entra con precio mayorista. Si comprás 5 kg de una sola vez, ya entran todos con descuento.
               </p>
             </div>
             <div className="px-5 py-4 border-t border-border bg-card">
