@@ -10,6 +10,11 @@ const nextConfig = {
         hostname: 'mgxycajfblrnyzzshaqs.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'mgxycajfblrnyzzshaqs.supabase.co',
+        pathname: '/storage/v1/render/image/public/**',
+      },
     ],
   },
 };

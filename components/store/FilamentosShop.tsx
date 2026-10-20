@@ -43,6 +43,15 @@ function colorToCss(color: string): string {
   return '#94a3b8'
 }
 
+function imgUrl(url: string, width: number, quality = 75): string {
+  if (!url) return url
+  if (url.includes('/storage/v1/object/public/')) {
+    const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    return `${base}?width=${width}&quality=${quality}&resize=contain`
+  }
+  return url
+}
+
 function shortNombre(nombre: string): string {
   return nombre.replace(/\s+high\s+speed\b/gi, '').replace(/\s+hs\b/gi, '').trim()
 }
@@ -130,6 +139,75 @@ function colorIsLight(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160
 }
 
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+
+function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: number; onClose: () => void }) {
+  const [idx, setIdx] = useState(startIdx)
+  const prev = () => setIdx((i) => (i - 1 + fotos.length) % fotos.length)
+  const next = () => setIdx((i) => (i + 1) % fotos.length)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') prev()
+      if (e.key === 'ArrowRight') next()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+        aria-label="Cerrar"
+      >
+        <X size={18} />
+      </button>
+
+      {fotos.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); prev() }}
+            className="absolute left-3 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); next() }}
+            className="absolute right-3 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </>
+      )}
+
+      <img
+        src={imgUrl(fotos[idx], 1200, 90)}
+        alt={`Foto ${idx + 1}`}
+        className="max-w-full max-h-[85dvh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {fotos.length > 1 && (
+        <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-2">
+          {fotos.map((_, i) => (
+            <button
+              key={i}
+              onClick={(e) => { e.stopPropagation(); setIdx(i) }}
+              className={`rounded-full transition-all ${i === idx ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/40 hover:bg-white/70'}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Componente tarjeta de filamento ───────────────────────────────────────────
 
 function FilamentoCard({
@@ -149,9 +227,12 @@ function FilamentoCard({
   const isWhite = f.color.toLowerCase().includes('white')
   const fotos = [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
   const [fotoIdx, setFotoIdx] = useState(0)
+  const [lightbox, setLightbox] = useState(false)
   const fotoActual = fotos[fotoIdx] ?? null
 
   return (
+    <>
+    {lightbox && <Lightbox fotos={fotos} startIdx={fotoIdx} onClose={() => setLightbox(false)} />}
     <div
       className={`rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'ring-1' : ''}`}
       style={{
@@ -173,9 +254,11 @@ function FilamentoCard({
         {fotoActual ? (
           <img
             key={fotoIdx}
-            src={fotoActual}
+            src={imgUrl(fotoActual, 400, 75)}
             alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200"
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
+            onClick={() => setLightbox(true)}
           />
         ) : (
           <span
@@ -295,6 +378,7 @@ function FilamentoCard({
         )}
       </div>
     </div>
+    </>
   )
 }
 
