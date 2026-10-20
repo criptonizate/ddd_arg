@@ -248,20 +248,36 @@ export default async function CuentaPage() {
                       {cfg.label}
                     </span>
                   </div>
-                  <div className="px-5 py-3 space-y-1.5">
-                    {p.items.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-muted-foreground">{item.rollos}x {item.color} — {item.material} ({item.marca})</span>
-                        <span className="font-mono text-xs">{fmtARS(item.rollos * item.precio_unitario)}</span>
-                      </div>
-                    ))}
+                  <div className="px-5 py-3 space-y-3">
+                    {p.items.map((item, i) => {
+                      const precioBase = item.precio_unitario + p.descuento_por_rollo
+                      const precioFinal = item.precio_unitario
+                      const subtotalItem = item.rollos * precioFinal
+                      return (
+                        <div key={i} className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {item.rollos} kg · {item.color}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{item.material} — {item.marca}</p>
+                            {p.descuento_por_rollo > 0 && (
+                              <p className="text-xs mt-0.5">
+                                <span className="line-through text-muted-foreground">{fmtARS(precioBase)}/kg</span>
+                                <span className="ml-1.5 font-semibold" style={{ color: '#22c55e' }}>
+                                  − {fmtARS(p.descuento_por_rollo)}/kg
+                                </span>
+                                <span className="ml-1.5 font-bold text-foreground">{fmtARS(precioFinal)}/kg</span>
+                              </p>
+                            )}
+                          </div>
+                          <span className="font-bold text-sm shrink-0 tabular-nums">{fmtARS(subtotalItem)}</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                  <div className="flex items-center justify-between px-5 py-3 bg-secondary/20 border-t border-border">
-                    <span className="text-xs text-muted-foreground">
-                      {p.total_rollos} kg
-                      {p.descuento_por_rollo > 0 && ` · Desc. ${fmtARS(p.descuento_por_rollo)}/kg`}
-                    </span>
-                    <span className="font-bold text-sm">{fmtARS(p.total)}</span>
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-border" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                    <span className="text-xs text-muted-foreground">{p.total_rollos} kg total</span>
+                    <span className="font-black text-sm">{fmtARS(p.total)}</span>
                   </div>
                   {p.nota && (
                     <div className="px-5 py-2.5 text-xs text-muted-foreground bg-secondary/10 border-t border-border">
