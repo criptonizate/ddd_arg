@@ -295,34 +295,47 @@ function FilamentoCard({
   const [usoPropioGr, setUsoPropioGr] = useState('')
   const [usoPropioError, setUsoPropioError] = useState('')
 
-  // Imagen
-  const [uploadingImg, setUploadingImg] = useState(false)
-  const imgInputRef = useRef<HTMLInputElement>(null)
+  // Imágenes (hasta 3)
+  const [uploadingSlot, setUploadingSlot] = useState<1 | 2 | 3 | null>(null)
+  const imgRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)]
 
-  async function handleImageUpload(file: File) {
+  const IMG_FIELDS = ['imagen_url', 'imagen_url_2', 'imagen_url_3'] as const
+
+  async function handleImageUpload(file: File, slot: 1 | 2 | 3) {
     if (!file) return
-    setUploadingImg(true)
+    setUploadingSlot(slot)
     try {
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
       const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${fil.id}.${ext}`
+      const path = `${fil.id}-${slot}.${ext}`
       const { error: upErr } = await supabase.storage
         .from('filamentos-fotos')
         .upload(path, file, { upsert: true })
       if (upErr) { alert('Error subiendo imagen: ' + upErr.message); return }
       const { data } = supabase.storage.from('filamentos-fotos').getPublicUrl(path)
       const url = data.publicUrl
-      await updateFilamento(fil.id, { imagen_url: url })
-      const updated = { ...fil, imagen_url: url }
+      const field = IMG_FIELDS[slot - 1]
+      await updateFilamento(fil.id, { [field]: url })
+      const updated = { ...fil, [field]: url }
       setFil(updated)
       onUpdate(updated)
     } finally {
-      setUploadingImg(false)
+      setUploadingSlot(null)
     }
   }
+
+  async function handleImageRemove(slot: 1 | 2 | 3) {
+    const field = IMG_FIELDS[slot - 1]
+    await updateFilamento(fil.id, { [field]: null })
+    const updated = { ...fil, [field]: null }
+    setFil(updated)
+    onUpdate(updated)
+  }
+
+  const imgUrls = [fil.imagen_url, fil.imagen_url_2, fil.imagen_url_3] as const
 
   const totalGr = fil.rollos_cerrados * fil.peso_rollo_gr + fil.gramos_sueltos
 
@@ -526,8 +539,8 @@ function FilamentoCard({
     <div className={`bg-card border border-border rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
       {/* ── Header siempre visible ── */}
       <div className="flex items-center gap-3 px-4 py-3">
-        {fil.imagen_url ? (
-          <img src={fil.imagen_url} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border" />
+        {(fil.imagen_url || fil.imagen_url_2 || fil.imagen_url_3) ? (
+          <img src={fil.imagen_url ?? fil.imagen_url_2 ?? fil.imagen_url_3 ?? ''} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border" />
         ) : (
           <div className={`w-3 h-3 rounded-full shrink-0 ${colorDot(fil.color)}`} />
         )}
@@ -566,49 +579,59 @@ function FilamentoCard({
       {expanded && (
         <div className="border-t border-border space-y-5 px-4 pt-4 pb-4">
 
-          {/* Imagen del filamento */}
+          {/* Imágenes del filamento (hasta 3) */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-2">Imagen del producto</label>
-            <div className="flex items-center gap-3">
-              {fil.imagen_url ? (
-                <img src={fil.imagen_url} alt="" className="w-16 h-16 rounded-xl object-cover border border-border" />
-              ) : (
-                <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center text-muted-foreground/40">
-                  <ImageIcon size={22} />
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => imgInputRef.current?.click()}
-                  disabled={uploadingImg}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-secondary text-xs font-medium transition-colors disabled:opacity-50"
-                >
-                  {uploadingImg ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
-                  {uploadingImg ? 'Subiendo...' : fil.imagen_url ? 'Cambiar foto' : 'Subir foto'}
-                </button>
-                {fil.imagen_url && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await updateFilamento(fil.id, { imagen_url: null })
-                      const updated = { ...fil, imagen_url: null }
-                      setFil(updated)
-                      onUpdate(updated)
-                    }}
-                    className="text-[10px] text-muted-foreground hover:text-red-500 underline text-left transition-colors"
-                  >
-                    Quitar imagen
-                  </button>
-                )}
-              </div>
-              <input
-                ref={imgInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }}
-              />
+            <label className="text-xs font-medium text-muted-foreground block mb-2">
+              Fotos del filamento <span className="font-normal">(hasta 3)</span>
+            </label>
+            <div className="flex gap-3 flex-wrap">
+              {([1, 2, 3] as const).map((slot) => {
+                const url = imgUrls[slot - 1]
+                const loading = uploadingSlot === slot
+                return (
+                  <div key={slot} className="flex flex-col items-center gap-1.5">
+                    <div className="relative group">
+                      {url ? (
+                        <img src={url} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
+                      ) : (
+                        <div className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground/40 gap-1">
+                          <ImageIcon size={18} />
+                          <span className="text-[10px]">Foto {slot}</span>
+                        </div>
+                      )}
+                      {loading && (
+                        <div className="absolute inset-0 rounded-xl bg-black/30 flex items-center justify-center">
+                          <Loader2 size={16} className="animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => imgRefs[slot - 1].current?.click()}
+                      disabled={loading}
+                      className="text-[10px] px-2 py-1 rounded border border-border hover:bg-secondary transition-colors disabled:opacity-50"
+                    >
+                      {url ? 'Cambiar' : '+ Subir'}
+                    </button>
+                    {url && (
+                      <button
+                        type="button"
+                        onClick={() => handleImageRemove(slot)}
+                        className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        Quitar
+                      </button>
+                    )}
+                    <input
+                      ref={imgRefs[slot - 1]}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, slot) }}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
 

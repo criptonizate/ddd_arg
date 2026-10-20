@@ -84,6 +84,9 @@ function FilamentoCard({
   const css = colorToCss(f.color)
   const isLight = colorIsLight(css)
   const isWhite = f.color.toLowerCase().includes('white')
+  const fotos = [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
+  const [fotoIdx, setFotoIdx] = useState(0)
+  const fotoActual = fotos[fotoIdx] ?? null
 
   return (
     <div className={`bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'border-orange-400 ring-1 ring-orange-300' : 'border-border'}`}>
@@ -91,21 +94,19 @@ function FilamentoCard({
       {/* ── Área de color / imagen ── */}
       <div
         className="relative h-36 flex items-center justify-center overflow-hidden"
-        style={f.imagen_url ? {} : {
+        style={fotoActual ? {} : {
           backgroundColor: css,
           backgroundImage: `radial-gradient(circle at 30% 30%, ${isLight ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)'} 0%, transparent 60%)`,
           ...(isWhite ? { border: '1px solid #e5e7eb' } : {}),
         }}
       >
-        {/* Foto real si existe */}
-        {f.imagen_url ? (
+        {fotoActual ? (
           <img
-            src={f.imagen_url}
+            src={fotoActual}
             alt={`${f.color} ${f.material}`}
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
-          /* Color circle grande */
           <span
             className="w-16 h-16 rounded-full shadow-lg border-4"
             style={{
@@ -114,6 +115,22 @@ function FilamentoCard({
               filter: 'brightness(0.92) saturate(1.1)',
             }}
           />
+        )}
+
+        {/* Miniaturas si hay más de 1 foto */}
+        {fotos.length > 1 && (
+          <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 z-10">
+            {fotos.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setFotoIdx(i) }}
+                className={`w-6 h-6 rounded overflow-hidden border-2 transition-all ${i === fotoIdx ? 'border-white scale-110' : 'border-white/50 opacity-70'}`}
+              >
+                <img src={src} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
         )}
 
         {/* Material badge */}

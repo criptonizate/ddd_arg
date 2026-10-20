@@ -31,6 +31,8 @@ export interface Filamento {
   costo_kg: number
   nota: string
   imagen_url?: string | null
+  imagen_url_2?: string | null
+  imagen_url_3?: string | null
   created_at: string
   updated_at: string
 }
