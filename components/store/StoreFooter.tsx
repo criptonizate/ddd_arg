@@ -20,8 +20,6 @@ function WhatsAppIcon() {
   )
 }
 
-const MAP_EMBED = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3563.680!2d-65.4!3d-24.3!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjTCsDE4JzAwLjAiUyA2NcKwMjQnMDAuMCJX!5e0!3m2!1ses!2sar!4v1'
-const MAP_LINK = 'https://maps.app.goo.gl/H4zc7kSGzD4zqmS69'
 
 export default function StoreFooter() {
   return (
@@ -32,63 +30,6 @@ export default function StoreFooter() {
         borderColor: 'oklch(1 0 0 / 8%)',
       }}
     >
-      {/* Sección ubicación */}
-      <div
-        className="border-b"
-        style={{ borderColor: 'oklch(1 0 0 / 8%)' }}
-      >
-        <div className="max-w-6xl mx-auto px-4 py-10">
-
-          {/* Título */}
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-black" style={{ color: 'oklch(0.88 0.005 264)' }}>📍 Dónde encontrarnos</h3>
-            <a
-              href={MAP_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80 text-xs font-bold"
-              style={{
-                backgroundColor: 'oklch(0.22 0.005 264)',
-                borderColor: 'oklch(1 0 0 / 12%)',
-                color: 'oklch(0.85 0.005 264)',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/>
-                <circle cx="12" cy="9" r="2.5" fill="#fff"/>
-              </svg>
-              Ver en Google Maps
-            </a>
-          </div>
-
-          {/* Foto grande */}
-          <div
-            className="w-full rounded-2xl overflow-hidden relative"
-            style={{ height: 'clamp(220px, 40vw, 420px)' }}
-          >
-            <Image
-              src="/foto-local.jpg"
-              alt="Local DDD ARG"
-              fill
-              className="object-cover object-center"
-              sizes="(max-width: 768px) 100vw, 1152px"
-            />
-            {/* Overlay degradado sutil en la parte inferior */}
-            <div
-              className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
-              style={{ background: 'linear-gradient(to top, oklch(0.17 0.005 264 / 70%), transparent)' }}
-            />
-            <p
-              className="absolute bottom-4 left-5 text-xs"
-              style={{ color: 'oklch(0.65 0.005 264)' }}
-            >
-              Cap. La Rioja, Argentina
-            </p>
-          </div>
-
-        </div>
-      </div>
-
       <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
 
