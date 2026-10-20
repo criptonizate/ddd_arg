@@ -227,63 +227,96 @@ export async function editarItemsPedidoFilamento(
   return {}
 }
 
-const KG_MAYORISTA = 5
+const KG_RENOVACION = 5   // kg mínimos en un solo pedido para renovar/activar
 const DIAS_PERIODO = 30
 
+// Los tiers expresan DESCUENTO sobre el precio base del filamento, no precio fijo
+export const TIERS_MEMBRESIA = [
+  { min: 15, descuento: 4000, label: 'Elite',     emoji: '💎', color: 'violet' as const },
+  { min: 10, descuento: 3000, label: 'Plus',      emoji: '⭐', color: 'blue'   as const },
+  { min:  5, descuento: 2000, label: 'Mayorista', emoji: '🏆', color: 'amber'  as const },
+] as const
+
+export type NivelMembresia = 'Elite' | 'Plus' | 'Mayorista' | null
+
 export interface MembresiaStatus {
-  kgPeriodo: number       // kg acumulados en el período actual
-  periodoInicio: string   // ISO date del inicio del período activo
-  periodoFin: string      // ISO date del fin del período activo
-  diasRestantes: number   // días que quedan en el período
-  esMayorista: boolean    // >= KG_MAYORISTA
-  totalHistorico: number  // kg totales de todos los tiempos
+  kgPeriodo: number
+  periodoInicio: string
+  periodoFin: string
+  diasRestantes: number
+  nivel: NivelMembresia
+  descuento: number   // descuento/kg que aplica (0 si no es miembro)
+  totalHistorico: number
 }
 
-// Público — sin auth de admin, se llama desde la página de cuenta del cliente
+type PedidoRow = { updated_at: string; total_rollos: number }
+
+function addDias(date: Date, dias: number): Date {
+  return new Date(date.getTime() + dias * 24 * 60 * 60 * 1000)
+}
+
+// Calcula el período activo a partir del historial de pedidos (sin DB extra)
+// Lógica: un pedido >= KG_RENOVACION dentro del período lo extiende 30d desde esa fecha
+function calcularPeriodo(pedidos: PedidoRow[]): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
+  let periodoInicio = new Date(pedidos[0].updated_at)
+  let periodoFin = addDias(periodoInicio, DIAS_PERIODO)
+  let kgPeriodo = 0
+
+  for (const p of pedidos) {
+    const fecha = new Date(p.updated_at)
+    const kg = p.total_rollos ?? 0
+
+    if (fecha < periodoFin) {
+      // Dentro del período activo
+      kgPeriodo += kg
+      if (kg >= KG_RENOVACION) {
+        // Este pedido renueva: extiende 30d desde su fecha
+        const nuevaFin = addDias(fecha, DIAS_PERIODO)
+        if (nuevaFin > periodoFin) periodoFin = nuevaFin
+      }
+    } else {
+      // Fuera del período — inicia uno nuevo
+      periodoInicio = fecha
+      periodoFin = addDias(fecha, DIAS_PERIODO)
+      kgPeriodo = kg
+    }
+  }
+
+  return { periodoInicio, periodoFin, kgPeriodo }
+}
+
+// Público — sin auth de admin, llamado desde la página de cuenta del cliente
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
   const supabase = createServiceClient()
 
-  // Traer todos los pedidos confirmados o entregados de este usuario, ordenados por fecha
   const { data: pedidos } = await supabase
     .from('filamento_pedidos')
-    .select('updated_at, total_rollos, estado')
+    .select('updated_at, total_rollos')
     .eq('user_id', userId)
     .in('estado', ['confirmado', 'entregado'])
     .order('updated_at', { ascending: true })
 
   if (!pedidos?.length) return null
 
-  const totalHistorico = pedidos.reduce((s: number, p: { total_rollos: number }) => s + (p.total_rollos ?? 0), 0)
+  const rows = pedidos as PedidoRow[]
+  const totalHistorico = rows.reduce((s, p) => s + (p.total_rollos ?? 0), 0)
 
-  // Anchor date = fecha del primer pedido confirmado
-  const anchorMs = new Date(pedidos[0].updated_at).getTime()
+  const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(rows)
+
   const nowMs = Date.now()
-  const msPeriodo = DIAS_PERIODO * 24 * 60 * 60 * 1000
+  const activo = periodoFin.getTime() > nowMs
+  const diasRestantes = activo ? Math.max(0, Math.ceil((periodoFin.getTime() - nowMs) / (24 * 60 * 60 * 1000))) : 0
 
-  // Cuántos períodos completos pasaron desde el anchor
-  const periodosTranscurridos = Math.floor((nowMs - anchorMs) / msPeriodo)
-  const inicioMs = anchorMs + periodosTranscurridos * msPeriodo
-  const finMs = inicioMs + msPeriodo
-
-  const periodoInicio = new Date(inicioMs).toISOString()
-  const periodoFin = new Date(finMs).toISOString()
-  const diasRestantes = Math.max(0, Math.ceil((finMs - nowMs) / (24 * 60 * 60 * 1000)))
-
-  // Kg acumulados dentro del período activo
-  type PedidoRow = { updated_at: string; total_rollos: number; estado: string }
-  const kgPeriodo = (pedidos as PedidoRow[])
-    .filter(p => {
-      const t = new Date(p.updated_at).getTime()
-      return t >= inicioMs && t < finMs
-    })
-    .reduce((s: number, p: PedidoRow) => s + (p.total_rollos ?? 0), 0)
+  const tierActivo = activo ? TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min) : undefined
+  const nivel: NivelMembresia = tierActivo?.label ?? null
 
   return {
-    kgPeriodo,
-    periodoInicio,
-    periodoFin,
+    kgPeriodo: activo ? kgPeriodo : 0,
+    periodoInicio: periodoInicio.toISOString(),
+    periodoFin: periodoFin.toISOString(),
     diasRestantes,
-    esMayorista: kgPeriodo >= KG_MAYORISTA,
+    nivel,
+    descuento: tierActivo?.descuento ?? 0,
     totalHistorico,
   }
 }
