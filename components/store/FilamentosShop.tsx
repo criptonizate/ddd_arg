@@ -425,24 +425,50 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
       {/* Descuentos */}
       <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Descuentos por volumen</p>
+        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#8fb832' }}>💰 Descuentos por volumen</p>
         <div className="space-y-1.5">
           {[
-            { min:  5, desc: 2000, color: 'bg-yellow-400 text-yellow-950' },
-            { min: 10, desc: 3000, color: 'bg-orange-500 text-white' },
-            { min: 15, desc: 4000, color: 'bg-red-500 text-white' },
+            { min:  5, desc: 2000, activeStyle: { backgroundColor: '#4a6b10', color: '#c8e87a', borderColor: '#7aaa24' } },
+            { min: 10, desc: 3000, activeStyle: { backgroundColor: '#3d5a0d', color: '#d4ef8a', borderColor: '#8fb832' } },
+            { min: 15, desc: 4000, activeStyle: { backgroundColor: '#2e4409', color: '#e0f59a', borderColor: '#a0c83a' } },
           ].map(t => {
             const activo = totalKg >= t.min
+            const faltan = t.min - totalKg
+            const proximo = !activo && faltan <= 2 && faltan > 0
             return (
-              <div key={t.min} className={`flex items-center justify-between text-xs rounded-lg px-3 py-2 font-semibold transition-all ${
-                activo ? `${t.color} shadow-sm` : 'bg-secondary/50 text-muted-foreground'
-              }`}>
-                <span>{activo ? '✓ ' : ''}{t.min}+ kg</span>
-                <span>-{fmtARS(t.desc)}/kg</span>
+              <div
+                key={t.min}
+                className="flex items-center justify-between text-xs rounded-lg px-3 py-2 font-semibold transition-all border"
+                style={activo
+                  ? { ...t.activeStyle, boxShadow: '0 1px 6px #6d8f1f33' }
+                  : proximo
+                    ? { backgroundColor: 'oklch(0.28 0.015 110)', color: '#a0c83a', borderColor: '#5a7a18' }
+                    : { backgroundColor: 'oklch(0.22 0.005 264)', color: 'oklch(0.50 0.006 264)', borderColor: 'oklch(1 0 0 / 8%)' }
+                }
+              >
+                <span>{activo ? '✓ ' : proximo ? '⚡ ' : ''}{t.min}+ kg</span>
+                <span>−{fmtARS(t.desc)}/kg</span>
               </div>
             )
           })}
         </div>
+
+        {/* Nudge: "te falta 1 kg para el siguiente tier" */}
+        {(() => {
+          const tiers = [{ min: 5 }, { min: 10 }, { min: 15 }]
+          const siguiente = tiers.find(t => t.min > totalKg)
+          if (!siguiente) return null
+          const faltan = siguiente.min - totalKg
+          if (faltan > 2 || totalKg === 0) return null
+          return (
+            <p
+              className="mt-2 text-[11px] font-bold text-center leading-tight rounded-lg px-2.5 py-2"
+              style={{ backgroundColor: 'oklch(0.26 0.02 110)', color: '#b8df5a' }}
+            >
+              ⚡ ¡Agregá {faltan} kg más y bajás el precio!
+            </p>
+          )
+        })()}
       </div>
 
       {hasFilters && (
@@ -502,7 +528,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
               {filtered.length} disponible{filtered.length !== 1 ? 's' : ''}
             </p>
             {totalKg > 0 && (
-              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 text-right truncate">
+              <p className="text-xs font-semibold text-right truncate" style={{ color: '#8fb832' }}>
                 {totalKg} kg · {fmtARS(subtotal)}
                 {descuento > 0 && <span className="hidden sm:inline"> ({fmtARS(descuento)}/kg off)</span>}
               </p>
