@@ -171,12 +171,18 @@ export default function StoreHeader() {
                           borderColor: 'oklch(1 0 0 / 10%)',
                         }}
                       >
-                        <div className="px-4 py-3 border-b" style={{ borderColor: 'oklch(1 0 0 / 8%)' }}>
+                        <Link
+                          href="/cuenta?tab=perfil"
+                          onClick={() => setShowDropdown(false)}
+                          className="block px-4 py-3 border-b hover:bg-white/5 transition-colors"
+                          style={{ borderColor: 'oklch(1 0 0 / 8%)' }}
+                        >
                           <p className="text-xs font-bold truncate" style={{ color: 'oklch(0.95 0.003 264)' }}>
                             {user.user_metadata?.full_name?.split(' ')[0] ?? user.email?.split('@')[0]}
                           </p>
                           <p className="text-[10px] truncate" style={{ color: 'oklch(0.56 0.007 264)' }}>{user.email}</p>
-                        </div>
+                          <p className="text-[10px] font-semibold mt-0.5" style={{ color: '#4ade80' }}>Mi cuenta →</p>
+                        </Link>
                         <Link
                           href="/cuenta"
                           onClick={() => setShowDropdown(false)}

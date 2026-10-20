@@ -7,9 +7,11 @@ import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import { getVentasDeUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
+import { getMyProfile } from '@/lib/actions/perfil'
 import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
+import PerfilTab from '@/components/store/PerfilTab'
 import Link from 'next/link'
-import { Package, Crown } from 'lucide-react'
+import { Package, Crown, User } from 'lucide-react'
 
 export const metadata = { title: 'Mi cuenta — DDD ARG' }
 export const dynamic = 'force-dynamic'
@@ -38,17 +40,18 @@ export default async function CuentaPage({
   if (!user) redirect('/?login=1')
 
   const db = createServiceClient()
-  const [{ data: pedidos }, membresia, ventasHistoricas] = await Promise.all([
+  const [{ data: pedidos }, membresia, ventasHistoricas, profile] = await Promise.all([
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     getMembresiaCliente(user.id),
     getVentasDeUsuario(user.id),
+    getMyProfile(),
   ])
 
   const { tab: tabParam } = await searchParams
-  const tab = tabParam === 'membresia' ? 'membresia' : 'pedidos'
+  const tab = tabParam === 'membresia' ? 'membresia' : tabParam === 'perfil' ? 'perfil' : 'pedidos'
 
   const displayName = user.user_metadata?.full_name ?? user.email?.split('@')[0]
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
@@ -116,6 +119,20 @@ export default async function CuentaPage({
             </span>
           )}
         </Link>
+        <Link
+          href="/cuenta?tab=perfil"
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            tab === 'perfil'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <User size={14} />
+          Mi perfil
+          {!profile?.telefono && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
+          )}
+        </Link>
       </div>
 
       {/* ── TAB PEDIDOS ── */}
@@ -124,6 +141,16 @@ export default async function CuentaPage({
           pedidos={(pedidos ?? []) as FilamentoPedido[]}
           ventasHistoricas={ventasHistoricas as VentaFilamento[]}
           userId={user.id}
+        />
+      )}
+
+      {/* ── TAB PERFIL ── */}
+      {tab === 'perfil' && (
+        <PerfilTab
+          nombre={user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? ''}
+          email={user.email ?? ''}
+          avatarUrl={user.user_metadata?.avatar_url ?? null}
+          profile={profile}
         />
       )}
 
