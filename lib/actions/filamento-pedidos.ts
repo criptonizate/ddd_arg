@@ -100,6 +100,17 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
   return (data ?? []) as FilamentoPedido[]
 }
 
+export async function getPedidosByUser(userId: string): Promise<FilamentoPedido[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_pedidos')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  return (data ?? []) as FilamentoPedido[]
+}
+
 export async function updateEstadoPedidoFilamento(
   id: string,
   estado: 'confirmado' | 'cancelado' | 'entregado',

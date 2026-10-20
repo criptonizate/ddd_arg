@@ -220,7 +220,7 @@ export async function getKgMensualesCliente(clienteId: string, mes: string): Pro
 
 export async function registrarVentaFilamento(
   filamentoId: string,
-  venta: { gramos: number; precio_kg: number; costo_kg: number; cliente: string; cliente_id?: string | null; nota: string; fecha: string }
+  venta: { gramos: number; precio_kg: number; costo_kg: number; cliente: string; cliente_id?: string | null; user_id?: string | null; nota: string; fecha: string }
 ): Promise<{ venta?: VentaFilamento; filamento?: Filamento; error?: string }> {
   await getAdminUser()
   if (venta.gramos <= 0) return { error: 'Los gramos deben ser mayores a 0' }
