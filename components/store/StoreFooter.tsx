@@ -137,7 +137,6 @@ export default function StoreFooter() {
           © {new Date().getFullYear()} DDD ARG · Todos los derechos reservados
         </div>
       </div>
-      </div>
     </footer>
   )
 }
