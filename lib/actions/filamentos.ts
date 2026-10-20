@@ -353,6 +353,98 @@ export async function getHistorialVentasFilamentos(): Promise<VentaFilamento[]> 
   })) as VentaFilamento[]
 }
 
+// ── Vinculación de historial a usuarios registrados ──────────────────────────
+
+export interface GrupoVentasSinUsuario {
+  cliente: string
+  totalVentas: number
+  totalKg: number
+  totalPesos: number
+  ultimaFecha: string
+  ids: string[]
+}
+
+export async function getVentasAgrupadasSinUsuario(): Promise<GrupoVentasSinUsuario[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('id, cliente, gramos, precio_kg, fecha')
+    .is('user_id', null)
+    .order('fecha', { ascending: false })
+
+  if (!data?.length) return []
+
+  const mapa: Record<string, GrupoVentasSinUsuario> = {}
+  for (const v of data) {
+    if (!mapa[v.cliente]) {
+      mapa[v.cliente] = { cliente: v.cliente, totalVentas: 0, totalKg: 0, totalPesos: 0, ultimaFecha: v.fecha, ids: [] }
+    }
+    mapa[v.cliente].totalVentas++
+    mapa[v.cliente].totalKg += v.gramos / 1000
+    mapa[v.cliente].totalPesos += (v.gramos / 1000) * v.precio_kg
+    mapa[v.cliente].ids.push(v.id)
+    if (v.fecha > mapa[v.cliente].ultimaFecha) mapa[v.cliente].ultimaFecha = v.fecha
+  }
+
+  return Object.values(mapa).sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha))
+}
+
+export interface UsuarioRegistrado {
+  id: string
+  email: string
+  nombre: string
+  avatar_url: string | null
+  created_at: string
+}
+
+export async function getUsuariosRegistrados(): Promise<UsuarioRegistrado[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 200 })
+  if (error) return []
+  return data.users.map(u => ({
+    id: u.id,
+    email: u.email ?? '',
+    nombre: (u.user_metadata?.full_name as string) ?? u.email ?? u.id,
+    avatar_url: (u.user_metadata?.avatar_url as string) ?? null,
+    created_at: u.created_at,
+  }))
+}
+
+export async function asignarUserAVentas(
+  userId: string,
+  clienteNombre: string
+): Promise<{ asignadas: number; error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('filamento_ventas')
+    .update({ user_id: userId })
+    .eq('cliente', clienteNombre)
+    .is('user_id', null)
+    .select('id')
+  if (error) return { asignadas: 0, error: error.message }
+  revalidatePath('/admin/filamentos/vincular')
+  return { asignadas: data?.length ?? 0 }
+}
+
+export async function getVentasDeUsuario(userId: string): Promise<VentaFilamento[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_ventas')
+    .select('*, filamentos(nombre, color, material, marca)')
+    .eq('user_id', userId)
+    .order('fecha', { ascending: false })
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    filamento_nombre: r.filamentos?.nombre ?? '',
+    filamento_color: r.filamentos?.color ?? '',
+    filamento_material: r.filamentos?.material ?? '',
+    filamento_marca: r.filamentos?.marca ?? '',
+  })) as VentaFilamento[]
+}
+
 export async function deleteVentaFilamento(
   id: string,
   filamentoId: string,

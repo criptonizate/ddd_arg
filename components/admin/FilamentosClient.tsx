@@ -2382,6 +2382,10 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'clientes' ? 'bg-blue-600 text-white border-blue-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-blue-400'}`}>
           👤 Clientes
         </button>
+        <a href="/admin/filamentos/vincular"
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-purple-400 transition-colors">
+          🔗 Vincular historial
+        </a>
       </div>
 
       {tab === 'pedidos' && <PedidosPendientesTab filamentosDisponibles={filamentos} />}

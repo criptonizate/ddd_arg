@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
+import { getVentasDeUsuario } from '@/lib/actions/filamentos'
+import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 import Link from 'next/link'
 import { Package, Clock, CheckCircle2, XCircle, Truck, Crown } from 'lucide-react'
@@ -39,12 +41,13 @@ export default async function CuentaPage() {
   if (!user) redirect('/?login=1')
 
   const db = createServiceClient()
-  const [{ data: pedidos }, membresia] = await Promise.all([
+  const [{ data: pedidos }, membresia, ventasHistoricas] = await Promise.all([
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     getMembresiaCliente(user.id),
+    getVentasDeUsuario(user.id),
   ])
 
   const displayName = user.user_metadata?.full_name ?? user.email?.split('@')[0]
@@ -290,6 +293,36 @@ export default async function CuentaPage() {
           </div>
         )}
       </section>
+
+      {/* Historial de compras previas (vinculadas por admin) */}
+      {ventasHistoricas.length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <span>🧾</span>
+            Historial de compras anteriores
+          </h2>
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="divide-y divide-border">
+              {(ventasHistoricas as VentaFilamento[]).map(v => (
+                <div key={v.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">
+                      {(v.gramos / 1000).toFixed(1)} kg · {v.filamento_color ?? '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {v.filamento_material} {v.filamento_marca && `— ${v.filamento_marca}`}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold">{fmtARS((v.gramos / 1000) * v.precio_kg)}</p>
+                    <p className="text-xs text-muted-foreground">{fmtDate(v.fecha)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
