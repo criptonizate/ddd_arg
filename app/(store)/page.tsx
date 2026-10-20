@@ -77,14 +77,14 @@ export default async function HomePage() {
 
             {/* Texto */}
             <div className="flex-1 text-center md:text-left">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-400 mb-3 sm:mb-4">
-                <span className="w-6 h-px bg-orange-400" />
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 sm:mb-4" style={{ color: '#8fb832' }}>
+                <span className="w-6 h-px" style={{ backgroundColor: '#8fb832' }} />
                 Impresión 3D · La Rioja, Argentina
               </p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-4 sm:mb-5">
                 Imprimimos
                 <br />
-                <span className="text-orange-500">lo que imaginás</span>
+                <span style={{ color: '#8fb832' }}>lo que imaginás</span>
               </h1>
               <p className="text-sm sm:text-base text-gray-300 max-w-md mx-auto md:mx-0 mb-6 sm:mb-8 leading-relaxed">
                 Diseños personalizados, filamentos premium y entrega en todo el país. Pedidos directos sin vueltas.
@@ -92,7 +92,9 @@ export default async function HomePage() {
               <div className="flex flex-col xs:flex-row gap-2.5 sm:gap-3 justify-center md:justify-start">
                 <Link
                   href="/filamentos"
-                  className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl px-5 sm:px-6 py-3 sm:py-3.5 transition-colors shadow-lg shadow-orange-500/30"
+                  className="inline-flex items-center justify-center gap-2 text-white font-bold text-sm rounded-xl px-5 sm:px-6 py-3 sm:py-3.5 transition-colors"
+                  style={{ backgroundColor: '#6d8f1f', boxShadow: '0 8px 24px #6d8f1f44' }}
+                  onMouseOver={undefined}
                 >
                   Ver filamentos →
                 </Link>
@@ -111,9 +113,12 @@ export default async function HomePage() {
             <div className="flex-none w-full md:w-auto flex justify-center md:justify-end">
               <div className="relative">
                 {/* Fondo con rotación leve */}
-                <div className="absolute inset-0 bg-orange-500 rounded-2xl rotate-2 opacity-40" />
-                <div className="relative bg-orange-500 border-2 border-orange-400 rounded-2xl px-7 sm:px-10 py-6 sm:py-8 text-center shadow-2xl shadow-orange-500/40">
-                  <p className="text-orange-100 text-xs sm:text-sm font-bold uppercase tracking-[0.2em] mb-1">
+                <div className="absolute inset-0 rounded-2xl rotate-2 opacity-40" style={{ backgroundColor: '#5a7a18' }} />
+                <div
+                  className="relative border-2 rounded-2xl px-7 sm:px-10 py-6 sm:py-8 text-center shadow-2xl"
+                  style={{ backgroundColor: '#4e6e14', borderColor: '#7aaa24', boxShadow: '0 20px 60px #4e6e1466' }}
+                >
+                  <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] mb-1" style={{ color: '#c8e87a' }}>
                     ★ Accedé a
                   </p>
                   <p className="text-white text-3xl sm:text-4xl font-black leading-none uppercase tracking-tight">
@@ -122,11 +127,11 @@ export default async function HomePage() {
                   <p className="text-white text-3xl sm:text-4xl font-black leading-none uppercase tracking-tight">
                     Mayoristas
                   </p>
-                  <div className="mt-3 h-px bg-white/30" />
-                  <p className="mt-3 text-orange-100 text-xs sm:text-sm leading-snug">
+                  <div className="mt-3 h-px bg-white/20" />
+                  <p className="mt-3 text-xs sm:text-sm leading-snug" style={{ color: '#c8e87a' }}>
                     Comprando {mejorDescuento?.min}+ kg<br />
                     <span className="font-black text-white text-base sm:text-lg">{fmtARS(mejorPrecio)} / kg</span>
-                    <span className="block text-orange-200 text-[10px] sm:text-xs mt-0.5">
+                    <span className="block text-[10px] sm:text-xs mt-0.5" style={{ color: '#a8cc5a' }}>
                       precio de lista {fmtARS(precioBase)}
                     </span>
                   </p>
