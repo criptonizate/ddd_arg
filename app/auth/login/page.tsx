@@ -1,6 +1,7 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
+import Image from 'next/image'
 
-export const metadata = { title: 'Iniciar sesión — DDD ARG' }
+export const metadata = { title: 'Acceder — DDD ARG' }
 
 export default async function LoginPage({
   searchParams,
@@ -10,36 +11,65 @@ export default async function LoginPage({
   const { error } = await searchParams
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-foreground mb-4">
-            <span className="text-2xl text-background font-bold">3D</span>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">DDD ARG</h1>
-          <p className="text-sm text-muted-foreground mt-1">Panel de administración</p>
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{ backgroundColor: 'oklch(0.13 0.005 264)' }}
+    >
+      <div className="w-full max-w-sm flex flex-col items-center gap-8">
+
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3">
+          <Image
+            src="/LogoDDDARG.png"
+            alt="DDD ARG"
+            width={511} height={339}
+            className="h-12 w-auto brightness-0 invert"
+            priority
+          />
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.52 0.006 264)' }}>
+            Panel de administración
+          </p>
         </div>
 
         {/* Card */}
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-          <h2 className="text-lg font-semibold mb-2">Acceder</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Iniciá sesión con tu cuenta de Google para acceder al panel.
+        <div
+          className="w-full rounded-2xl border p-8"
+          style={{
+            backgroundColor: 'oklch(0.19 0.005 264)',
+            borderColor: 'oklch(1 0 0 / 10%)',
+          }}
+        >
+          <h2 className="text-lg font-bold mb-1" style={{ color: 'oklch(0.92 0.005 264)' }}>
+            Bienvenido
+          </h2>
+          <p className="text-sm mb-7" style={{ color: 'oklch(0.50 0.006 264)' }}>
+            Iniciá sesión con tu cuenta de Google para acceder.
           </p>
 
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive mb-5">
+            <div
+              className="rounded-xl px-4 py-3 text-sm mb-5 border"
+              style={{
+                backgroundColor: 'oklch(0.25 0.05 25)',
+                borderColor: 'oklch(0.45 0.12 25)',
+                color: 'oklch(0.78 0.08 25)',
+              }}
+            >
               {error === 'unauthorized'
-                ? 'Tu cuenta no tiene acceso al panel de administración.'
-                : 'Ocurrió un error al iniciar sesión. Intentá de nuevo.'}
+                ? 'Tu cuenta no tiene acceso al panel.'
+                : 'Ocurrió un error. Intentá de nuevo.'}
             </div>
           )}
 
           <form action={signInWithGoogle}>
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-3 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-lg px-4 py-3 text-sm font-medium"
+              className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{
+                backgroundColor: 'oklch(0.26 0.005 264)',
+                border: '1px solid oklch(1 0 0 / 14%)',
+                color: 'oklch(0.90 0.005 264)',
+              }}
             >
               <GoogleIcon />
               Continuar con Google
@@ -47,9 +77,10 @@ export default async function LoginPage({
           </form>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          @DDD_ARG — Impresión 3D
+        <p className="text-xs" style={{ color: 'oklch(0.38 0.005 264)' }}>
+          © {new Date().getFullYear()} DDD ARG · Impresión 3D
         </p>
+
       </div>
     </div>
   )
@@ -57,23 +88,11 @@ export default async function LoginPage({
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path
-        d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-        fill="#EA4335"
-      />
+    <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+      <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
     </svg>
   )
 }
