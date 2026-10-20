@@ -1,4 +1,6 @@
 import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
+import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { createClient } from '@/lib/supabase/server'
 import FilamentosShop from '@/components/store/FilamentosShop'
 
@@ -11,6 +13,9 @@ export default async function FilamentosPage() {
     getFilamentosDisponibles(),
     supabase.auth.getUser(),
   ])
+
+  const membresia: MembresiaStatus | null = user ? await getMembresiaCliente(user.id) : null
+
   const filamentos = [...raw].sort((a, b) => {
     const stockA = a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos
     const stockB = b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos
@@ -25,7 +30,7 @@ export default async function FilamentosPage() {
           Stock disponible · Precio por kg · Descuentos por volumen automáticos
         </p>
       </div>
-      <FilamentosShop filamentos={filamentos} initialUser={user} />
+      <FilamentosShop filamentos={filamentos} initialUser={user} membresia={membresia} />
     </div>
   )
 }

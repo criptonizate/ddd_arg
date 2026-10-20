@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
+import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
@@ -381,7 +382,7 @@ function FilamentoCard({
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function FilamentosShop({ filamentos, initialUser }: { filamentos: Filamento[]; initialUser?: User | null }) {
+export default function FilamentosShop({ filamentos, initialUser, membresia: initialMembresia }: { filamentos: Filamento[]; initialUser?: User | null; membresia?: MembresiaStatus | null }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -402,6 +403,7 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
 
   // Restore cart saved before OAuth redirect
   useEffect(() => {
@@ -426,7 +428,15 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
       if (u?.user_metadata?.full_name) {
         setClienteNombre(prev => prev || String(u.user_metadata.full_name))
       }
-      if (u) setShowAuthModal(false)
+      if (u) {
+        setShowAuthModal(false)
+        // Fetch membership for newly logged-in user
+        import('@/lib/actions/filamento-pedidos').then(({ getMembresiaCliente }) => {
+          getMembresiaCliente(u.id).then(setMembresia)
+        })
+      } else {
+        setMembresia(null)
+      }
     })
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -482,7 +492,11 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
   }, [localFilamentos, matFilter, marcaFilter, search])
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
-  const { descuento, label: descLabel } = getDescuento(totalKg)
+  // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
+  const kgAcumulados = membresia?.kgPeriodo ?? 0
+  // El tier se calcula sobre el total efectivo: lo que ya compró + lo que está comprando ahora
+  const kgEfectivo = kgAcumulados + totalKg
+  const { descuento, label: descLabel } = getDescuento(kgEfectivo)
   const precioUnitario = PRECIO_BASE - descuento
   const subtotal = totalKg * precioUnitario
 
@@ -652,14 +666,24 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
       {/* Descuentos */}
       <div>
         <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#22c55e' }}>💰 Descuentos por volumen</p>
+
+        {/* Kg acumulados en membresía */}
+        {kgAcumulados > 0 && (
+          <div className="mb-2 text-[10px] px-2.5 py-1.5 rounded-lg border font-semibold"
+            style={{ backgroundColor: 'oklch(0.22 0.04 145)', borderColor: '#166534', color: '#4ade80' }}>
+            🏆 {kgAcumulados.toFixed(1)} kg ya comprados este período
+            {totalKg > 0 && <span className="text-white/60"> + {totalKg} kg carrito = {kgEfectivo.toFixed(1)} kg</span>}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           {[
             { min:  5, desc: 2000, activeStyle: { backgroundColor: '#166534', color: '#bbf7d0', borderColor: '#16a34a' } },
             { min: 10, desc: 3000, activeStyle: { backgroundColor: '#166534', color: '#d4ef8a', borderColor: '#22c55e' } },
             { min: 15, desc: 4000, activeStyle: { backgroundColor: '#166534', color: '#e0f59a', borderColor: '#4ade80' } },
           ].map(t => {
-            const activo = totalKg >= t.min
-            const faltan = t.min - totalKg
+            const activo = kgEfectivo >= t.min
+            const faltan = t.min - kgEfectivo
             const proximo = !activo && faltan <= 2 && faltan > 0
             return (
               <div
@@ -679,19 +703,19 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
           })}
         </div>
 
-        {/* Nudge: "te falta 1 kg para el siguiente tier" */}
+        {/* Nudge: "te falta X kg para el siguiente tier" */}
         {(() => {
           const tiers = [{ min: 5 }, { min: 10 }, { min: 15 }]
-          const siguiente = tiers.find(t => t.min > totalKg)
+          const siguiente = tiers.find(t => t.min > kgEfectivo)
           if (!siguiente) return null
-          const faltan = siguiente.min - totalKg
-          if (faltan > 2 || totalKg === 0) return null
+          const faltan = siguiente.min - kgEfectivo
+          if (faltan > 2 || kgEfectivo === 0) return null
           return (
             <p
               className="mt-2 text-[11px] font-bold text-center leading-tight rounded-lg px-2.5 py-2"
               style={{ backgroundColor: 'oklch(0.22 0.05 145)', color: '#4ade80' }}
             >
-              ⚡ ¡Agregá {faltan} kg más y bajás el precio!
+              ⚡ ¡Agregá {faltan.toFixed(1)} kg más y bajás el precio!
             </p>
           )
         })()}
@@ -745,6 +769,25 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
           {showFilters && (
             <div className="lg:hidden bg-card border border-border rounded-2xl p-4 mb-4">
               {filterSidebar}
+            </div>
+          )}
+
+          {/* Banner de membresía activa */}
+          {kgAcumulados > 0 && (
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl border"
+              style={{ backgroundColor: 'oklch(0.22 0.04 145)', borderColor: '#166534', color: '#4ade80' }}>
+              <span>🏆</span>
+              <span>
+                {membresia?.nivel
+                  ? `Mayorista ${membresia.nivel !== 'Mayorista' ? membresia.nivel : ''} activo`
+                  : 'Membresía activa'}
+                {' · '}
+                {kgAcumulados.toFixed(1)} kg acumulados este período
+                {descuento > 0
+                  ? <> · <strong style={{ color: '#86efac' }}>−{fmtARS(descuento)}/kg ya aplicado</strong></>
+                  : <> · te faltan {(5 - kgAcumulados).toFixed(1)} kg más para el primer descuento</>
+                }
+              </span>
             </div>
           )}
 
@@ -849,12 +892,17 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
 
             <div className="px-5 py-4 border-t border-border space-y-3">
               <div className="space-y-1">
+                {kgAcumulados > 0 && (
+                  <p className="text-[10px] px-2 pb-1 font-semibold" style={{ color: '#4ade80' }}>
+                    🏆 {kgAcumulados.toFixed(1)} kg acumulados + {totalKg} kg carrito = {kgEfectivo.toFixed(1)} kg total
+                  </p>
+                )}
                 {[{ min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 }].map(t => {
-                  const activo = totalKg >= t.min
-                  const faltan = t.min - totalKg
+                  const activo = kgEfectivo >= t.min
+                  const faltan = t.min - kgEfectivo
                   return (
                     <div key={t.min} className={`text-xs flex justify-between items-center px-2.5 py-1.5 rounded-lg ${activo ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300' : 'text-muted-foreground'}`}>
-                      <span>{activo ? '✓' : `+${faltan} kg`} {t.min}+ kg</span>
+                      <span>{activo ? '✓' : `+${faltan.toFixed(1)} kg`} {t.min}+ kg</span>
                       <span className="font-semibold">-{fmtARS(t.desc)}/kg</span>
                     </div>
                   )
