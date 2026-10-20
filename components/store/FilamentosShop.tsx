@@ -91,9 +91,9 @@ function FilamentoCard({
   return (
     <div className={`bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'border-orange-400 ring-1 ring-orange-300' : 'border-border'}`}>
 
-      {/* ── Área de color / imagen ── */}
+      {/* ── Área de imagen / carousel ── */}
       <div
-        className="relative h-36 flex items-center justify-center overflow-hidden"
+        className="relative h-40 flex items-center justify-center overflow-hidden select-none"
         style={fotoActual ? {} : {
           backgroundColor: css,
           backgroundImage: `radial-gradient(circle at 30% 30%, ${isLight ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)'} 0%, transparent 60%)`,
@@ -102,9 +102,10 @@ function FilamentoCard({
       >
         {fotoActual ? (
           <img
+            key={fotoIdx}
             src={fotoActual}
-            alt={`${f.color} ${f.material}`}
-            className="absolute inset-0 w-full h-full object-cover"
+            alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200"
           />
         ) : (
           <span
@@ -117,20 +118,39 @@ function FilamentoCard({
           />
         )}
 
-        {/* Miniaturas si hay más de 1 foto */}
+        {/* Flechas del carousel */}
         {fotos.length > 1 && (
-          <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 z-10">
-            {fotos.map((src, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setFotoIdx(i) }}
-                className={`w-6 h-6 rounded overflow-hidden border-2 transition-all ${i === fotoIdx ? 'border-white scale-110' : 'border-white/50 opacity-70'}`}
-              >
-                <img src={src} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setFotoIdx((fotoIdx - 1 + fotos.length) % fotos.length) }}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+              aria-label="Foto anterior"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setFotoIdx((fotoIdx + 1) % fotos.length) }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+              aria-label="Foto siguiente"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+
+            {/* Dots */}
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10">
+              {fotos.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFotoIdx(i) }}
+                  className={`rounded-full transition-all duration-200 ${i === fotoIdx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'}`}
+                  aria-label={`Foto ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {/* Material badge */}
@@ -153,7 +173,7 @@ function FilamentoCard({
         {/* Indicador en carrito */}
         {enCart > 0 && (
           <span className="absolute bottom-2 right-2 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10">
-            {enCart} kg en carrito
+            {enCart} kg
           </span>
         )}
       </div>
