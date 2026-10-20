@@ -254,6 +254,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
+  const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: typeof cart; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
   const [, startTransition] = useTransition()
 
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -325,14 +326,21 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   }
 
   function abrirWhatsApp(numero: number) {
+    const snap = pedidoSnapshot
+    if (!snap) return
+    const itemLines = snap.items.map(i =>
+      `  - ${i.rollos} kg de ${i.filamento.color} (${i.filamento.material} ${i.filamento.marca})`
+    )
     const lines = [
-      `Hola! Acabo de hacer el pedido N° ${numero} en tu web. 🎉`,
-      ``, `📋 *Detalle:*`,
-      ...cart.map(i => `• ${i.rollos}x ${i.filamento.color} — ${i.filamento.material} (${i.filamento.marca} ${shortNombre(i.filamento.nombre)})`),
-      ``, `📦 *${totalKg} kg*  ·  💰 *Total estimado: ${fmtARS(subtotal)}*`,
-      descuento > 0 ? `🏷️ Descuento: -${fmtARS(descuento)}/kg (${descLabel})` : null,
-      ``, `Quedo esperando tu confirmación para separar los filamentos.`,
-      `Entiendo que una vez que confirmes voy a abonar una seña o el total para que me los reservés. 🙌`,
+      `Hola! Hice el pedido N° ${numero} desde la web.`,
+      ``,
+      `*Detalle:*`,
+      ...itemLines,
+      ``,
+      `*Total: ${fmtARS(snap.subtotal)}* (${snap.kg} kg a ${fmtARS(snap.subtotal / snap.kg)}/kg)`,
+      snap.descuento > 0 ? `Descuento mayorista aplicado: -${fmtARS(snap.descuento)}/kg` : null,
+      ``,
+      `Quedo esperando confirmacion para coordinar el pago y la entrega.`,
     ].filter(Boolean).join('\n')
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines)}`, '_blank')
   }
@@ -351,6 +359,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
         total_rollos: totalKg, descuento_por_rollo: descuento, total: subtotal,
       })
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
+      setPedidoSnapshot({ items: cart, kg: totalKg, subtotal, descuento, descLabel })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
     })
   }
