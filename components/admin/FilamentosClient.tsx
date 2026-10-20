@@ -590,7 +590,7 @@ function FilamentoCard({
           </p>
           <p className="text-xs text-muted-foreground">
             {fil.rollos_cerrados > 0 ? `${fil.rollos_cerrados} rollo${fil.rollos_cerrados !== 1 ? 's' : ''}` : 'sin rollos'}
-            {fil.gramos_sueltos > 0 ? ` + ${Math.round(fil.gramos_sueltos)}g` : ''}
+            {fil.gramos_sueltos > 0 ? ` + ${fmtGr(fil.gramos_sueltos)}` : ''}
           </p>
         </div>
 
@@ -1520,7 +1520,7 @@ function VentaGlobalModal({
                             <span className="text-[10px] font-mono text-muted-foreground shrink-0">
                               {f.rollos_cerrados > 0 && `${f.rollos_cerrados} rol`}
                               {f.rollos_cerrados > 0 && f.gramos_sueltos > 0 && ' + '}
-                              {f.gramos_sueltos > 0 && `${f.gramos_sueltos}g`}
+                              {f.gramos_sueltos > 0 && fmtGr(f.gramos_sueltos)}
                             </span>
                           </button>
                         ))}
