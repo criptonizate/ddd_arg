@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus } from 'lucide-react'
-import { getVentasDeUsuario, registrarVentaFilamento, type UsuarioRegistrado } from '@/lib/actions/filamentos'
+import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 
@@ -137,6 +137,128 @@ function RegistrarVentaModal({
   )
 }
 
+// ── Modal vincular ventas históricas ─────────────────────────────────────────
+
+function VincularHistoricasModal({
+  usuario,
+  onClose,
+  onVinculadas,
+}: {
+  usuario: UsuarioRegistrado
+  onClose: () => void
+  onVinculadas: () => void
+}) {
+  const [grupos, setGrupos] = useState<GrupoVentasSinUsuario[] | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [procesando, setProcesando] = useState<string | null>(null)
+  const [vinculados, setVinculados] = useState<Set<string>>(new Set())
+  const [error, setError] = useState('')
+  const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    getVentasAgrupadasSinUsuario().then(setGrupos)
+  }, [])
+
+  const filtrados = grupos?.filter(g =>
+    !busqueda || g.cliente.toLowerCase().includes(busqueda.toLowerCase())
+  ) ?? []
+
+  function vincular(grupo: GrupoVentasSinUsuario) {
+    setProcesando(grupo.cliente)
+    setError('')
+    startTransition(async () => {
+      const res = await asignarUserAVentas(usuario.id, grupo.cliente)
+      if (res.error) { setError(res.error); setProcesando(null); return }
+      setVinculados(prev => new Set([...prev, grupo.cliente]))
+      setProcesando(null)
+      onVinculadas()
+    })
+  }
+
+  function fmtARS(n: number) {
+    return n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h3 className="font-semibold">🔗 Vincular ventas históricas</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Vinculando a <span className="font-medium text-foreground">{usuario.nombre}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+        </div>
+
+        <div className="px-5 pt-4 pb-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre del cliente..."
+              className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mx-5 mb-2 flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2.5 text-xs text-red-700 dark:text-red-400">
+            <AlertCircle size={13} className="shrink-0 mt-0.5" />{error}
+          </div>
+        )}
+
+        <div className="max-h-80 overflow-y-auto px-5 pb-5 space-y-2">
+          {grupos === null && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2 text-sm">
+              <Loader2 size={15} className="animate-spin" /> Cargando...
+            </div>
+          )}
+          {grupos !== null && filtrados.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-8">
+              {busqueda ? 'Sin coincidencias' : 'No hay ventas sin vincular'}
+            </p>
+          )}
+          {filtrados.map(g => {
+            const yaVinculado = vinculados.has(g.cliente)
+            const enProceso = procesando === g.cliente
+            return (
+              <div key={g.cliente} className={`flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 ${yaVinculado ? 'opacity-60' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{g.cliente}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {g.totalKg.toFixed(1)} kg · {fmtARS(g.totalPesos)} · {g.ids.length} venta{g.ids.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => vincular(g)}
+                  disabled={yaVinculado || !!enProceso}
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    yaVinculado
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                      : 'bg-foreground text-primary-foreground hover:opacity-90 disabled:opacity-50'
+                  }`}
+                >
+                  {enProceso ? <Loader2 size={11} className="animate-spin" /> : yaVinculado ? '✓ Vinculado' : 'Vincular'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="px-5 pb-5">
+          <button onClick={onClose} className="w-full py-2 text-sm border border-border rounded-lg hover:bg-secondary transition-colors">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Panel de detalle de usuario ───────────────────────────────────────────────
 
 function UserDetail({
@@ -152,6 +274,7 @@ function UserDetail({
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
   const [expandido, setExpandido] = useState<string | null>(null)
   const [showVenta, setShowVenta] = useState(false)
+  const [showVincular, setShowVincular] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -195,13 +318,21 @@ function UserDetail({
           <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">Registrado el {fmtDate(usuario.created_at)}</p>
         </div>
-        <button
-          onClick={() => setShowVenta(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
-        >
-          <Plus size={12} />
-          Registrar venta
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setShowVincular(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors"
+          >
+            🔗 Vincular
+          </button>
+          <button
+            onClick={() => setShowVenta(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground text-primary-foreground hover:opacity-90 transition-opacity"
+          >
+            <Plus size={12} />
+            Registrar venta
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -369,13 +500,22 @@ function UserDetail({
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modales */}
       {showVenta && (
         <RegistrarVentaModal
           usuario={usuario}
           filamentos={filamentos}
           onClose={() => setShowVenta(false)}
           onSaved={(v) => setVentas(prev => prev ? [v, ...prev] : [v])}
+        />
+      )}
+      {showVincular && (
+        <VincularHistoricasModal
+          usuario={usuario}
+          onClose={() => setShowVincular(false)}
+          onVinculadas={() => {
+            getVentasDeUsuario(usuario.id).then(setVentas)
+          }}
         />
       )}
     </div>
