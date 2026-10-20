@@ -24,6 +24,7 @@ import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
 import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
 import { createBrowserClient } from '@supabase/ssr'
+import InsumosAdminTab from './InsumosAdminTab'
 
 type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
 
@@ -2466,7 +2467,7 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
   const [showVentaGlobal, setShowVentaGlobal] = useState(false)
-  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes' | 'pedidos'>('stock')
+  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes' | 'pedidos' | 'insumos'>('stock')
 
   // Filtros
   const [filtroMarca, setFiltroMarca] = useState('')
@@ -2618,6 +2619,10 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'clientes' ? 'bg-blue-600 text-white border-blue-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-blue-400'}`}>
           👤 Clientes
         </button>
+        <button onClick={() => setTab('insumos')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'insumos' ? 'bg-orange-500 text-white border-orange-500' : 'border-border text-muted-foreground hover:text-foreground hover:border-orange-400'}`}>
+          📦 Insumos
+        </button>
         <a href="/admin/filamentos/vincular"
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-purple-400 transition-colors">
           🔗 Vincular historial
@@ -2627,6 +2632,7 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
       {tab === 'pedidos' && <PedidosPendientesTab filamentosDisponibles={filamentos} />}
       {tab === 'ventas' && <HistorialVentas />}
       {tab === 'clientes' && <ClientesFilamentoTab clientes={clientes} />}
+      {tab === 'insumos' && <InsumosAdminTab />}
 
       {tab === 'stock' && (
         <>

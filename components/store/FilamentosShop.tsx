@@ -740,7 +740,7 @@ export default function FilamentosShop({
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: MAT_COLORS[mat] ?? '#94a3b8' }} />
                 {mat}
               </span>
-              <span className="text-xs text-muted-foreground">{filamentos.filter(f => f.material === mat).length}</span>
+              <span className="text-xs text-muted-foreground">{localFilamentos.filter(f => f.material === mat).length}</span>
             </button>
           ))}
         </div>
@@ -765,7 +765,7 @@ export default function FilamentosShop({
               }`}
             >
               {m}
-              <span className="text-xs text-muted-foreground">{filamentos.filter(f => f.marca === m).length}</span>
+              <span className="text-xs text-muted-foreground">{localFilamentos.filter(f => f.marca === m).length}</span>
             </button>
           ))}
         </div>

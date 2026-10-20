@@ -109,6 +109,13 @@ export default function StoreHeader() {
             >
               🧵 Filamentos
             </Link>
+            <Link
+              href="/insumos"
+              className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors hover:text-[#16a34a]"
+              style={{ color: 'oklch(0.55 0.005 264)' }}
+            >
+              📦 Insumos
+            </Link>
           </nav>
 
           {/* Acciones derecha */}
