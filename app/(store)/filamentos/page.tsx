@@ -5,7 +5,12 @@ export const metadata = { title: 'Filamentos — DDD ARG' }
 export const dynamic = 'force-dynamic'
 
 export default async function FilamentosPage() {
-  const filamentos = await getFilamentosDisponibles()
+  const raw = await getFilamentosDisponibles()
+  const filamentos = [...raw].sort((a, b) => {
+    const stockA = a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos
+    const stockB = b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos
+    return stockB - stockA
+  })
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-10">

@@ -92,7 +92,14 @@ function FilamentoCard({
   const fotoActual = fotos[fotoIdx] ?? null
 
   return (
-    <div className={`bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'border-orange-400 ring-1 ring-orange-300' : 'border-border'}`}>
+    <div
+      className={`rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'ring-1' : ''}`}
+      style={{
+        backgroundColor: 'oklch(0.26 0.005 264)',
+        borderColor: enCart > 0 ? '#6d8f1f' : 'oklch(1 0 0 / 10%)',
+        ...(enCart > 0 ? { boxShadow: '0 0 0 1px #6d8f1f44' } : {}),
+      }}
+    >
 
       {/* ── Área de imagen / carousel ── */}
       <div
@@ -156,14 +163,6 @@ function FilamentoCard({
           </>
         )}
 
-        {/* Material badge */}
-        <span
-          className="absolute top-2.5 left-2.5 text-[10px] font-black px-2 py-0.5 rounded-full z-10"
-          style={{ backgroundColor: MAT_COLORS[f.material] ?? '#94a3b8', color: '#fff' }}
-        >
-          {f.material}
-        </span>
-
         {/* Stock badge */}
         <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 ${
           disponible >= 10 ? 'bg-green-500 text-white'
@@ -175,7 +174,7 @@ function FilamentoCard({
 
         {/* Indicador en carrito */}
         {enCart > 0 && (
-          <span className="absolute bottom-2 right-2 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10">
+          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10" style={{ backgroundColor: '#6d8f1f' }}>
             {enCart} kg
           </span>
         )}
@@ -183,24 +182,19 @@ function FilamentoCard({
 
       {/* ── Información ── */}
       <div className="p-3.5 flex flex-col gap-2.5">
-        <div>
-          <p className="font-bold text-sm leading-tight">{f.color}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{f.marca} · {shortNombre(f.nombre)}</p>
-        </div>
+        <p className="font-bold text-sm leading-tight">{f.color}</p>
 
-        <div className="flex items-end justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-base font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
-            {descuento > 0 && (
-              <p className="text-[11px] text-muted-foreground line-through">{fmtARS(PRECIO_BASE)}</p>
-            )}
             <p className="text-[10px] text-muted-foreground">por kg</p>
           </div>
-          {descuento > 0 && (
-            <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">
-              -{fmtARS(descuento)} OFF
-            </span>
-          )}
+          <span
+            className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0"
+            style={{ backgroundColor: MAT_COLORS[f.material] ?? '#94a3b8', color: '#fff' }}
+          >
+            {f.material}
+          </span>
         </div>
 
         {/* CTA */}
@@ -208,7 +202,8 @@ function FilamentoCard({
           <button
             onClick={onAdd}
             disabled={disponible === 0}
-            className="w-full flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-bold py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-1.5 text-white text-sm font-bold py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#6d8f1f' }}
           >
             <Plus size={14} />
             Agregar al carrito
