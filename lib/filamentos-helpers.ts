@@ -33,6 +33,7 @@ export interface Filamento {
   imagen_url?: string | null
   imagen_url_2?: string | null
   imagen_url_3?: string | null
+  gramos_reservados?: number
   created_at: string
   updated_at: string
 }

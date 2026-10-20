@@ -18,16 +18,33 @@ export async function getFilamentos(): Promise<Filamento[]> {
   return (data ?? []) as Filamento[]
 }
 
-// Público — sin auth, solo filamentos con stock disponible
+// Público — sin auth, solo filamentos con stock disponible (descuenta reservas activas)
 export async function getFilamentosDisponibles(): Promise<Filamento[]> {
   const supabase = createServiceClient()
-  const { data } = await supabase
-    .from('filamentos')
-    .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, imagen_url, imagen_url_2, imagen_url_3')
-    .or('rollos_cerrados.gt.0,gramos_sueltos.gt.100')
-    .order('material')
-    .order('color')
-  return (data ?? []) as Filamento[]
+  const now = new Date().toISOString()
+
+  const [{ data: fils }, { data: reservas }] = await Promise.all([
+    supabase
+      .from('filamentos')
+      .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, imagen_url, imagen_url_2, imagen_url_3')
+      .or('rollos_cerrados.gt.0,gramos_sueltos.gt.100')
+      .order('material')
+      .order('color'),
+    supabase
+      .from('filamento_reservas')
+      .select('filamento_id, gramos')
+      .gt('reservado_hasta', now),
+  ])
+
+  const porFilamento: Record<string, number> = {}
+  for (const r of (reservas ?? [])) {
+    porFilamento[r.filamento_id] = (porFilamento[r.filamento_id] ?? 0) + r.gramos
+  }
+
+  return (fils ?? []).map((f: any) => ({
+    ...f,
+    gramos_reservados: porFilamento[f.id] ?? 0,
+  })) as Filamento[]
 }
 
 export async function createFilamento(data: {

@@ -16,7 +16,7 @@ function fmtARS(v: number) {
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: '🚀 Dashboard' },
-  { href: '/admin/ventas', label: '📦 Pedidos', showBadge: true },
+  { href: '/admin/ventas', label: '📦 Pedidos', badge: 'pedidos' as const },
   { href: '/admin/finanzas', label: '💰 Finanzas' },
   { href: '/admin/negocios', label: '🏪 Negocios' },
   { href: '/admin/clientes', label: '👥 Clientes' },
@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: '/admin/calculadora', label: '🧮 Calculadora' },
   { href: '/admin/productos', label: '🛍️ Productos' },
   { href: '/admin/produccion', label: '🏭 Producción' },
-  { href: '/admin/filamentos', label: '🧵 Filamentos', showFilamentoBadge: true },
+  { href: '/admin/filamentos', label: '🧵 Filamentos', badge: 'filamentos' as const },
   { href: '/admin/gastos', label: '💸 Mis gastos' },
 ]
 
@@ -107,22 +107,17 @@ export default function AdminSidebar({
                 )}
               >
                 <span>{item.label}</span>
-                {item.showBadge && pendingCount > 0 && (
-                  <span className={cn(
-                    'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
-                    active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
-                  )}>
-                    {pendingCount}
-                  </span>
-                )}
-                {item.showFilamentoBadge && filamentoPendingCount > 0 && (
-                  <span className={cn(
-                    'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
-                    active ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                  )}>
-                    {filamentoPendingCount}
-                  </span>
-                )}
+                {(() => {
+                  const count = item.badge === 'pedidos' ? pendingCount : item.badge === 'filamentos' ? filamentoPendingCount : 0
+                  return count > 0 ? (
+                    <span className={cn(
+                      'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
+                      active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                    )}>
+                      {count}
+                    </span>
+                  ) : null
+                })()}
               </Link>
             )
           })}

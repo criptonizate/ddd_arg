@@ -1,12 +1,13 @@
 ﻿'use client'
 
-import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
-import { createBrowserClient } from '@supabase/ssr'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
 import { signInWithGoogleCliente } from '@/lib/actions/auth'
+import { createBrowserClient } from '@supabase/ssr'
+import type { User } from '@supabase/supabase-js'
 
 const WHATSAPP_NUMBER = '543804559909'
 const PRECIO_BASE = 22000
@@ -51,7 +52,68 @@ function fmtARS(n: number) {
 }
 
 function maxKg(f: Filamento): number {
-  return Math.floor((f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos) / 1000)
+  const totalGr = f.rollos_cerrados * f.peso_rollo_gr + f.gramos_sueltos
+  return Math.floor(Math.max(0, totalGr - (f.gramos_reservados ?? 0)) / 1000)
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function AuthModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden">
+        <div className="px-6 py-7 space-y-5">
+          <div className="text-center">
+            <div className="text-4xl mb-3">🔒</div>
+            <h2 className="text-lg font-bold mb-2">Ingresá para hacer tu pedido</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Necesitamos tu cuenta para que puedas ver el estado de tu pedido, historial de compras y acceder a{' '}
+              <span className="font-semibold text-orange-600 dark:text-orange-400">precios mayoristas</span> exclusivos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[
+              { icon: '📦', text: 'Estado del pedido en tiempo real' },
+              { icon: '📋', text: 'Historial de compras' },
+              { icon: '💰', text: 'Precios mayoristas exclusivos' },
+            ].map((b, i) => (
+              <div key={i} className="bg-secondary/60 rounded-xl p-3">
+                <div className="text-2xl mb-1">{b.icon}</div>
+                <p className="text-[10px] text-muted-foreground leading-tight">{b.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <form action={signInWithGoogleCliente}>
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-background hover:bg-secondary transition-colors text-sm font-semibold shadow-sm"
+            >
+              <GoogleIcon />
+              Continuar con Google
+            </button>
+          </form>
+
+          <button
+            onClick={onClose}
+            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 text-center"
+          >
+            Seguir viendo sin ingresar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 type CartItem = { filamento: Filamento; rollos: number }
@@ -240,7 +302,7 @@ function FilamentoCard({
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function FilamentosShop({ filamentos }: { filamentos: Filamento[] }) {
+export default function FilamentosShop({ filamentos, initialUser }: { filamentos: Filamento[]; initialUser?: User | null }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -250,40 +312,39 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
-  const [clienteNombre, setClienteNombre] = useState('')
+  const [clienteNombre, setClienteNombre] = useState(
+    initialUser?.user_metadata?.full_name ? String(initialUser.user_metadata.full_name) : ''
+  )
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
   const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: typeof cart; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
   const [, startTransition] = useTransition()
+  const [localFilamentos, setLocalFilamentos] = useState(filamentos)
+  const [user, setUser] = useState<User | null>(initialUser ?? null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const supabaseRef = useRef(createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ))
   useEffect(() => {
-    const supabase = supabaseRef.current
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user ?? null
-      setUser(u)
-      if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
-      if (u?.user_metadata?.phone) setClienteTelefono(u.user_metadata.phone)
-    })
-    const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange((_e, session) => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
-      if (u?.user_metadata?.phone) setClienteTelefono(u.user_metadata.phone)
+      if (u?.user_metadata?.full_name) {
+        setClienteNombre(prev => prev || String(u.user_metadata.full_name))
+      }
+      if (u) setShowAuthModal(false)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const marcas = useMemo(() => Array.from(new Set(filamentos.map(f => f.marca))).sort(), [filamentos])
-  const materiales = useMemo(() => Array.from(new Set(filamentos.map(f => f.material))).sort(), [filamentos])
+  const marcas = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.marca))).sort(), [localFilamentos])
+  const materiales = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.material))).sort(), [localFilamentos])
 
   const filtered = useMemo(() => {
-    let list = filamentos
+    let list = localFilamentos
     if (matFilter) list = list.filter(f => f.material === matFilter)
     if (marcaFilter) list = list.filter(f => f.marca === marcaFilter)
     if (search.trim()) {
@@ -295,7 +356,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       )
     }
     return list
-  }, [filamentos, matFilter, marcaFilter, search])
+  }, [localFilamentos, matFilter, marcaFilter, search])
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   const { descuento, label: descLabel } = getDescuento(totalKg)
@@ -303,7 +364,9 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   const subtotal = totalKg * precioUnitario
 
   function addToCart(f: Filamento) {
-    const max = maxKg(f)
+    if (!user) { setShowAuthModal(true); return }
+    const fil = localFilamentos.find(fl => fl.id === f.id) ?? f
+    const max = maxKg(fil)
     setCart(prev => {
       const existing = prev.find(i => i.filamento.id === f.id)
       if (existing) {
@@ -315,9 +378,18 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   }
 
   function setRollos(id: string, rollos: number) {
-    const max = cart.find(i => i.filamento.id === id) ? maxKg(cart.find(i => i.filamento.id === id)!.filamento) : 999
+    const fil = localFilamentos.find(f => f.id === id) ?? cart.find(i => i.filamento.id === id)?.filamento
+    const max = fil ? maxKg(fil) : 999
     if (rollos <= 0) setCart(prev => prev.filter(i => i.filamento.id !== id))
     else setCart(prev => prev.map(i => i.filamento.id === id ? { ...i, rollos: Math.min(rollos, max) } : i))
+  }
+
+  async function abrirCarrito() {
+    setShowCart(true)
+    try {
+      const fresh = await getFilamentosDisponibles()
+      setLocalFilamentos(fresh)
+    } catch { /* noop */ }
   }
 
   function removeFromCart(id: string) { setCart(prev => prev.filter(i => i.filamento.id !== id)) }
@@ -325,6 +397,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
   function abrirCheckout() {
     if (!cart.length) return
+    if (!user) { setShowCart(false); setShowAuthModal(true); return }
     setShowCheckout(true); setCheckoutStep('form'); setCheckoutError(''); setPedidoNumero(null)
   }
 
@@ -365,7 +438,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
       // Guardar teléfono en el perfil del usuario si lo ingresó
       if (user && clienteTelefono.trim()) {
-        supabaseRef.current.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
+        const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        sb.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
       }
       setPedidoSnapshot({ items: cart, kg: totalKg, subtotal, descuento, descLabel })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
@@ -395,7 +469,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
             onClick={() => setMatFilter('')}
             className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${!matFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
           >
-            Todos ({filamentos.length})
+            Todos ({localFilamentos.length})
           </button>
           {materiales.map(mat => (
             <button
@@ -580,7 +654,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       {/* ── Botón flotante del carrito ── */}
       {totalKg > 0 && (
         <button
-          onClick={() => setShowCart(true)}
+          onClick={abrirCarrito}
           className="fixed bottom-[env(safe-area-inset-bottom,0px)] mb-5 right-3 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none"
           style={{ marginBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}
         >
@@ -608,22 +682,34 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {cart.map(item => (
-                <div key={item.filamento.id} className="flex items-center gap-3">
-                  <span className="w-9 h-9 rounded-xl shrink-0 border border-black/10 shadow-sm"
-                    style={{ backgroundColor: colorToCss(item.filamento.color) }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{item.filamento.color}</p>
-                    <p className="text-xs text-muted-foreground">{item.filamento.marca} · {item.filamento.material}</p>
+              {cart.map(item => {
+                const filActual = localFilamentos.find(f => f.id === item.filamento.id) ?? item.filamento
+                const stockDisp = maxKg(filActual)
+                const sinStock = stockDisp === 0
+                const stockInsuf = !sinStock && item.rollos > stockDisp
+                return (
+                  <div key={item.filamento.id} className={`flex items-center gap-3 transition-opacity ${sinStock ? 'opacity-50' : ''}`}>
+                    <span className="w-9 h-9 rounded-xl shrink-0 border border-black/10 shadow-sm"
+                      style={{ backgroundColor: colorToCss(item.filamento.color) }} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold truncate ${sinStock ? 'line-through text-muted-foreground' : ''}`}>{item.filamento.color}</p>
+                      {sinStock ? (
+                        <p className="text-[10px] text-red-500 font-semibold">Sin stock — reservado por otro cliente</p>
+                      ) : stockInsuf ? (
+                        <p className="text-[10px] text-amber-600 font-medium">Solo {stockDisp} kg disponibles</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{item.filamento.marca} · {item.filamento.material}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="p-1 rounded-md border border-border hover:bg-secondary"><Minus size={11} /></button>
+                      <span className="text-sm font-bold w-6 text-center">{item.rollos}</span>
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="p-1 rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={11} /></button>
+                      <button onClick={() => removeFromCart(item.filamento.id)} className="p-1 rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={11} /></button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="p-1 rounded-md border border-border hover:bg-secondary"><Minus size={11} /></button>
-                    <span className="text-sm font-bold w-6 text-center">{item.rollos}</span>
-                    <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={item.rollos >= maxKg(item.filamento)} className="p-1 rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={11} /></button>
-                    <button onClick={() => removeFromCart(item.filamento.id)} className="p-1 rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={11} /></button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="px-5 py-4 border-t border-border space-y-3">
@@ -656,12 +742,28 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                 </div>
                 <p className="text-[10px] text-muted-foreground text-center">El vendedor confirmará disponibilidad y precio final</p>
               </div>
-              <button
-                onClick={() => { setShowCart(false); abrirCheckout() }}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors"
-              >
-                Confirmar pedido →
-              </button>
+              {(() => {
+                const hayProblemas = cart.some(item => {
+                  const filActual = localFilamentos.find(f => f.id === item.filamento.id) ?? item.filamento
+                  return maxKg(filActual) === 0
+                })
+                return (
+                  <>
+                    {hayProblemas && (
+                      <p className="text-[11px] text-red-500 text-center">
+                        Algunos items no tienen stock disponible. Quitálos del carrito para continuar.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => { setShowCart(false); abrirCheckout() }}
+                      disabled={hayProblemas}
+                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-secondary disabled:text-muted-foreground text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors disabled:cursor-not-allowed"
+                    >
+                      {!user ? '🔒 Ingresá para confirmar' : 'Confirmar pedido →'}
+                    </button>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -791,6 +893,8 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
           </div>
         </div>
       )}
+
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   )
 }

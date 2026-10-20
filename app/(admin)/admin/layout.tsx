@@ -14,10 +14,10 @@ export default async function AdminLayout({
   const user = await getAdminUser()
   if (!user) redirect('/auth/login')
 
-  const [pendingCount, calculadoraConfig, filamentoPendingCount] = await Promise.all([
+  const [pendingCount, filamentoPendingCount, calculadoraConfig] = await Promise.all([
     getPendingOrdersCount(),
-    getCalculadoraConfig(),
     getFilamentoPedidosPendientesCount(),
+    getCalculadoraConfig(),
   ])
 
   return (

@@ -29,7 +29,7 @@ export interface FilamentoPedido {
   updated_at: string
 }
 
-// ── Público: crear pedido sin auth ─────────────────────────────────────────
+// ── Público: crear pedido (requiere login) ─────────────────────────────────
 
 export async function crearPedidoFilamento(data: {
   cliente_nombre: string
@@ -42,16 +42,15 @@ export async function crearPedidoFilamento(data: {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (!data.items.length) return { error: 'El carrito está vacío' }
 
-  // Intentar obtener el user_id si el cliente está logueado
-  let userId: string | null = null
-  try {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabaseAuth = await createClient()
-    const { data: { user } } = await supabaseAuth.auth.getUser()
-    userId = user?.id ?? null
-  } catch { /* anonymous order */ }
+  // Login obligatorio para hacer un pedido
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabaseAuth = await createClient()
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) return { error: 'Necesitás iniciar sesión para hacer un pedido' }
 
   const supabase = createServiceClient()
+  const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
+
   const { data: row, error } = await supabase
     .from('filamento_pedidos')
     .insert({
@@ -62,12 +61,26 @@ export async function crearPedidoFilamento(data: {
       descuento_por_rollo: data.descuento_por_rollo,
       total: data.total,
       estado: 'pendiente',
-      user_id: userId,
+      reservado_hasta: reservadoHasta,
+      user_id: user.id,
     })
     .select('id, numero')
     .single()
 
   if (error) return { error: error.message }
+
+  // Reservar stock por 3h para cada item
+  if (data.items.length > 0) {
+    await supabase
+      .from('filamento_reservas')
+      .insert(data.items.map(item => ({
+        pedido_id: row.id,
+        filamento_id: item.filamento_id,
+        gramos: Math.round(item.rollos * 1000),
+        reservado_hasta: reservadoHasta,
+      })))
+  }
+
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
   return { numero: row.numero, id: row.id }
@@ -99,6 +112,10 @@ export async function updateEstadoPedidoFilamento(
     .update({ estado, ...(nota !== undefined ? { nota } : {}), updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) return { error: error.message }
+  // Al cancelar, liberar la reserva de stock
+  if (estado === 'cancelado') {
+    await supabase.from('filamento_reservas').delete().eq('pedido_id', id)
+  }
   revalidatePath('/admin/filamentos')
   return {}
 }
@@ -196,6 +213,9 @@ export async function confirmarPedidoYDescontarStock(
     .eq('id', pedidoId)
 
   if (updErr) return { error: updErr.message }
+
+  // Liberar reserva de stock (ya fue descontado del stock real)
+  await supabase.from('filamento_reservas').delete().eq('pedido_id', pedidoId)
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/filamentos')

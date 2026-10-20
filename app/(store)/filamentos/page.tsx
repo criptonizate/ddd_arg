@@ -1,11 +1,16 @@
 import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+import { createClient } from '@/lib/supabase/server'
 import FilamentosShop from '@/components/store/FilamentosShop'
 
 export const metadata = { title: 'Filamentos — DDD ARG' }
 export const dynamic = 'force-dynamic'
 
 export default async function FilamentosPage() {
-  const raw = await getFilamentosDisponibles()
+  const supabase = await createClient()
+  const [raw, { data: { user } }] = await Promise.all([
+    getFilamentosDisponibles(),
+    supabase.auth.getUser(),
+  ])
   const filamentos = [...raw].sort((a, b) => {
     const stockA = a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos
     const stockB = b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos
@@ -20,7 +25,7 @@ export default async function FilamentosPage() {
           Stock disponible · Precio por kg · Descuentos por volumen automáticos
         </p>
       </div>
-      <FilamentosShop filamentos={filamentos} />
+      <FilamentosShop filamentos={filamentos} initialUser={user} />
     </div>
   )
 }
