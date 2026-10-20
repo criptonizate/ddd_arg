@@ -579,3 +579,65 @@ export async function limpiarCarritoUsuario(): Promise<void> {
     .from('filamento_carrito')
     .upsert({ user_id: user.id, items: [], updated_at: new Date().toISOString() })
 }
+
+// ── Admin: demanda ────────────────────────────────────────────────────────────
+
+export interface DemandaFilamento {
+  filamento_id: string
+  color: string
+  material: string
+  marca: string
+  alertas: number
+  carrito_rollos: number
+  carrito_usuarios: number
+}
+
+export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const [{ data: alertas }, { data: carritos }, { data: fils }] = await Promise.all([
+    supabase.from('filamento_alertas_stock').select('filamento_id'),
+    supabase.from('filamento_carrito').select('user_id, items').neq('items', '[]'),
+    supabase.from('filamentos').select('id, color, material, marca'),
+  ])
+
+  const filMap: Record<string, { color: string; material: string; marca: string }> = {}
+  for (const f of (fils ?? [])) filMap[f.id] = { color: f.color, material: f.material, marca: f.marca }
+
+  // Agrupar alertas por filamento_id
+  const alertCount: Record<string, number> = {}
+  for (const a of (alertas ?? [])) {
+    alertCount[a.filamento_id] = (alertCount[a.filamento_id] ?? 0) + 1
+  }
+
+  // Agrupar carritos por filamento_id
+  const carritoRollos: Record<string, number> = {}
+  const carritoUsuarios: Record<string, Set<string>> = {}
+  for (const cart of (carritos ?? [])) {
+    for (const item of (cart.items ?? []) as { filamento_id: string; rollos: number }[]) {
+      if (!item.filamento_id) continue
+      carritoRollos[item.filamento_id] = (carritoRollos[item.filamento_id] ?? 0) + (item.rollos ?? 0)
+      if (!carritoUsuarios[item.filamento_id]) carritoUsuarios[item.filamento_id] = new Set()
+      carritoUsuarios[item.filamento_id].add(cart.user_id)
+    }
+  }
+
+  const allIds = new Set([...Object.keys(alertCount), ...Object.keys(carritoRollos)])
+  const result: DemandaFilamento[] = []
+  for (const id of allIds) {
+    const fil = filMap[id]
+    if (!fil) continue
+    result.push({
+      filamento_id: id,
+      color: fil.color,
+      material: fil.material,
+      marca: fil.marca,
+      alertas: alertCount[id] ?? 0,
+      carrito_rollos: carritoRollos[id] ?? 0,
+      carrito_usuarios: carritoUsuarios[id]?.size ?? 0,
+    })
+  }
+
+  return result.sort((a, b) => (b.alertas + b.carrito_rollos) - (a.alertas + a.carrito_rollos))
+}

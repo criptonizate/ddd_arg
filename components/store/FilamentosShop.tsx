@@ -440,6 +440,7 @@ export default function FilamentosShop({
   const [sortBy, setSortBy] = useState<SortOption>('stock')
   const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
   const [alertando, setAlertando] = useState<string | null>(null)
+  const [alertToast, setAlertToast] = useState(false)
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
@@ -629,7 +630,11 @@ export default function FilamentosShop({
     const { suscribirAlertaStock } = await import('@/lib/actions/filamentos')
     const result = await suscribirAlertaStock(filamentoId)
     setAlertando(null)
-    if (!result.error) setMisAlertas(prev => [...prev, filamentoId])
+    if (!result.error) {
+      setMisAlertas(prev => [...prev, filamentoId])
+      setAlertToast(true)
+      setTimeout(() => setAlertToast(false), 5000)
+    }
   }
 
   function sortByStock<T extends { rollos_cerrados: number; peso_rollo_gr: number; gramos_sueltos: number }>(arr: T[]): T[] {
@@ -985,7 +990,9 @@ export default function FilamentosShop({
                           className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-2 rounded-xl border transition-colors disabled:cursor-default"
                           style={yaAlertado
                             ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
-                            : { backgroundColor: 'oklch(0.26 0.005 264)', borderColor: 'oklch(1 0 0 / 15%)', color: 'oklch(0.70 0.006 264)' }
+                            : cargando
+                              ? { backgroundColor: 'oklch(0.26 0.005 264)', borderColor: 'oklch(1 0 0 / 15%)', color: 'oklch(0.70 0.006 264)' }
+                              : { backgroundColor: '#7c3aed', borderColor: '#6d28d9', color: '#ffffff' }
                           }
                         >
                           {yaAlertado
@@ -1282,6 +1289,22 @@ export default function FilamentosShop({
       )}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={loginConCarrito} />}
+
+      {/* Toast: alerta de stock registrada */}
+      <div
+        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 pointer-events-none ${alertToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+        style={{ width: 'min(92vw, 360px)' }}
+      >
+        <div className="flex items-start gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm"
+          style={{ backgroundColor: '#1e1b4b', border: '1px solid #4c1d95', color: '#e9d5ff' }}>
+          <Bell size={16} className="shrink-0 mt-0.5" style={{ color: '#a78bfa' }} />
+          <p className="leading-snug">
+            <span className="font-bold block">¡Listo, te anotamos!</span>
+            Te avisamos en cuanto vuelva a haber stock. Para recibir la notificación, asegurate de tener tu número de teléfono en{' '}
+            <a href="/cuenta" className="underline" style={{ color: '#c4b5fd' }} onClick={() => setAlertToast(false)}>Mi cuenta</a>.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
