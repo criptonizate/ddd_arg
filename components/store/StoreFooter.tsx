@@ -38,36 +38,48 @@ export default function StoreFooter() {
         style={{ borderColor: 'oklch(1 0 0 / 8%)' }}
       >
         <div className="max-w-6xl mx-auto px-4 py-10">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex flex-col md:flex-row gap-6 items-stretch">
+
+            {/* Foto del local */}
+            <div className="flex-1 rounded-xl overflow-hidden relative" style={{ minHeight: 220 }}>
+              <Image
+                src="/foto-local.jpg"
+                alt="Local DDD ARG"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 60vw"
+              />
+            </div>
+
             {/* Info */}
-            <div className="md:w-1/3 shrink-0">
-              <h3 className="text-sm font-bold mb-1" style={{ color: 'oklch(0.85 0.005 264)' }}>📍 Dónde encontrarnos</h3>
-              <p className="text-xs mb-4" style={{ color: 'oklch(0.50 0.006 264)' }}>
-                Visitanos en nuestro local para ver los materiales en persona o retirar tu pedido.
-              </p>
+            <div className="md:w-64 shrink-0 flex flex-col justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black mb-1" style={{ color: 'oklch(0.88 0.005 264)' }}>📍 Dónde encontrarnos</h3>
+                <p className="text-xs leading-relaxed" style={{ color: 'oklch(0.52 0.006 264)' }}>
+                  Visitanos en nuestro local para ver los materiales en persona o retirar tu pedido.
+                </p>
+              </div>
+
               <a
                 href={MAP_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg transition-colors hover:opacity-80"
-                style={{ backgroundColor: '#7a9e27', color: '#fff' }}
+                className="inline-flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-colors hover:opacity-80 text-sm font-bold"
+                style={{
+                  backgroundColor: 'oklch(0.22 0.005 264)',
+                  borderColor: 'oklch(1 0 0 / 12%)',
+                  color: 'oklch(0.85 0.005 264)',
+                }}
               >
-                Cómo llegar →
+                {/* Google Maps icon */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/>
+                  <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+                </svg>
+                Ver en Google Maps
               </a>
             </div>
-            {/* Mapa */}
-            <div className="flex-1 w-full rounded-xl overflow-hidden" style={{ height: 200 }}>
-              <iframe
-                src={`https://maps.google.com/maps?q=DDD+ARG+impresion+3d&output=embed&z=15`}
-                width="100%"
-                height="200"
-                style={{ border: 0, display: 'block' }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación DDD ARG"
-              />
-            </div>
+
           </div>
         </div>
       </div>
