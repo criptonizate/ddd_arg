@@ -327,8 +327,18 @@ function FilamentoCard({
 
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-base font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
-            <p className="text-[10px] text-muted-foreground">por kg</p>
+            {descuento > 0 ? (
+              <>
+                <p className="text-[11px] text-muted-foreground line-through leading-none">{fmtARS(PRECIO_BASE)}</p>
+                <p className="text-base font-black leading-none" style={{ color: '#4ade80' }}>{fmtARS(precioUnitario)}</p>
+                <p className="text-[10px] font-semibold" style={{ color: '#4ade80' }}>−{fmtARS(descuento)}/kg</p>
+              </>
+            ) : (
+              <>
+                <p className="text-base font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
+                <p className="text-[10px] text-muted-foreground">por kg</p>
+              </>
+            )}
           </div>
           <span
             className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0"
