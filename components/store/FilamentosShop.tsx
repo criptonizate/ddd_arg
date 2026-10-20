@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useMemo, useTransition, useEffect } from 'react'
+import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
@@ -258,20 +258,23 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   const [, startTransition] = useTransition()
 
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const supabaseRef = useRef(createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ))
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseRef.current
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null
       setUser(u)
       if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
+      if (u?.user_metadata?.phone) setClienteTelefono(u.user_metadata.phone)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabaseRef.current.onAuthStateChange((_e, session) => {
       const u = session?.user ?? null
       setUser(u)
       if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
+      if (u?.user_metadata?.phone) setClienteTelefono(u.user_metadata.phone)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -360,6 +363,10 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
         total_rollos: totalKg, descuento_por_rollo: descuento, total: subtotal,
       })
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
+      // Guardar teléfono en el perfil del usuario si lo ingresó
+      if (user && clienteTelefono.trim()) {
+        supabaseRef.current.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
+      }
       setPedidoSnapshot({ items: cart, kg: totalKg, subtotal, descuento, descLabel })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
     })
