@@ -19,7 +19,7 @@ import {
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
-import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
+import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
 import { createBrowserClient } from '@supabase/ssr'
 
 type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
@@ -1805,6 +1805,8 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
   const [error, setError] = useState('')
   const [editModal, setEditModal] = useState<{ pedido: FilamentoPedido; items: FilamentoPedidoItem[] } | null>(null)
   const [editError, setEditError] = useState('')
+  const [anularModal, setAnularModal] = useState<{ id: string; numero: number } | null>(null)
+  const [anularNota, setAnularNota] = useState('')
   const [, startTransition] = useTransition()
 
   useEffect(() => {
@@ -1858,6 +1860,25 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
       await updateEstadoPedidoFilamento(id, 'entregado')
       setPedidos(prev => prev.filter(p => p.id !== id))
       setProcesando(null)
+    })
+  }
+
+  function ejecutarAnular() {
+    if (!anularModal) return
+    const { id } = anularModal
+    setAnularModal(null)
+    setProcesando(id)
+    setError('')
+    startTransition(async () => {
+      const result = await anularPedidoConfirmado(id, anularNota || undefined)
+      if (result.error) {
+        setError(result.error)
+        setProcesando(null)
+        return
+      }
+      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: 'cancelado', nota: anularNota || 'Anulado por admin (stock restaurado)' } : p))
+      setProcesando(null)
+      setSubtab('cancelado')
     })
   }
 
@@ -2039,14 +2060,31 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                       </>
                     )}
                     {p.estado === 'confirmado' && (
-                      <button
-                        onClick={() => marcarEntregado(p.id)}
-                        disabled={isProcesando}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                      >
-                        <Package size={13} />
-                        Marcar como entregado
-                      </button>
+                      <>
+                        <button
+                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError('') }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-secondary text-sm font-medium transition-colors"
+                        >
+                          <Pencil size={13} />
+                          Editar pedido
+                        </button>
+                        <button
+                          onClick={() => { setAnularModal({ id: p.id, numero: p.numero }); setAnularNota('') }}
+                          disabled={isProcesando}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          <X size={13} />
+                          Anular pedido
+                        </button>
+                        <button
+                          onClick={() => marcarEntregado(p.id)}
+                          disabled={isProcesando}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          {isProcesando ? <Loader2 size={13} className="animate-spin" /> : <Package size={13} />}
+                          Marcar como entregado
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -2066,6 +2104,13 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
             </div>
             <div className="p-5 space-y-4">
               <p className="text-xs text-muted-foreground">Cliente: <span className="font-medium text-foreground">{editModal.pedido.cliente_nombre}</span></p>
+
+              {editModal.pedido.estado === 'confirmado' && (
+                <div className="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl px-3 py-2.5 text-xs text-yellow-800 dark:text-yellow-300">
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                  El stock ya fue descontado al confirmar. Editar los ítems solo actualiza el detalle del pedido; el stock <strong>no se ajusta automáticamente</strong>.
+                </div>
+              )}
 
               {/* Items editables */}
               <div className="space-y-3">
@@ -2213,6 +2258,45 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                   }`}
                 >
                   {notaModal.accion === 'confirmar' ? 'Sí, confirmar' : 'Sí, cancelar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal anular pedido confirmado */}
+      {anularModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm">
+            <div className="p-5 space-y-4">
+              <h3 className="font-semibold">🔴 Anular pedido confirmado N°{anularModal.numero}</h3>
+              <p className="text-sm text-muted-foreground">
+                Se revertirá la confirmación: el stock de cada ítem se <strong>restaurará automáticamente</strong> y el pedido pasará a cancelado.
+              </p>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo (opcional)</label>
+                <input
+                  type="text"
+                  value={anularNota}
+                  onChange={e => setAnularNota(e.target.value)}
+                  placeholder="ej. Cliente desistió, error de carga..."
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAnularModal(null)}
+                  className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary transition-colors"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={ejecutarAnular}
+                  className="flex-1 px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
+                >
+                  Sí, anular y restaurar stock
                 </button>
               </div>
             </div>
