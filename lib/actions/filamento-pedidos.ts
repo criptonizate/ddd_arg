@@ -25,6 +25,7 @@ export interface FilamentoPedido {
   descuento_por_rollo: number
   total: number
   nota: string | null
+  reservado_hasta: string | null
   created_at: string
   updated_at: string
 }
@@ -403,6 +404,36 @@ export async function anularPedidoConfirmado(
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/filamentos')
+  revalidatePath('/cuenta')
+  return {}
+}
+
+// Público — el cliente puede cancelar sus propios pedidos pendientes
+export async function cancelarMiPedido(pedidoId: string): Promise<{ error?: string }> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const db = createServiceClient()
+  const { data: pedido } = await db
+    .from('filamento_pedidos')
+    .select('id, estado, user_id')
+    .eq('id', pedidoId)
+    .single()
+
+  if (!pedido || pedido.user_id !== user.id) return { error: 'Pedido no encontrado' }
+  if (pedido.estado !== 'pendiente') return { error: 'Solo podés cancelar pedidos pendientes de confirmación' }
+
+  const { error } = await db
+    .from('filamento_pedidos')
+    .update({ estado: 'cancelado', updated_at: new Date().toISOString() })
+    .eq('id', pedidoId)
+
+  if (error) return { error: error.message }
+
+  await db.from('filamento_reservas').delete().eq('pedido_id', pedidoId)
+
   revalidatePath('/cuenta')
   return {}
 }

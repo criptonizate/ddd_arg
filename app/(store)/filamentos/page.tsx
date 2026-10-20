@@ -1,4 +1,4 @@
-import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+import { getFilamentosDisponibles, getFilamentosAgotados, getMisAlertasStock } from '@/lib/actions/filamentos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { createClient } from '@/lib/supabase/server'
@@ -9,12 +9,16 @@ export const dynamic = 'force-dynamic'
 
 export default async function FilamentosPage() {
   const supabase = await createClient()
-  const [raw, { data: { user } }] = await Promise.all([
+  const [raw, agotados, { data: { user } }] = await Promise.all([
     getFilamentosDisponibles(),
+    getFilamentosAgotados(),
     supabase.auth.getUser(),
   ])
 
-  const membresia: MembresiaStatus | null = user ? await getMembresiaCliente(user.id) : null
+  const [membresia, alertasIniciales] = await Promise.all([
+    user ? getMembresiaCliente(user.id) : Promise.resolve(null),
+    user ? getMisAlertasStock() : Promise.resolve([]),
+  ])
 
   const filamentos = [...raw].sort((a, b) => {
     const stockA = a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos
@@ -30,7 +34,13 @@ export default async function FilamentosPage() {
           Stock disponible · Precio por kg · Descuentos por volumen automáticos
         </p>
       </div>
-      <FilamentosShop filamentos={filamentos} initialUser={user} membresia={membresia} />
+      <FilamentosShop
+        filamentos={filamentos}
+        agotados={agotados}
+        alertasIniciales={alertasIniciales}
+        initialUser={user}
+        membresia={membresia}
+      />
     </div>
   )
 }

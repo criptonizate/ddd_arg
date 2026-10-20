@@ -1,7 +1,7 @@
 ﻿'use client'
 
-import { useState, useMemo, useTransition, useEffect } from 'react'
-import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
+import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
+import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
@@ -126,6 +126,15 @@ const MAT_COLORS: Record<string, string> = {
   PLA:  '#22c55e', PETG: '#3b82f6', TPU: '#a855f7', ABS: '#f97316', ASA: '#eab308',
 }
 
+const MAT_INFO: Record<string, string> = {
+  PLA:  'Fácil de imprimir. Ideal para prototipos y decoración. No tolera altas temperaturas.',
+  PETG: 'Resistente y flexible. Tolera algo de calor. Bueno para piezas funcionales.',
+  TPU:  'Flexible y elástico. Ideal para piezas que necesitan doblar o absorber impactos.',
+  ABS:  'Resistente al calor. Requiere temperatura estable y enclosure. Puede curlar.',
+  ASA:  'Como ABS pero con resistencia UV. Perfecto para uso exterior.',
+  SILK: 'Acabado brillante y sedoso. Igual proceso que PLA. Solo decorativo.',
+}
+
 // ── Helpers visuales ──────────────────────────────────────────────────────────
 
 function colorIsLight(hex: string): boolean {
@@ -225,6 +234,7 @@ function FilamentoCard({
   const fotos = [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
   const [fotoIdx, setFotoIdx] = useState(0)
   const [lightbox, setLightbox] = useState(false)
+  const [showMatInfo, setShowMatInfo] = useState(false)
   const fotoActual = fotos[fotoIdx] ?? null
 
   return (
@@ -340,12 +350,26 @@ function FilamentoCard({
               </>
             )}
           </div>
-          <span
-            className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0"
-            style={{ backgroundColor: MAT_COLORS[f.material] ?? '#94a3b8', color: '#fff' }}
-          >
-            {f.material}
-          </span>
+          <div className="relative shrink-0">
+            <span
+              className="text-[10px] font-black px-2 py-0.5 rounded-full cursor-help"
+              style={{ backgroundColor: MAT_COLORS[f.material] ?? '#94a3b8', color: '#fff' }}
+              onMouseEnter={() => setShowMatInfo(true)}
+              onMouseLeave={() => setShowMatInfo(false)}
+              onClick={() => setShowMatInfo(v => !v)}
+            >
+              {f.material}
+            </span>
+            {showMatInfo && MAT_INFO[f.material] && (
+              <div
+                className="absolute bottom-full right-0 mb-1.5 w-52 text-[11px] leading-snug bg-popover border border-border rounded-xl px-3 py-2 shadow-xl z-20 text-left font-normal pointer-events-none"
+                style={{ color: 'oklch(0.80 0.005 264)' }}
+              >
+                <strong className="block mb-0.5" style={{ color: 'oklch(0.95 0 0)' }}>{f.material}</strong>
+                {MAT_INFO[f.material]}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* CTA */}
@@ -392,13 +416,30 @@ function FilamentoCard({
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function FilamentosShop({ filamentos, initialUser, membresia: initialMembresia }: { filamentos: Filamento[]; initialUser?: User | null; membresia?: MembresiaStatus | null }) {
+type SortOption = 'stock' | 'az' | 'material' | 'precio'
+
+export default function FilamentosShop({
+  filamentos,
+  agotados = [],
+  alertasIniciales = [],
+  initialUser,
+  membresia: initialMembresia,
+}: {
+  filamentos: Filamento[]
+  agotados?: Filamento[]
+  alertasIniciales?: string[]
+  initialUser?: User | null
+  membresia?: MembresiaStatus | null
+}) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [search, setSearch] = useState('')
   const [matFilter, setMatFilter] = useState<string>('')
   const [marcaFilter, setMarcaFilter] = useState<string>('')
+  const [sortBy, setSortBy] = useState<SortOption>('stock')
+  const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
+  const [alertando, setAlertando] = useState<string | null>(null)
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
@@ -414,6 +455,19 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
+  const cartSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Item 5 — Debounced save del carrito a la DB cuando cambia
+  useEffect(() => {
+    if (!user) return
+    if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current)
+    cartSaveTimer.current = setTimeout(() => {
+      import('@/lib/actions/filamentos').then(({ saveCarritoUsuario }) => {
+        saveCarritoUsuario(cart.map(i => ({ filamento_id: i.filamento.id, rollos: i.rollos })))
+      })
+    }, 2000)
+    return () => { if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current) }
+  }, [cart, user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore cart saved before OAuth redirect, reconciling against current stock
   useEffect(() => {
@@ -430,7 +484,7 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
               if (!fil) return []
               const max = maxKg(fil)
               if (max <= 0) return []
-              return [{ ...item, filamento: fil, kg: Math.min(item.kg, max) }]
+              return [{ ...item, filamento: fil, rollos: Math.min(item.rollos, max) }]
             })
           })
         }
@@ -455,6 +509,22 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
         // Fetch membership for newly logged-in user
         import('@/lib/actions/filamento-pedidos').then(({ getMembresiaCliente }) => {
           getMembresiaCliente(u.id).then(setMembresia)
+        })
+        // Item 5 — Cargar carrito guardado en DB (solo si el carrito actual está vacío)
+        import('@/lib/actions/filamentos').then(({ getCarritoUsuario }) => {
+          getCarritoUsuario().then(savedItems => {
+            if (savedItems.length === 0) return
+            setCart(prev => {
+              if (prev.length > 0) return prev
+              return savedItems.flatMap(item => {
+                const fil = localFilamentos.find(f => f.id === item.filamento_id)
+                if (!fil) return []
+                const max = maxKg(fil)
+                if (max <= 0) return []
+                return [{ filamento: fil, rollos: Math.min(item.rollos, max) }]
+              })
+            })
+          })
         })
       } else {
         setMembresia(null)
@@ -510,8 +580,13 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
         f.marca.toLowerCase().includes(q)
       )
     }
+    list = [...list]
+    if (sortBy === 'az') list.sort((a, b) => a.color.localeCompare(b.color, 'es'))
+    else if (sortBy === 'material') list.sort((a, b) => a.material.localeCompare(b.material, 'es') || a.color.localeCompare(b.color, 'es'))
+    else if (sortBy === 'precio') list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    else list.sort((a, b) => (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos))
     return list
-  }, [localFilamentos, matFilter, marcaFilter, search])
+  }, [localFilamentos, matFilter, marcaFilter, search, sortBy])
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
@@ -546,6 +621,15 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
     const max = fil ? maxKg(fil) : 999
     if (rollos <= 0) setCart(prev => prev.filter(i => i.filamento.id !== id))
     else setCart(prev => prev.map(i => i.filamento.id === id ? { ...i, rollos: Math.min(rollos, max) } : i))
+  }
+
+  async function handleAvisar(filamentoId: string) {
+    if (!user) { setShowAuthModal(true); return }
+    setAlertando(filamentoId)
+    const { suscribirAlertaStock } = await import('@/lib/actions/filamentos')
+    const result = await suscribirAlertaStock(filamentoId)
+    setAlertando(null)
+    if (!result.error) setMisAlertas(prev => [...prev, filamentoId])
   }
 
   function sortByStock<T extends { rollos_cerrados: number; peso_rollo_gr: number; gramos_sueltos: number }>(arr: T[]): T[] {
@@ -614,6 +698,8 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
       }
       setPedidoSnapshot({ items: cart, kg: totalKg, subtotal, descuento, descLabel })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
+      // Item 5 — Limpiar carrito en DB
+      import('@/lib/actions/filamentos').then(({ limpiarCarritoUsuario }) => limpiarCarritoUsuario())
     })
   }
 
@@ -743,6 +829,26 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
         })()}
       </div>
 
+      {/* Ordenar */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Ordenar</p>
+        <div className="space-y-1">
+          {([
+            { value: 'stock',    label: 'Mayor stock' },
+            { value: 'az',       label: 'A–Z por color' },
+            { value: 'material', label: 'Por material' },
+          ] as { value: SortOption; label: string }[]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${sortBy === opt.value ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {hasFilters && (
         <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter('') }}
           className="w-full text-xs text-center text-muted-foreground hover:text-foreground underline py-1">
@@ -813,8 +919,8 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
             </div>
           )}
 
-          {/* Resultado count */}
-          <div className="flex items-center justify-between mb-3 gap-2">
+          {/* Resultado count + sort mobile */}
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <p className="text-xs sm:text-sm text-muted-foreground shrink-0">
               {filtered.length} disponible{filtered.length !== 1 ? 's' : ''}
             </p>
@@ -846,6 +952,54 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
                   descuento={descuento}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Item 4 — Filamentos sin stock */}
+          {agotados.length > 0 && !matFilter && !marcaFilter && !search && (
+            <div className="mt-10">
+              <h3 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
+                <span>⏳</span> Sin stock por ahora
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                {agotados.map(f => {
+                  const yaAlertado = misAlertas.includes(f.id)
+                  const cargando = alertando === f.id
+                  return (
+                    <div
+                      key={f.id}
+                      className="rounded-2xl overflow-hidden border opacity-60"
+                      style={{ backgroundColor: 'oklch(0.22 0.005 264)', borderColor: 'oklch(1 0 0 / 8%)' }}
+                    >
+                      <div className="h-24 flex items-center justify-center"
+                        style={{ backgroundColor: colorToCss(f.color), opacity: 0.5 }}>
+                        <span className="w-12 h-12 rounded-full border-2 border-white/30"
+                          style={{ backgroundColor: colorToCss(f.color) }} />
+                      </div>
+                      <div className="p-3 space-y-2">
+                        <p className="font-bold text-sm leading-tight line-clamp-1">{f.color}</p>
+                        <p className="text-[10px] text-muted-foreground">{f.material} · {f.marca}</p>
+                        <button
+                          onClick={() => handleAvisar(f.id)}
+                          disabled={yaAlertado || cargando}
+                          className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-2 rounded-xl border transition-colors disabled:cursor-default"
+                          style={yaAlertado
+                            ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
+                            : { backgroundColor: 'oklch(0.26 0.005 264)', borderColor: 'oklch(1 0 0 / 15%)', color: 'oklch(0.70 0.006 264)' }
+                          }
+                        >
+                          {yaAlertado
+                            ? <><BellOff size={11} /> Anotado</>
+                            : cargando
+                              ? <><Loader2 size={11} className="animate-spin" /> Guardando…</>
+                              : <><Bell size={11} /> Avisame cuando llegue</>
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -1006,6 +1160,35 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
                     )}
                   </div>
                 </div>
+
+                {/* Item 9 — Progreso de membresía en checkout */}
+                {user && (() => {
+                  const siguiente = [{ min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 }]
+                    .find(t => kgEfectivo < t.min)
+                  const faltan = siguiente ? siguiente.min - kgEfectivo : 0
+                  if (descuento > 0) return (
+                    <div className="px-6 pt-0">
+                      <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
+                        style={{ backgroundColor: 'oklch(0.22 0.04 145)', border: '1px solid #166534', color: '#4ade80' }}>
+                        <span>🏆</span>
+                        <span>
+                          {kgAcumulados > 0 ? `${kgAcumulados.toFixed(1)} kg acumulados + ` : ''}
+                          {totalKg} kg este pedido → descuento de <strong>−{fmtARS(descuento)}/kg</strong> aplicado
+                        </span>
+                      </div>
+                    </div>
+                  )
+                  if (siguiente && faltan > 0 && faltan <= 3) return (
+                    <div className="px-6 pt-0">
+                      <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
+                        style={{ backgroundColor: 'oklch(0.22 0.06 50)', border: '1px solid #78350f', color: '#fbbf24' }}>
+                        <span>⚡</span>
+                        <span>¡Agregá <strong>{faltan.toFixed(1)} kg más</strong> y desbloqueás −{fmtARS(siguiente.desc)}/kg en todo el pedido!</span>
+                      </div>
+                    </div>
+                  )
+                  return null
+                })()}
 
                 {/* Bloque condicional: login o formulario */}
                 {!user ? (

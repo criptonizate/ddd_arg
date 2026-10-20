@@ -491,3 +491,91 @@ export async function deleteVentaFilamento(
   revalidatePath('/admin/filamentos')
   return {}
 }
+
+// ── Filamentos agotados (para alertas de stock) ───────────────────────────────
+
+export async function getFilamentosAgotados(): Promise<Filamento[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamentos')
+    .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, imagen_url, imagen_url_2, imagen_url_3')
+    .eq('rollos_cerrados', 0)
+    .lte('gramos_sueltos', 100)
+    .order('material')
+    .order('color')
+  return (data ?? []).map((f: any) => ({ ...f, gramos_reservados: 0 })) as Filamento[]
+}
+
+export async function suscribirAlertaStock(filamentoId: string): Promise<{ error?: string }> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Necesitás iniciar sesión' }
+
+  const db = createServiceClient()
+  const { error } = await db
+    .from('filamento_alertas_stock')
+    .upsert({ user_id: user.id, filamento_id: filamentoId }, { onConflict: 'user_id,filamento_id' })
+
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function getMisAlertasStock(): Promise<string[]> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const db = createServiceClient()
+  const { data } = await db
+    .from('filamento_alertas_stock')
+    .select('filamento_id')
+    .eq('user_id', user.id)
+
+  return (data ?? []).map((r: any) => r.filamento_id as string)
+}
+
+// ── Carrito persistente ───────────────────────────────────────────────────────
+
+export async function getCarritoUsuario(): Promise<{ filamento_id: string; rollos: number }[]> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const db = createServiceClient()
+  const { data } = await db
+    .from('filamento_carrito')
+    .select('items')
+    .eq('user_id', user.id)
+    .single()
+
+  return (data?.items ?? []) as { filamento_id: string; rollos: number }[]
+}
+
+export async function saveCarritoUsuario(
+  items: { filamento_id: string; rollos: number }[]
+): Promise<void> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const db = createServiceClient()
+  await db
+    .from('filamento_carrito')
+    .upsert({ user_id: user.id, items, updated_at: new Date().toISOString() })
+}
+
+export async function limpiarCarritoUsuario(): Promise<void> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const db = createServiceClient()
+  await db
+    .from('filamento_carrito')
+    .upsert({ user_id: user.id, items: [], updated_at: new Date().toISOString() })
+}

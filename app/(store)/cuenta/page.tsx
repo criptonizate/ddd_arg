@@ -7,18 +7,12 @@ import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import { getVentasDeUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
+import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import Link from 'next/link'
-import { Package, Clock, CheckCircle2, XCircle, Truck, Crown } from 'lucide-react'
+import { Package, Crown } from 'lucide-react'
 
 export const metadata = { title: 'Mi cuenta — DDD ARG' }
 export const dynamic = 'force-dynamic'
-
-const ESTADO_CONFIG = {
-  pendiente:  { label: 'Pendiente de confirmación', icon: Clock,        cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
-  confirmado: { label: 'Confirmado',               icon: CheckCircle2, cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-  entregado:  { label: 'Entregado',                icon: Truck,        cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
-  cancelado:  { label: 'Cancelado',                icon: XCircle,      cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
-} as const
 
 function fmtARS(n: number) { return `$${n.toLocaleString('es-AR')}` }
 function fmtDate(iso: string) {
@@ -126,134 +120,11 @@ export default async function CuentaPage({
 
       {/* ── TAB PEDIDOS ── */}
       {tab === 'pedidos' && (
-        <>
-          {!pedidos?.length ? (
-            <div className="text-center py-16 bg-secondary/20 rounded-2xl border border-border">
-              <p className="text-4xl mb-3">🎨</p>
-              <p className="font-medium text-muted-foreground">Todavía no hiciste ningún pedido</p>
-              <Link href="/filamentos" className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium bg-foreground text-background rounded-xl px-5 py-2.5 hover:opacity-90 transition-opacity">
-                Ver filamentos disponibles →
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {(pedidos as FilamentoPedido[]).map(p => {
-                const cfg = ESTADO_CONFIG[p.estado] ?? ESTADO_CONFIG.pendiente
-                const Icon = cfg.icon
-                return (
-                  <div key={p.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-sm">Pedido N° {p.numero}</span>
-                        <span className="text-xs text-muted-foreground">{fmtDate(p.created_at)}</span>
-                      </div>
-                      <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.cls}`}>
-                        <Icon size={11} />
-                        {cfg.label}
-                      </span>
-                    </div>
-                    <div className="px-5 py-3 space-y-3">
-                      {p.items.map((item, i) => {
-                        const precioBase = item.precio_unitario + p.descuento_por_rollo
-                        const precioFinal = item.precio_unitario
-                        const subtotalItem = item.rollos * precioFinal
-                        return (
-                          <div key={i} className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">
-                                {item.rollos} kg · {item.color}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{item.material} — {item.marca}</p>
-                              {p.descuento_por_rollo > 0 && (
-                                <p className="text-xs mt-0.5">
-                                  <span className="line-through text-muted-foreground">{fmtARS(precioBase)}/kg</span>
-                                  <span className="ml-1.5 font-semibold" style={{ color: '#22c55e' }}>
-                                    − {fmtARS(p.descuento_por_rollo)}/kg
-                                  </span>
-                                  <span className="ml-1.5 font-bold text-foreground">{fmtARS(precioFinal)}/kg</span>
-                                </p>
-                              )}
-                            </div>
-                            <span className="font-bold text-sm shrink-0 tabular-nums">{fmtARS(subtotalItem)}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-border" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                      <span className="text-xs text-muted-foreground">{p.total_rollos} kg total</span>
-                      <span className="font-black text-sm">{fmtARS(p.total)}</span>
-                    </div>
-                    {p.estado === 'pendiente' && (() => {
-                      const itemLines = p.items.map((i: { rollos: number; color: string; material: string; marca: string }) =>
-                        `  • ${i.rollos} kg de ${i.color} (${i.material} ${i.marca})`
-                      ).join('\n')
-                      const msg = [
-                        `Hola! Te recuerdo el pedido N° ${p.numero} que hice el ${fmtDate(p.created_at)}.`,
-                        ``,
-                        `*Detalle:*`,
-                        itemLines,
-                        ``,
-                        `*Total: ${fmtARS(p.total)}*`,
-                        ``,
-                        `Quedo esperando confirmación para coordinar el pago y la entrega. 🙌`,
-                      ].join('\n')
-                      return (
-                        <div className="px-5 py-3 border-t border-border">
-                          <a
-                            href={`https://wa.me/543804559909?text=${encodeURIComponent(msg)}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-[#25D366]/10 text-[#128C7E] dark:text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.936.53 3.744 1.452 5.29L2.046 22l4.799-1.396A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zm.001 18a7.96 7.96 0 01-4.073-1.117l-.291-.174-3.028.881.86-3.105-.19-.3A7.96 7.96 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/>
-                            </svg>
-                            Enviar recordatorio por WhatsApp
-                          </a>
-                        </div>
-                      )
-                    })()}
-                    {p.nota && (
-                      <div className="px-5 py-2.5 text-xs text-muted-foreground bg-secondary/10 border-t border-border">
-                        💬 {p.nota}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Historial de compras previas */}
-          {ventasHistoricas.length > 0 && (
-            <section className="mt-8">
-              <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-muted-foreground">
-                <span>🧾</span>
-                Compras anteriores
-              </h2>
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                <div className="divide-y divide-border">
-                  {(ventasHistoricas as VentaFilamento[]).map(v => (
-                    <div key={v.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {(v.gramos / 1000).toFixed(1)} kg · {v.filamento_color ?? '—'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {v.filamento_material} {v.filamento_marca && `— ${v.filamento_marca}`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold">{fmtARS((v.gramos / 1000) * v.precio_kg)}</p>
-                        <p className="text-xs text-muted-foreground">{fmtDate(v.fecha)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-        </>
+        <CuentaPedidosTab
+          pedidos={(pedidos ?? []) as FilamentoPedido[]}
+          ventasHistoricas={ventasHistoricas as VentaFilamento[]}
+          userId={user.id}
+        />
       )}
 
       {/* ── TAB MEMBRESÍA ── */}
