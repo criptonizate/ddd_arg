@@ -301,19 +301,43 @@ function FilamentoCard({
 
   const IMG_FIELDS = ['imagen_url', 'imagen_url_2', 'imagen_url_3'] as const
 
+  async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(img.src)
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = Math.round(height * maxWidth / width)
+          width = maxWidth
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => resolve(new File([blob!], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+          'image/jpeg',
+          quality
+        )
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   async function handleImageUpload(file: File, slot: 1 | 2 | 3) {
     if (!file) return
     setUploadingSlot(slot)
     try {
+      const compressed = await compressImage(file)
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${fil.id}-${slot}.${ext}`
+      const path = `${fil.id}-${slot}.jpg`
       const { error: upErr } = await supabase.storage
         .from('filamentos-fotos')
-        .upload(path, file, { upsert: true })
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
       if (upErr) { alert('Error subiendo imagen: ' + upErr.message); return }
       const { data } = supabase.storage.from('filamentos-fotos').getPublicUrl(path)
       const url = data.publicUrl

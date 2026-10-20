@@ -43,12 +43,7 @@ function colorToCss(color: string): string {
   return '#94a3b8'
 }
 
-function imgUrl(url: string, width: number, quality = 75): string {
-  if (!url) return url
-  if (url.includes('/storage/v1/object/public/')) {
-    const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-    return `${base}?width=${width}&quality=${quality}&resize=contain`
-  }
+function imgUrl(url: string, _width?: number, _quality?: number): string {
   return url
 }
 
