@@ -332,12 +332,13 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       `  - ${i.rollos} kg de ${i.filamento.color} (${i.filamento.material} ${i.filamento.marca})`
     )
     const lines = [
-      `Hola! Hice el pedido N° ${numero} desde la web.`,
+      `Hola, soy ${clienteNombre}!`,
+      `Hice el pedido N° ${numero} desde la web.`,
       ``,
       `*Detalle:*`,
       ...itemLines,
       ``,
-      `*Total: ${fmtARS(snap.subtotal)}* (${snap.kg} kg a ${fmtARS(snap.subtotal / snap.kg)}/kg)`,
+      `*Total: ${fmtARS(snap.subtotal)}*`,
       snap.descuento > 0 ? `Descuento mayorista aplicado: -${fmtARS(snap.descuento)}/kg` : null,
       ``,
       `Quedo esperando confirmacion para coordinar el pago y la entrega.`,
