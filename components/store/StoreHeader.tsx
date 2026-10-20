@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useCart } from './CartProvider'
 import { ShoppingBag, User, LogOut, Package, Crown } from 'lucide-react'
-import { signInWithGoogleCliente, signOut } from '@/lib/actions/auth'
+import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -197,7 +197,7 @@ export default function StoreHeader() {
                           Membresía mayorista
                         </Link>
                         <div className="my-1 border-t" style={{ borderColor: 'oklch(1 0 0 / 8%)' }} />
-                        <form action={signOut}>
+                        <form action={signOutCliente}>
                           <button
                             type="submit"
                             className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"

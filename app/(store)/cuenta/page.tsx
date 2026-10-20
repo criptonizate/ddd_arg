@@ -1,7 +1,7 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOut } from '@/lib/actions/auth'
+import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
@@ -78,7 +78,7 @@ export default async function CuentaPage() {
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
         </div>
-        <form action={signOut}>
+        <form action={signOutCliente}>
           <button type="submit" className="text-xs text-muted-foreground hover:text-foreground underline">
             Cerrar sesión
           </button>
