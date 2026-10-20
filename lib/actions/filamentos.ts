@@ -445,6 +445,21 @@ export async function getVentasDeUsuario(userId: string): Promise<VentaFilamento
   })) as VentaFilamento[]
 }
 
+export async function editarClienteVenta(
+  ventaId: string,
+  { cliente, userId }: { cliente: string; userId: string | null }
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('filamento_ventas')
+    .update({ cliente: cliente.trim(), user_id: userId })
+    .eq('id', ventaId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/filamentos')
+  return {}
+}
+
 export async function deleteVentaFilamento(
   id: string,
   filamentoId: string,

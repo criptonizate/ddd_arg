@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus } from 'lucide-react'
-import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
+import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil } from 'lucide-react'
+import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 
@@ -137,6 +137,84 @@ function RegistrarVentaModal({
   )
 }
 
+// ── Modal editar cliente de una venta ────────────────────────────────────────
+
+function EditarVentaModal({
+  venta,
+  usuarios,
+  onClose,
+  onSaved,
+}: {
+  venta: VentaFilamento
+  usuarios: UsuarioRegistrado[]
+  onClose: () => void
+  onSaved: (ventaId: string, nuevoCliente: string, nuevoUserId: string | null) => void
+}) {
+  const [cliente, setCliente] = useState(venta.cliente)
+  const [userId, setUserId] = useState<string>(venta.user_id ?? '__none__')
+  const [error, setError] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  function handleSave() {
+    if (!cliente.trim()) { setError('El nombre del cliente es requerido'); return }
+    setError('')
+    const uid = userId === '__none__' ? null : userId
+    startTransition(async () => {
+      const res = await editarClienteVenta(venta.id, { cliente: cliente.trim(), userId: uid })
+      if (res.error) { setError(res.error); return }
+      onSaved(venta.id, cliente.trim(), uid)
+      onClose()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="font-semibold">✏️ Editar cliente de venta</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2.5 text-xs text-red-700 dark:text-red-400">
+              <AlertCircle size={13} className="shrink-0 mt-0.5" />{error}
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Nombre del cliente</label>
+            <input
+              type="text"
+              className={inputCls}
+              value={cliente}
+              onChange={e => setCliente(e.target.value)}
+              placeholder="Nombre del cliente"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Vincular a cuenta registrada</label>
+            <select className={inputCls} value={userId} onChange={e => setUserId(e.target.value)}>
+              <option value="__none__">— Sin vincular —</option>
+              {usuarios.map(u => (
+                <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 px-5 pb-5">
+          <button onClick={onClose} className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-secondary transition-colors">
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={isPending}
+            className="flex-1 py-2 text-sm font-medium bg-foreground text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2">
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Modal vincular ventas históricas ─────────────────────────────────────────
 
 function VincularHistoricasModal({
@@ -264,9 +342,11 @@ function VincularHistoricasModal({
 function UserDetail({
   usuario,
   filamentos,
+  usuarios,
 }: {
   usuario: UsuarioRegistrado
   filamentos: Filamento[]
+  usuarios: UsuarioRegistrado[]
 }) {
   const [pedidos, setPedidos] = useState<FilamentoPedido[] | null>(null)
   const [ventas, setVentas] = useState<VentaFilamento[] | null>(null)
@@ -275,6 +355,7 @@ function UserDetail({
   const [expandido, setExpandido] = useState<string | null>(null)
   const [showVenta, setShowVenta] = useState(false)
   const [showVincular, setShowVincular] = useState(false)
+  const [editarVenta, setEditarVenta] = useState<VentaFilamento | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -486,11 +567,26 @@ function UserDetail({
                       <p className="text-sm font-semibold truncate">
                         {v.filamento_color ?? v.filamento_nombre} · {v.filamento_material} {v.filamento_marca}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(v.fecha)} · {v.nota || '—'}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {fmtDate(v.fecha)} · {v.nota || '—'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Cliente: <span className="font-medium">{v.cliente}</span>
+                        {!v.user_id && <span className="ml-1 text-yellow-600 dark:text-yellow-400">(sin cuenta)</span>}
+                      </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold">{(v.gramos / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg</p>
-                      <p className="text-xs text-muted-foreground">{fmtARS((v.gramos / 1000) * v.precio_kg)}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <p className="text-sm font-bold">{(v.gramos / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg</p>
+                        <p className="text-xs text-muted-foreground">{fmtARS((v.gramos / 1000) * v.precio_kg)}</p>
+                      </div>
+                      <button
+                        onClick={() => setEditarVenta(v)}
+                        className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                        title="Editar cliente"
+                      >
+                        <Pencil size={13} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -515,6 +611,18 @@ function UserDetail({
           onClose={() => setShowVincular(false)}
           onVinculadas={() => {
             getVentasDeUsuario(usuario.id).then(setVentas)
+          }}
+        />
+      )}
+      {editarVenta && (
+        <EditarVentaModal
+          venta={editarVenta}
+          usuarios={usuarios}
+          onClose={() => setEditarVenta(null)}
+          onSaved={(ventaId, nuevoCliente, nuevoUserId) => {
+            setVentas(prev => prev?.map(v =>
+              v.id === ventaId ? { ...v, cliente: nuevoCliente, user_id: nuevoUserId } : v
+            ) ?? prev)
           }}
         />
       )}
@@ -602,7 +710,7 @@ export default function CuentasClient({
         {/* Panel de detalle */}
         <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden">
           {selUsuario ? (
-            <UserDetail usuario={selUsuario} filamentos={filamentos} />
+            <UserDetail usuario={selUsuario} filamentos={filamentos} usuarios={usuarios} />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
               <span className="text-4xl">👈</span>

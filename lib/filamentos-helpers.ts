@@ -46,6 +46,7 @@ export interface VentaFilamento {
   costo_kg: number
   cliente: string
   cliente_id?: string | null
+  user_id?: string | null
   nota: string
   fecha: string
   created_at: string
