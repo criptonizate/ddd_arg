@@ -403,7 +403,7 @@ export async function getUsuariosRegistrados(): Promise<UsuarioRegistrado[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase.auth.admin.listUsers({ perPage: 200 })
   if (error) return []
-  return data.users.map(u => ({
+  return data.users.map((u: { id: string; email?: string; user_metadata?: Record<string, unknown>; created_at: string }) => ({
     id: u.id,
     email: u.email ?? '',
     nombre: (u.user_metadata?.full_name as string) ?? u.email ?? u.id,
