@@ -38,49 +38,54 @@ export default function StoreFooter() {
         style={{ borderColor: 'oklch(1 0 0 / 8%)' }}
       >
         <div className="max-w-6xl mx-auto px-4 py-10">
-          <div className="flex flex-col md:flex-row gap-6 items-stretch">
 
-            {/* Foto del local */}
-            <div className="flex-1 rounded-xl overflow-hidden relative" style={{ minHeight: 220 }}>
-              <Image
-                src="/foto-local.jpg"
-                alt="Local DDD ARG"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 60vw"
-              />
-            </div>
-
-            {/* Info */}
-            <div className="md:w-64 shrink-0 flex flex-col justify-between gap-4">
-              <div>
-                <h3 className="text-base font-black mb-1" style={{ color: 'oklch(0.88 0.005 264)' }}>📍 Dónde encontrarnos</h3>
-                <p className="text-xs leading-relaxed" style={{ color: 'oklch(0.52 0.006 264)' }}>
-                  Visitanos en nuestro local para ver los materiales en persona o retirar tu pedido.
-                </p>
-              </div>
-
-              <a
-                href={MAP_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-colors hover:opacity-80 text-sm font-bold"
-                style={{
-                  backgroundColor: 'oklch(0.22 0.005 264)',
-                  borderColor: 'oklch(1 0 0 / 12%)',
-                  color: 'oklch(0.85 0.005 264)',
-                }}
-              >
-                {/* Google Maps icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/>
-                  <circle cx="12" cy="9" r="2.5" fill="#fff"/>
-                </svg>
-                Ver en Google Maps
-              </a>
-            </div>
-
+          {/* Título */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-black" style={{ color: 'oklch(0.88 0.005 264)' }}>📍 Dónde encontrarnos</h3>
+            <a
+              href={MAP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80 text-xs font-bold"
+              style={{
+                backgroundColor: 'oklch(0.22 0.005 264)',
+                borderColor: 'oklch(1 0 0 / 12%)',
+                color: 'oklch(0.85 0.005 264)',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/>
+                <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+              </svg>
+              Ver en Google Maps
+            </a>
           </div>
+
+          {/* Foto grande */}
+          <div
+            className="w-full rounded-2xl overflow-hidden relative"
+            style={{ height: 'clamp(220px, 40vw, 420px)' }}
+          >
+            <Image
+              src="/foto-local.jpg"
+              alt="Local DDD ARG"
+              fill
+              className="object-cover object-center"
+              sizes="(max-width: 768px) 100vw, 1152px"
+            />
+            {/* Overlay degradado sutil en la parte inferior */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
+              style={{ background: 'linear-gradient(to top, oklch(0.17 0.005 264 / 70%), transparent)' }}
+            />
+            <p
+              className="absolute bottom-4 left-5 text-xs"
+              style={{ color: 'oklch(0.65 0.005 264)' }}
+            >
+              Cap. La Rioja, Argentina
+            </p>
+          </div>
+
         </div>
       </div>
 
