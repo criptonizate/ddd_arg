@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,9 +16,9 @@ const MARCAS = [
   { label: 'Fremover',      emoji: '🔴', color: '#ef4444' },
   { label: 'GST3D',         emoji: '🟢', color: '#22c55e' },
   { label: 'GST3D - LITE',  emoji: '🔵', color: '#3b82f6' },
-  { label: 'Filanova',      emoji: '🟠', color: '#7a9e27' },
+  { label: 'Filanova',      emoji: '🟠', color: '#16a34a' },
   { label: 'Toolbox',       emoji: '🟣', color: '#a855f7' },
-  { label: 'PLA+',          emoji: '✦',  color: '#7a9e27' },
+  { label: 'PLA+',          emoji: '✦',  color: '#16a34a' },
   { label: 'Silk',          emoji: '✨', color: '#eab308' },
   { label: 'PETG',          emoji: '💧', color: '#38bdf8' },
   { label: 'TPU Flexible',  emoji: '🌀', color: '#34d399' },
@@ -104,7 +104,7 @@ export default function StoreHeader() {
           <nav className="hidden md:flex items-center gap-1">
             <Link
               href="/filamentos"
-              className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors hover:text-[#7a9e27]"
+              className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors hover:text-[#16a34a]"
               style={{ color: 'oklch(0.55 0.005 264)' }}
             >
               🧵 Filamentos
@@ -155,10 +155,10 @@ export default function StoreHeader() {
                   >
                     {user.user_metadata?.avatar_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={user.user_metadata.avatar_url} alt="" className="w-7 h-7 rounded-full ring-2 ring-[#7a9e27]/40" />
+                      <img src={user.user_metadata.avatar_url} alt="" className="w-7 h-7 rounded-full ring-2 ring-[#16a34a]/40" />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-[#7a9e27]/20 flex items-center justify-center">
-                        <User size={14} className="text-[#7a9e27]" />
+                      <div className="w-7 h-7 rounded-full bg-[#16a34a]/20 flex items-center justify-center">
+                        <User size={14} className="text-[#16a34a]" />
                       </div>
                     )}
                   </button>
@@ -215,7 +215,7 @@ export default function StoreHeader() {
                 <form action={signInWithGoogleCliente}>
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:border-[#7a9e27]/50 hover:text-[#7a9e27]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:border-[#16a34a]/50 hover:text-[#16a34a]"
                     style={{
                       borderColor: 'oklch(1 0 0 / 12%)',
                       color: 'oklch(0.75 0.005 264)',
@@ -237,7 +237,7 @@ export default function StoreHeader() {
             >
               <ShoppingBag size={19} />
               {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#7a9e27] text-white text-[9px] font-black">
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#16a34a] text-white text-[9px] font-black">
                   {count > 9 ? '9+' : count}
                 </span>
               )}

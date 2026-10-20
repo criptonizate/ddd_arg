@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
@@ -96,8 +96,8 @@ function FilamentoCard({
       className={`rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${enCart > 0 ? 'ring-1' : ''}`}
       style={{
         backgroundColor: 'oklch(0.26 0.005 264)',
-        borderColor: enCart > 0 ? '#6d8f1f' : 'oklch(1 0 0 / 10%)',
-        ...(enCart > 0 ? { boxShadow: '0 0 0 1px #6d8f1f44' } : {}),
+        borderColor: enCart > 0 ? '#15803d' : 'oklch(1 0 0 / 10%)',
+        ...(enCart > 0 ? { boxShadow: '0 0 0 1px #15803d44' } : {}),
       }}
     >
 
@@ -174,7 +174,7 @@ function FilamentoCard({
 
         {/* Indicador en carrito */}
         {enCart > 0 && (
-          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10" style={{ backgroundColor: '#6d8f1f' }}>
+          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10" style={{ backgroundColor: '#15803d' }}>
             {enCart} kg
           </span>
         )}
@@ -203,7 +203,7 @@ function FilamentoCard({
             onClick={onAdd}
             disabled={disponible === 0}
             className="w-full flex items-center justify-center gap-1.5 text-white text-sm font-bold py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#6d8f1f' }}
+            style={{ backgroundColor: '#15803d' }}
           >
             <Plus size={14} />
             Agregar al carrito
@@ -435,12 +435,12 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
 
       {/* Descuentos */}
       <div>
-        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#8fb832' }}>💰 Descuentos por volumen</p>
+        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#22c55e' }}>💰 Descuentos por volumen</p>
         <div className="space-y-1.5">
           {[
-            { min:  5, desc: 2000, activeStyle: { backgroundColor: '#4a6b10', color: '#c8e87a', borderColor: '#7aaa24' } },
-            { min: 10, desc: 3000, activeStyle: { backgroundColor: '#3d5a0d', color: '#d4ef8a', borderColor: '#8fb832' } },
-            { min: 15, desc: 4000, activeStyle: { backgroundColor: '#2e4409', color: '#e0f59a', borderColor: '#a0c83a' } },
+            { min:  5, desc: 2000, activeStyle: { backgroundColor: '#166534', color: '#bbf7d0', borderColor: '#16a34a' } },
+            { min: 10, desc: 3000, activeStyle: { backgroundColor: '#166534', color: '#d4ef8a', borderColor: '#22c55e' } },
+            { min: 15, desc: 4000, activeStyle: { backgroundColor: '#166534', color: '#e0f59a', borderColor: '#4ade80' } },
           ].map(t => {
             const activo = totalKg >= t.min
             const faltan = t.min - totalKg
@@ -450,9 +450,9 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                 key={t.min}
                 className="flex items-center justify-between text-xs rounded-lg px-3 py-2 font-semibold transition-all border"
                 style={activo
-                  ? { ...t.activeStyle, boxShadow: '0 1px 6px #6d8f1f33' }
+                  ? { ...t.activeStyle, boxShadow: '0 1px 6px #15803d33' }
                   : proximo
-                    ? { backgroundColor: 'oklch(0.28 0.015 110)', color: '#a0c83a', borderColor: '#5a7a18' }
+                    ? { backgroundColor: 'oklch(0.24 0.06 145)', color: '#4ade80', borderColor: '#166534' }
                     : { backgroundColor: 'oklch(0.22 0.005 264)', color: 'oklch(0.50 0.006 264)', borderColor: 'oklch(1 0 0 / 8%)' }
                 }
               >
@@ -473,7 +473,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
           return (
             <p
               className="mt-2 text-[11px] font-bold text-center leading-tight rounded-lg px-2.5 py-2"
-              style={{ backgroundColor: 'oklch(0.26 0.02 110)', color: '#b8df5a' }}
+              style={{ backgroundColor: 'oklch(0.22 0.05 145)', color: '#4ade80' }}
             >
               ⚡ ¡Agregá {faltan} kg más y bajás el precio!
             </p>
@@ -538,7 +538,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
               {filtered.length} disponible{filtered.length !== 1 ? 's' : ''}
             </p>
             {totalKg > 0 && (
-              <p className="text-xs font-semibold text-right truncate" style={{ color: '#8fb832' }}>
+              <p className="text-xs font-semibold text-right truncate" style={{ color: '#22c55e' }}>
                 {totalKg} kg · {fmtARS(subtotal)}
                 {descuento > 0 && <span className="hidden sm:inline"> ({fmtARS(descuento)}/kg off)</span>}
               </p>

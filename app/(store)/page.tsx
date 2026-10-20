@@ -1,4 +1,4 @@
-import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+﻿import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
 import { PRECIO_TIERS } from '@/lib/filamentos-helpers'
 import ContactoWhatsapp from '@/components/store/ContactoWhatsapp'
 import Link from 'next/link'
@@ -77,14 +77,14 @@ export default async function HomePage() {
 
             {/* Texto */}
             <div className="flex-1 text-center md:text-left">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 sm:mb-4" style={{ color: '#8fb832' }}>
-                <span className="w-6 h-px" style={{ backgroundColor: '#8fb832' }} />
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 sm:mb-4" style={{ color: '#22c55e' }}>
+                <span className="w-6 h-px" style={{ backgroundColor: '#22c55e' }} />
                 Impresión 3D · La Rioja, Argentina
               </p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-4 sm:mb-5">
                 Imprimimos
                 <br />
-                <span style={{ color: '#8fb832' }}>lo que imaginás</span>
+                <span style={{ color: '#22c55e' }}>lo que imaginás</span>
               </h1>
               <p className="text-sm sm:text-base text-gray-300 max-w-md mx-auto md:mx-0 mb-6 sm:mb-8 leading-relaxed">
                 Diseños personalizados, filamentos premium y entrega en todo el país. Pedidos directos sin vueltas.
@@ -93,7 +93,7 @@ export default async function HomePage() {
                 <Link
                   href="/filamentos"
                   className="inline-flex items-center justify-center gap-2 text-white font-bold text-sm rounded-xl px-5 sm:px-6 py-3 sm:py-3.5 transition-colors"
-                  style={{ backgroundColor: '#6d8f1f', boxShadow: '0 8px 24px #6d8f1f44' }}
+                  style={{ backgroundColor: '#15803d', boxShadow: '0 8px 24px #15803d44' }}
                   onMouseOver={undefined}
                 >
                   Ver filamentos →
@@ -113,12 +113,12 @@ export default async function HomePage() {
             <div className="flex-none w-full md:w-auto flex justify-center md:justify-end">
               <div className="relative">
                 {/* Fondo con rotación leve */}
-                <div className="absolute inset-0 rounded-2xl rotate-2 opacity-40" style={{ backgroundColor: '#5a7a18' }} />
+                <div className="absolute inset-0 rounded-2xl rotate-2 opacity-40" style={{ backgroundColor: '#166534' }} />
                 <div
                   className="relative border-2 rounded-2xl px-7 sm:px-10 py-6 sm:py-8 text-center shadow-2xl"
-                  style={{ backgroundColor: '#4e6e14', borderColor: '#7aaa24', boxShadow: '0 20px 60px #4e6e1466' }}
+                  style={{ backgroundColor: '#166534', borderColor: '#16a34a', boxShadow: '0 20px 60px #16653466' }}
                 >
-                  <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] mb-1" style={{ color: '#c8e87a' }}>
+                  <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] mb-1" style={{ color: '#bbf7d0' }}>
                     ★ Accedé a
                   </p>
                   <p className="text-white text-3xl sm:text-4xl font-black leading-none uppercase tracking-tight">
@@ -128,10 +128,10 @@ export default async function HomePage() {
                     Mayoristas
                   </p>
                   <div className="mt-3 h-px bg-white/20" />
-                  <p className="mt-3 text-xs sm:text-sm leading-snug" style={{ color: '#c8e87a' }}>
+                  <p className="mt-3 text-xs sm:text-sm leading-snug" style={{ color: '#bbf7d0' }}>
                     Comprando {mejorDescuento?.min}+ kg<br />
                     <span className="font-black text-white text-base sm:text-lg">{fmtARS(mejorPrecio)} / kg</span>
-                    <span className="block text-[10px] sm:text-xs mt-0.5" style={{ color: '#a8cc5a' }}>
+                    <span className="block text-[10px] sm:text-xs mt-0.5" style={{ color: '#86efac' }}>
                       precio de lista {fmtARS(precioBase)}
                     </span>
                   </p>

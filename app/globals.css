@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -154,8 +154,8 @@
   --card-foreground: oklch(0.97 0.002 264);
   --popover: oklch(0.23 0.005 264);
   --popover-foreground: oklch(0.97 0.002 264);
-  /* Verde oliva como color primario */
-  --primary: oklch(0.57 0.13 110);          /* verde oliva vibrante */
+  /* Verde como color primario */
+  --primary: oklch(0.60 0.20 145);          /* verde vibrante #16a34a */
   --primary-foreground: oklch(0.97 0.002 264);
   /* Secundario: gris para hovers */
   --secondary: oklch(0.27 0.005 264);
@@ -169,9 +169,9 @@
   /* Bordes: sutiles pero visibles */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.57 0.13 110);             /* oliva para focus */
+  --ring: oklch(0.60 0.20 145);             /* verde para focus */
   /* Charts */
-  --chart-1: oklch(0.57 0.13 110);         /* oliva */
+  --chart-1: oklch(0.63 0.18 145);         /* oliva */
   --chart-2: oklch(0.72 0.18 230);
   --chart-3: oklch(0.68 0.15 160);
   --chart-4: oklch(0.72 0.18 80);

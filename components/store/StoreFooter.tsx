@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import Image from 'next/image'
 
 function InstagramIcon() {
@@ -109,14 +109,14 @@ export default function StoreFooter() {
           <div className="flex items-center gap-6 text-sm">
             <Link
               href="/filamentos"
-              className="font-semibold transition-colors hover:text-[#7a9e27]"
+              className="font-semibold transition-colors hover:text-[#16a34a]"
               style={{ color: 'oklch(0.60 0.005 264)' }}
             >
               🧵 Filamentos
             </Link>
             <Link
               href="/cuenta"
-              className="font-semibold transition-colors hover:text-[#7a9e27]"
+              className="font-semibold transition-colors hover:text-[#16a34a]"
               style={{ color: 'oklch(0.60 0.005 264)' }}
             >
               Mi cuenta
