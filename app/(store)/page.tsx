@@ -243,12 +243,12 @@ export default async function HomePage() {
       {/* ══════════════════════════════════════════════════
           CTA FINAL — fondo naranja, contacto directo
       ══════════════════════════════════════════════════ */}
-      <section className="bg-primary">
+      <section style={{ backgroundColor: 'oklch(0.20 0.005 264)', borderTop: '1px solid oklch(1 0 0 / 8%)' }}>
         <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14 text-center">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-2 sm:mb-3">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-2 sm:mb-3" style={{ color: 'oklch(0.92 0.005 264)' }}>
             ¿Tenés una idea? Hablemos.
           </h2>
-          <p className="text-white/80 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto">
+          <p className="text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto" style={{ color: 'oklch(0.58 0.006 264)' }}>
             Completá el formulario o escribinos directo por WhatsApp. Respondemos rápido.
           </p>
           <div className="max-w-xl mx-auto">
