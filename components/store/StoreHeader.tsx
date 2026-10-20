@@ -262,16 +262,17 @@ export default function StoreHeader() {
           }}
         >
           {[...MARCAS, ...MARCAS].map((m, i) => (
-            <div
+            <Link
               key={i}
-              className="flex items-center gap-2 px-5 shrink-0 cursor-default select-none"
+              href="/filamentos"
+              className="flex items-center gap-2 px-5 shrink-0 select-none hover:opacity-70 transition-opacity"
               style={{ borderRight: '1px solid oklch(1 0 0 / 6%)' }}
             >
               <span className="text-sm" style={{ filter: 'drop-shadow(0 0 4px currentColor)' }}>{m.emoji}</span>
               <span className="text-xs font-bold tracking-wide whitespace-nowrap" style={{ color: m.color }}>
                 {m.label}
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
