@@ -512,11 +512,18 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
     else setCart(prev => prev.map(i => i.filamento.id === id ? { ...i, rollos: Math.min(rollos, max) } : i))
   }
 
+  function sortByStock<T extends { rollos_cerrados: number; peso_rollo_gr: number; gramos_sueltos: number }>(arr: T[]): T[] {
+    return [...arr].sort((a, b) =>
+      (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) -
+      (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos)
+    )
+  }
+
   async function abrirCarrito() {
     setShowCart(true)
     try {
       const fresh = await getFilamentosDisponibles()
-      setLocalFilamentos(fresh)
+      setLocalFilamentos(sortByStock(fresh))
     } catch { /* noop */ }
   }
 
