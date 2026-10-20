@@ -47,7 +47,7 @@ export default async function CuentaPage() {
   ])
 
   const displayName = user.user_metadata?.full_name ?? user.email?.split('@')[0]
-  const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel] : null
+  const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
 
   // Calcular próximo tier disponible
   const siguienteTier = membresia?.nivel
