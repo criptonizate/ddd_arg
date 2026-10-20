@@ -202,6 +202,31 @@ export async function confirmarPedidoYDescontarStock(
   return {}
 }
 
+export async function editarItemsPedidoFilamento(
+  pedidoId: string,
+  items: FilamentoPedidoItem[]
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  if (!items.length) return { error: 'El pedido debe tener al menos un ítem' }
+
+  const total_rollos = items.reduce((s, i) => s + i.rollos, 0)
+  // Recalcular descuento por volumen
+  const TIERS = [{ min: 15, desc: 4000 }, { min: 10, desc: 3000 }, { min: 5, desc: 2000 }, { min: 0, desc: 0 }]
+  const descuento_por_rollo = TIERS.find(t => total_rollos >= t.min)?.desc ?? 0
+  const precio_unitario = items[0]?.precio_unitario ?? 22000
+  const total = total_rollos * (precio_unitario - descuento_por_rollo)
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('filamento_pedidos')
+    .update({ items, total_rollos, descuento_por_rollo, total, updated_at: new Date().toISOString() })
+    .eq('id', pedidoId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/filamentos')
+  return {}
+}
+
 export async function getFilamentoPedidosPendientesCount(): Promise<number> {
   await getAdminUser()
   const supabase = createServiceClient()

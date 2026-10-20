@@ -19,7 +19,7 @@ import {
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
-import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
+import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
 import { createBrowserClient } from '@supabase/ssr'
 
 type ClienteBasic = { id: string; nombre: string; dni: string | null; telefono: string | null; email: string | null; direccion: string | null }
@@ -1770,7 +1770,7 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
 
 // ── Tab Pedidos Web ────────────────────────────────────────────────────────────
 
-function PedidosPendientesTab() {
+function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles: Filamento[] }) {
   const [pedidos, setPedidos] = useState<FilamentoPedido[]>([])
   const [loading, setLoading] = useState(true)
   const [subtab, setSubtab] = useState<'pendiente' | 'confirmado' | 'cancelado'>('pendiente')
@@ -1779,6 +1779,8 @@ function PedidosPendientesTab() {
   const [notaModal, setNotaModal] = useState<{ id: string; accion: 'confirmar' | 'cancelar' } | null>(null)
   const [notaTexto, setNotaTexto] = useState('')
   const [error, setError] = useState('')
+  const [editModal, setEditModal] = useState<{ pedido: FilamentoPedido; items: FilamentoPedidoItem[] } | null>(null)
+  const [editError, setEditError] = useState('')
   const [, startTransition] = useTransition()
 
   useEffect(() => {
@@ -1978,6 +1980,13 @@ function PedidosPendientesTab() {
                     {p.estado === 'pendiente' && (
                       <>
                         <button
+                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError('') }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-secondary text-sm font-medium transition-colors"
+                        >
+                          <Pencil size={13} />
+                          Editar pedido
+                        </button>
+                        <button
                           onClick={() => handleAccion(p.id, 'confirmar')}
                           disabled={isProcesando}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
@@ -2022,6 +2031,126 @@ function PedidosPendientesTab() {
           )
         })}
       </div>
+
+      {/* Modal de edición de pedido */}
+      {editModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg max-h-[90dvh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h3 className="font-semibold">✏️ Editar pedido N°{editModal.pedido.numero}</h3>
+              <button onClick={() => setEditModal(null)} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-muted-foreground">Cliente: <span className="font-medium text-foreground">{editModal.pedido.cliente_nombre}</span></p>
+
+              {/* Items editables */}
+              <div className="space-y-3">
+                {editModal.items.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 items-start bg-secondary/30 rounded-xl p-3">
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground block mb-1">Color</label>
+                          <input
+                            type="text"
+                            value={item.color}
+                            onChange={e => {
+                              const newItems = [...editModal.items]
+                              newItems[idx] = { ...newItems[idx], color: e.target.value }
+                              setEditModal({ ...editModal, items: newItems })
+                            }}
+                            className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground block mb-1">Filamento</label>
+                          <select
+                            value={item.filamento_id}
+                            onChange={e => {
+                              const fil = filamentosDisponibles.find(f => f.id === e.target.value)
+                              if (!fil) return
+                              const newItems = [...editModal.items]
+                              newItems[idx] = { ...newItems[idx], filamento_id: fil.id, color: fil.color, material: fil.material, marca: fil.marca, nombre: fil.nombre }
+                              setEditModal({ ...editModal, items: newItems })
+                            }}
+                            className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                          >
+                            <option value={item.filamento_id}>{item.color} — {item.material}</option>
+                            {filamentosDisponibles.filter(f => f.id !== item.filamento_id).map(f => (
+                              <option key={f.id} value={f.id}>{f.color} — {f.material} · {f.marca}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-medium text-muted-foreground block mb-1">Cantidad (kg)</label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.rollos <= 1) return
+                              const newItems = [...editModal.items]
+                              newItems[idx] = { ...newItems[idx], rollos: item.rollos - 1 }
+                              setEditModal({ ...editModal, items: newItems })
+                            }}
+                            className="p-1.5 rounded-lg border border-border hover:bg-secondary"
+                          ><Minus size={12} /></button>
+                          <span className="text-sm font-bold w-8 text-center">{item.rollos}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItems = [...editModal.items]
+                              newItems[idx] = { ...newItems[idx], rollos: item.rollos + 1 }
+                              setEditModal({ ...editModal, items: newItems })
+                            }}
+                            className="p-1.5 rounded-lg border border-border hover:bg-secondary"
+                          ><Plus size={12} /></button>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editModal.items.length <= 1) return
+                        setEditModal({ ...editModal, items: editModal.items.filter((_, i) => i !== idx) })
+                      }}
+                      disabled={editModal.items.length <= 1}
+                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground disabled:opacity-30 mt-1"
+                    ><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Resumen */}
+              <div className="bg-secondary/40 rounded-xl px-3 py-2.5 text-sm flex justify-between font-medium">
+                <span>{editModal.items.reduce((s, i) => s + i.rollos, 0)} kg total</span>
+              </div>
+
+              {editError && <p className="text-xs text-red-600">{editError}</p>}
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button onClick={() => setEditModal(null)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary">Cancelar</button>
+              <button
+                onClick={() => {
+                  setEditError('')
+                  startTransition(async () => {
+                    const r = await editarItemsPedidoFilamento(editModal.pedido.id, editModal.items)
+                    if (r.error) { setEditError(r.error); return }
+                    setPedidos(prev => prev.map(p => p.id === editModal.pedido.id
+                      ? { ...p, items: editModal.items, total_rollos: editModal.items.reduce((s, i) => s + i.rollos, 0) }
+                      : p
+                    ))
+                    setEditModal(null)
+                  })
+                }}
+                className="flex-1 px-4 py-2 text-sm rounded-lg bg-foreground text-background font-medium hover:opacity-90"
+              >
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmación de acción */}
       {notaModal && (
@@ -2231,7 +2360,7 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
         </button>
       </div>
 
-      {tab === 'pedidos' && <PedidosPendientesTab />}
+      {tab === 'pedidos' && <PedidosPendientesTab filamentosDisponibles={filamentos} />}
       {tab === 'ventas' && <HistorialVentas />}
       {tab === 'clientes' && <ClientesFilamentoTab clientes={clientes} />}
 
