@@ -261,33 +261,31 @@ export async function editarItemsPedidoFilamento(
 import { KG_RENOVACION, DIAS_PERIODO, TIERS_MEMBRESIA, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
 
-type PedidoRow = { updated_at: string; total_rollos: number }
+// Evento de compra unificado: pedidos web + ventas históricas vinculadas
+type EventoCompra = { fecha_iso: string; kg: number }
 
 function addDias(date: Date, dias: number): Date {
   return new Date(date.getTime() + dias * 24 * 60 * 60 * 1000)
 }
 
-// Calcula el período activo a partir del historial de pedidos (sin DB extra)
-// Lógica: un pedido >= KG_RENOVACION dentro del período lo extiende 30d desde esa fecha
-function calcularPeriodo(pedidos: PedidoRow[]): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
-  let periodoInicio = new Date(pedidos[0].updated_at)
+// Lógica: un evento >= KG_RENOVACION dentro del período lo extiende 30d desde esa fecha
+function calcularPeriodo(eventos: EventoCompra[]): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
+  let periodoInicio = new Date(eventos[0].fecha_iso)
   let periodoFin = addDias(periodoInicio, DIAS_PERIODO)
   let kgPeriodo = 0
 
-  for (const p of pedidos) {
-    const fecha = new Date(p.updated_at)
-    const kg = p.total_rollos ?? 0
+  for (const e of eventos) {
+    const fecha = new Date(e.fecha_iso)
+    const kg = e.kg
 
     if (fecha < periodoFin) {
-      // Dentro del período activo
       kgPeriodo += kg
       if (kg >= KG_RENOVACION) {
-        // Este pedido renueva: extiende 30d desde su fecha
         const nuevaFin = addDias(fecha, DIAS_PERIODO)
         if (nuevaFin > periodoFin) periodoFin = nuevaFin
       }
     } else {
-      // Fuera del período — inicia uno nuevo
+      // Fuera del período — inicia uno nuevo desde este evento
       periodoInicio = fecha
       periodoFin = addDias(fecha, DIAS_PERIODO)
       kgPeriodo = kg
@@ -301,19 +299,38 @@ function calcularPeriodo(pedidos: PedidoRow[]): { periodoInicio: Date; periodoFi
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
   const supabase = createServiceClient()
 
+  // Pedidos web confirmados/entregados
   const { data: pedidos } = await supabase
     .from('filamento_pedidos')
     .select('updated_at, total_rollos')
     .eq('user_id', userId)
     .in('estado', ['confirmado', 'entregado'])
-    .order('updated_at', { ascending: true })
 
-  if (!pedidos?.length) return null
+  // Ventas históricas vinculadas al usuario
+  const { data: ventas } = await supabase
+    .from('filamento_ventas')
+    .select('fecha, gramos')
+    .eq('user_id', userId)
 
-  const rows = pedidos as PedidoRow[]
-  const totalHistorico = rows.reduce((s, p) => s + (p.total_rollos ?? 0), 0)
+  const eventosPedidos: EventoCompra[] = (pedidos ?? []).map((p: { updated_at: string; total_rollos: number }) => ({
+    fecha_iso: p.updated_at,
+    kg: p.total_rollos ?? 0,
+  }))
 
-  const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(rows)
+  const eventosVentas: EventoCompra[] = (ventas ?? []).map((v: { fecha: string; gramos: number }) => ({
+    // fecha en filamento_ventas es DATE ('YYYY-MM-DD'), la tratamos como mediodía para evitar TZ edge cases
+    fecha_iso: v.fecha.includes('T') ? v.fecha : `${v.fecha}T12:00:00Z`,
+    kg: v.gramos / 1000,
+  }))
+
+  const todos: EventoCompra[] = [...eventosPedidos, ...eventosVentas]
+    .filter(e => e.kg > 0)
+    .sort((a, b) => new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime())
+
+  if (!todos.length) return null
+
+  const totalHistorico = todos.reduce((s, e) => s + e.kg, 0)
+  const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(todos)
 
   const nowMs = Date.now()
   const activo = periodoFin.getTime() > nowMs
