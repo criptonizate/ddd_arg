@@ -29,6 +29,20 @@ export async function signInWithGoogleCliente() {
   if (data.url) redirect(data.url)
 }
 
+export async function signInWithGoogleAndReturn(next: string) {
+  const supabase = await createClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+  const safePath = next.startsWith('/') ? next : '/cuenta'
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${siteUrl}/api/auth/callback?next=${encodeURIComponent(safePath)}` },
+  })
+
+  if (error) redirect('/?error=auth_error')
+  if (data.url) redirect(data.url)
+}
+
 export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
