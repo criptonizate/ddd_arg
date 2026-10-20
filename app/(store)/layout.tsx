@@ -9,10 +9,12 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   if (admin) redirect('/admin/dashboard')
 
   return (
-    <CartProvider>
-      <StoreHeader />
-      <main className="flex-1">{children}</main>
-      <StoreFooter />
-    </CartProvider>
+    <div className="store-dark min-h-screen flex flex-col bg-background text-foreground">
+      <CartProvider>
+        <StoreHeader />
+        <main className="flex-1">{children}</main>
+        <StoreFooter />
+      </CartProvider>
+    </div>
   )
 }
