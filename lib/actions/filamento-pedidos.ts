@@ -205,6 +205,8 @@ export async function confirmarPedidoYDescontarStock(
         cliente: pedido.cliente_nombre,
         nota: `Pedido web N°${pedido.numero}`,
         fecha,
+        user_id: pedido.user_id ?? null,
+        pedido_id: pedidoId,
       })
   }
 
@@ -244,8 +246,7 @@ export async function editarItemsPedidoFilamento(
   // Recalcular descuento por volumen
   const TIERS = [{ min: 15, desc: 4000 }, { min: 10, desc: 3000 }, { min: 5, desc: 2000 }, { min: 0, desc: 0 }]
   const descuento_por_rollo = TIERS.find(t => total_rollos >= t.min)?.desc ?? 0
-  const precio_unitario = items[0]?.precio_unitario ?? 22000
-  const total = total_rollos * (precio_unitario - descuento_por_rollo)
+  const total = items.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
 
   const supabase = createServiceClient()
   const { error } = await supabase
@@ -385,10 +386,12 @@ export async function anularPedidoConfirmado(
   }
 
   // Eliminar registros de ventas generados al confirmar este pedido
-  await supabase
+  const { error: deleteErr } = await supabase
     .from('filamento_ventas')
     .delete()
-    .like('nota', `Pedido web N°${pedido.numero}`)
+    .eq('pedido_id', pedidoId)
+
+  if (deleteErr) return { error: `Error al eliminar ventas del pedido: ${deleteErr.message}` }
 
   const notaFinal = nota ? nota : 'Anulado por admin (stock restaurado)'
   const { error } = await supabase

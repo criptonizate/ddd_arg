@@ -415,17 +415,29 @@ export default function FilamentosShop({ filamentos, initialUser, membresia: ini
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
 
-  // Restore cart saved before OAuth redirect
+  // Restore cart saved before OAuth redirect, reconciling against current stock
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ddd_cart_filamentos')
       if (saved) {
         const parsed: CartItem[] = JSON.parse(saved)
-        if (parsed.length > 0) setCart(parsed)
+        if (parsed.length > 0) {
+          setCart(prev => {
+            // Use the already-loaded filamentos to cap quantities
+            const current = localFilamentos
+            return parsed.flatMap(item => {
+              const fil = current.find(f => f.id === item.filamento.id)
+              if (!fil) return []
+              const max = maxKg(fil)
+              if (max <= 0) return []
+              return [{ ...item, filamento: fil, kg: Math.min(item.kg, max) }]
+            })
+          })
+        }
         localStorage.removeItem('ddd_cart_filamentos')
       }
     } catch { /* noop */ }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const supabase = createBrowserClient(
