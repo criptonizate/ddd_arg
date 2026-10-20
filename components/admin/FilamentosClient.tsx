@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2 } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -16,6 +16,9 @@ import {
   deleteVentaFilamento,
   getHistorialVentasFilamentos,
   getKgMensualesCliente,
+  getUsuariosRegistrados,
+  asignarUserAVentas,
+  type UsuarioRegistrado,
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
@@ -589,8 +592,8 @@ function FilamentoCard({
             {fmtGr(totalGr)}
           </p>
           <p className="text-xs text-muted-foreground">
-            {fil.rollos_cerrados > 0 ? `${fil.rollos_cerrados} rollo${fil.rollos_cerrados !== 1 ? 's' : ''}` : 'sin rollos'}
-            {fil.gramos_sueltos > 0 ? ` + ${fmtGr(fil.gramos_sueltos)}` : ''}
+            {fil.rollos_cerrados > 0 ? `${fmtGr(fil.rollos_cerrados * fil.peso_rollo_gr)} en rollos` : 'sin rollos'}
+            {fil.gramos_sueltos > 0 ? ` + ${fmtGr(fil.gramos_sueltos)} sueltos` : ''}
           </p>
         </div>
 
@@ -1139,9 +1142,9 @@ function FilamentoCard({
                           <div key={mov.id} className="flex items-center justify-between gap-2 text-xs group">
                             <div className="min-w-0 flex-1">
                               <span className="font-medium">
-                                {mov.rollos > 0 && `${mov.rollos} rollo${mov.rollos !== 1 ? 's' : ''}`}
+                                {mov.rollos > 0 && fmtGr(mov.rollos * fil.peso_rollo_gr)}
                                 {mov.rollos > 0 && mov.gramos > 0 && ' + '}
-                                {mov.gramos > 0 && `${Math.round(mov.gramos)}g`}
+                                {mov.gramos > 0 && fmtGr(mov.gramos)}
                               </span>
                               {mov.nota && <span className="text-muted-foreground"> — {mov.nota}</span>}
                             </div>
@@ -1173,11 +1176,127 @@ function FilamentoCard({
   )
 }
 
+// ── Modal vincular cliente del historial a usuario registrado ─────────────────
+
+function VincularClienteModal({
+  clienteNombre,
+  ventasSinCuenta,
+  onClose,
+  onVinculado,
+}: {
+  clienteNombre: string
+  ventasSinCuenta: number
+  onClose: () => void
+  onVinculado: (userId: string) => void
+}) {
+  const [usuarios, setUsuarios] = useState<UsuarioRegistrado[] | null>(null)
+  const [userId, setUserId] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+  const [error, setError] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    getUsuariosRegistrados().then(setUsuarios)
+  }, [])
+
+  const filtrados = usuarios?.filter(u =>
+    !busqueda ||
+    u.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+    u.email.toLowerCase().includes(busqueda.toLowerCase())
+  ) ?? []
+
+  function handleVincular() {
+    if (!userId) { setError('Seleccioná un usuario'); return }
+    setError('')
+    startTransition(async () => {
+      const res = await asignarUserAVentas(userId, clienteNombre)
+      if (res.error) { setError(res.error); return }
+      onVinculado(userId)
+      onClose()
+    })
+  }
+
+  const inputCls = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20'
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h3 className="font-semibold">🔗 Vincular cliente a cuenta</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {ventasSinCuenta} venta{ventasSinCuenta !== 1 ? 's' : ''} de <span className="font-medium text-foreground">{clienteNombre}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2.5 text-xs text-red-700 dark:text-red-400">
+              <AlertCircle size={13} className="shrink-0 mt-0.5" />{error}
+            </div>
+          )}
+          {usuarios === null ? (
+            <div className="flex items-center justify-center py-6 gap-2 text-sm text-muted-foreground">
+              <Loader2 size={14} className="animate-spin" /> Cargando cuentas...
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <input
+                  className={inputCls}
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre o email..."
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-52 overflow-y-auto space-y-1 -mx-1 px-1">
+                {filtrados.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">Sin resultados</p>
+                )}
+                {filtrados.map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => setUserId(u.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                      userId === u.id
+                        ? 'border-foreground bg-foreground/5'
+                        : 'border-border hover:bg-secondary/50'
+                    }`}
+                  >
+                    <p className="font-medium">{u.nombre}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex gap-2 px-5 pb-5">
+          <button onClick={onClose} className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-secondary transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleVincular}
+            disabled={!userId || isPending}
+            className="flex-1 py-2 text-sm font-medium bg-foreground text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+          >
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+            Vincular
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Vista historial global de ventas ──────────────────────────────────────────
 
 function HistorialVentas() {
   const [ventas, setVentas] = useState<VentaFilamento[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [vincularModal, setVincularModal] = useState<{ cliente: string; sinCuenta: number } | null>(null)
 
   if (ventas === null && !loading) {
     setLoading(true)
@@ -1196,6 +1315,14 @@ function HistorialVentas() {
       </div>
     )
   }
+
+  // Cuántas ventas sin user_id tiene cada cliente
+  const sinCuentaPorCliente: Record<string, number> = {}
+  ventas.forEach(v => {
+    if (!v.user_id && v.cliente) {
+      sinCuentaPorCliente[v.cliente] = (sinCuentaPorCliente[v.cliente] ?? 0) + 1
+    }
+  })
 
   const totalVendido = ventas.reduce((s, v) => s + (v.gramos / 1000) * v.precio_kg, 0)
   const totalCosto = ventas.reduce((s, v) => s + (v.gramos / 1000) * v.costo_kg, 0)
@@ -1239,6 +1366,7 @@ function HistorialVentas() {
                 const total = (v.gramos / 1000) * v.precio_kg
                 const costo = (v.gramos / 1000) * v.costo_kg
                 const gan = total - costo
+                const pendientes = !v.user_id && v.cliente ? sinCuentaPorCliente[v.cliente] ?? 0 : 0
                 return (
                   <tr key={v.id} className="hover:bg-secondary/20">
                     <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(v.fecha)}</td>
@@ -1246,7 +1374,21 @@ function HistorialVentas() {
                       <span className="font-medium">{v.filamento_nombre}</span>
                       {v.filamento_color && <span className="text-xs text-muted-foreground ml-1">{v.filamento_color}</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{v.cliente || '—'}</td>
+                    <td className="px-4 py-2.5 hidden sm:table-cell">
+                      <div className="flex items-center gap-1.5">
+                        <span className={v.user_id ? 'text-muted-foreground' : 'text-foreground'}>{v.cliente || '—'}</span>
+                        {pendientes > 0 && (
+                          <button
+                            onClick={() => setVincularModal({ cliente: v.cliente, sinCuenta: pendientes })}
+                            title={`${pendientes} venta${pendientes !== 1 ? 's' : ''} sin cuenta — clic para vincular`}
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full border border-yellow-200 dark:border-yellow-700 transition-colors"
+                          >
+                            <Link2 size={9} />
+                            {pendientes}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{fmtGr(v.gramos)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtARS(v.precio_kg)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium">{fmtARS(total)}</td>
@@ -1260,6 +1402,19 @@ function HistorialVentas() {
           </table>
         </div>
       </div>
+
+      {vincularModal && (
+        <VincularClienteModal
+          clienteNombre={vincularModal.cliente}
+          ventasSinCuenta={vincularModal.sinCuenta}
+          onClose={() => setVincularModal(null)}
+          onVinculado={(userId) => {
+            setVentas(prev => prev?.map(v =>
+              v.cliente === vincularModal.cliente && !v.user_id ? { ...v, user_id: userId } : v
+            ) ?? prev)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1495,7 +1650,7 @@ function VentaGlobalModal({
                           <span className="w-4 h-4 rounded-full shrink-0 border border-black/10"
                             style={{ backgroundColor: colorToCss(selFil.color) }} />
                           <span className="truncate flex-1">{selFil.color} — {selFil.material} · {selFil.marca} {shortNombre(selFil.nombre)}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{selFil.rollos_cerrados} rol</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{fmtGr(totalGramos(selFil))}</span>
                         </>
                       ) : (
                         <span className="text-muted-foreground flex-1">— Seleccionar filamento —</span>
@@ -1518,9 +1673,7 @@ function VentaGlobalModal({
                               <span className="text-[10px] text-muted-foreground">{f.marca} {shortNombre(f.nombre)}</span>
                             </span>
                             <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                              {f.rollos_cerrados > 0 && `${f.rollos_cerrados} rol`}
-                              {f.rollos_cerrados > 0 && f.gramos_sueltos > 0 && ' + '}
-                              {f.gramos_sueltos > 0 && fmtGr(f.gramos_sueltos)}
+                              {fmtGr(totalGramos(f))}
                             </span>
                           </button>
                         ))}
@@ -2429,7 +2582,6 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
           <p className="text-sm text-muted-foreground mt-1">
             {filamentosFiltrados.length}{hayFiltros ? `/${filamentos.length}` : ''} tipo{filamentos.length !== 1 ? 's' : ''}
             {totalGr > 0 && ` · ${fmtGr(totalGr)} totales`}
-            {totalRollos > 0 && ` · ${totalRollos} rollo${totalRollos !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
