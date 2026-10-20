@@ -191,6 +191,7 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
         alt={`Foto ${idx + 1}`}
         className="max-w-full max-h-[85dvh] object-contain rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        onError={(e) => { (e.target as HTMLImageElement).src = fotos[idx] }}
       />
 
       {fotos.length > 1 && (
@@ -259,6 +260,7 @@ function FilamentoCard({
             loading="lazy"
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
             onClick={() => setLightbox(true)}
+            onError={(e) => { (e.target as HTMLImageElement).src = fotoActual }}
           />
         ) : (
           <span
