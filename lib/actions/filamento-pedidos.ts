@@ -229,7 +229,6 @@ export async function editarItemsPedidoFilamento(
 
 import { KG_RENOVACION, DIAS_PERIODO, TIERS_MEMBRESIA, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
-export { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 
 type PedidoRow = { updated_at: string; total_rollos: number }
 
