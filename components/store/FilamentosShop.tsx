@@ -259,15 +259,21 @@ function FilamentoCard({
         }}
       >
         {fotoActual ? (
-          <img
-            key={fotoIdx}
-            src={imgUrl(fotoActual, 400, 75)}
-            alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
-            onClick={() => setLightbox(true)}
-            onError={(e) => { (e.target as HTMLImageElement).src = fotoActual }}
-          />
+          <>
+            <img
+              key={fotoIdx}
+              src={imgUrl(fotoActual, 400, 75)}
+              alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
+              onClick={() => setLightbox(true)}
+              onError={(e) => { (e.target as HTMLImageElement).src = fotoActual }}
+            />
+            {/* Preload fotos siguientes */}
+            {fotos.filter((_, i) => i !== fotoIdx).map((url, i) => (
+              <img key={`pre-${i}`} src={imgUrl(url, 400, 75)} alt="" aria-hidden className="hidden" />
+            ))}
+          </>
         ) : (
           <span
             className="w-16 h-16 rounded-full shadow-lg border-4"
