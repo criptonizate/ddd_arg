@@ -7,6 +7,7 @@ export interface UserProfile {
   telefono: string | null
   dni: string | null
   sexo: 'M' | 'F' | 'otro' | null
+  apodo: string | null
 }
 
 export async function getMyProfile(): Promise<UserProfile | null> {
@@ -18,7 +19,7 @@ export async function getMyProfile(): Promise<UserProfile | null> {
   const db = createServiceClient()
   const { data } = await db
     .from('user_profiles')
-    .select('telefono, dni, sexo')
+    .select('telefono, dni, sexo, apodo')
     .eq('user_id', user.id)
     .single()
 
@@ -39,6 +40,7 @@ export async function saveMyProfile(profile: UserProfile): Promise<{ error?: str
       telefono: profile.telefono?.trim() || null,
       dni: profile.dni?.trim() || null,
       sexo: profile.sexo || null,
+      apodo: profile.apodo?.trim() || null,
       updated_at: new Date().toISOString(),
     })
 

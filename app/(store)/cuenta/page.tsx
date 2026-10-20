@@ -51,9 +51,9 @@ export default async function CuentaPage({
   ])
 
   const { tab: tabParam } = await searchParams
-  const tab = tabParam === 'membresia' ? 'membresia' : tabParam === 'perfil' ? 'perfil' : 'pedidos'
+  const tab = tabParam === 'pedidos' ? 'pedidos' : tabParam === 'membresia' ? 'membresia' : 'perfil'
 
-  const displayName = user.user_metadata?.full_name ?? user.email?.split('@')[0]
+  const displayName = profile?.apodo || user.user_metadata?.full_name || user.email?.split('@')[0] || ''
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
 
   const siguienteTier = membresia?.nivel
@@ -95,6 +95,20 @@ export default async function CuentaPage({
         <Link
           href="/cuenta"
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            tab === 'perfil'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <User size={14} />
+          Mi perfil
+          {!profile?.telefono && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
+          )}
+        </Link>
+        <Link
+          href="/cuenta?tab=pedidos"
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
             tab === 'pedidos'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -119,30 +133,7 @@ export default async function CuentaPage({
             </span>
           )}
         </Link>
-        <Link
-          href="/cuenta?tab=perfil"
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            tab === 'perfil'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <User size={14} />
-          Mi perfil
-          {!profile?.telefono && (
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
-          )}
-        </Link>
       </div>
-
-      {/* ── TAB PEDIDOS ── */}
-      {tab === 'pedidos' && (
-        <CuentaPedidosTab
-          pedidos={(pedidos ?? []) as FilamentoPedido[]}
-          ventasHistoricas={ventasHistoricas as VentaFilamento[]}
-          userId={user.id}
-        />
-      )}
 
       {/* ── TAB PERFIL ── */}
       {tab === 'perfil' && (
@@ -151,6 +142,15 @@ export default async function CuentaPage({
           email={user.email ?? ''}
           avatarUrl={user.user_metadata?.avatar_url ?? null}
           profile={profile}
+        />
+      )}
+
+      {/* ── TAB PEDIDOS ── */}
+      {tab === 'pedidos' && (
+        <CuentaPedidosTab
+          pedidos={(pedidos ?? []) as FilamentoPedido[]}
+          ventasHistoricas={ventasHistoricas as VentaFilamento[]}
+          userId={user.id}
         />
       )}
 

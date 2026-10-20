@@ -13,6 +13,7 @@ interface Props {
 
 export default function PerfilTab({ nombre, email, avatarUrl, profile: initialProfile }: Props) {
   const [editing, setEditing] = useState(false)
+  const [apodo, setApodo] = useState(initialProfile?.apodo ?? '')
   const [telefono, setTelefono] = useState(initialProfile?.telefono ?? '')
   const [dni, setDni] = useState(initialProfile?.dni ?? '')
   const [sexo, setSexo] = useState<'M' | 'F' | 'otro' | ''>(initialProfile?.sexo ?? '')
@@ -24,6 +25,7 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
     setError('')
     startTransition(async () => {
       const result = await saveMyProfile({
+        apodo: apodo || null,
         telefono: telefono || null,
         dni: dni || null,
         sexo: sexo || null,
@@ -36,6 +38,7 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   }
 
   function handleCancel() {
+    setApodo(initialProfile?.apodo ?? '')
     setTelefono(initialProfile?.telefono ?? '')
     setDni(initialProfile?.dni ?? '')
     setSexo(initialProfile?.sexo ?? '')
@@ -79,14 +82,41 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-border hover:bg-secondary transition-colors"
+              className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl text-white transition-all hover:opacity-90 active:scale-95"
+              style={{ backgroundColor: '#16a34a' }}
             >
-              <Pencil size={11} /> Editar
+              <Pencil size={11} /> Editar perfil
             </button>
           )}
         </div>
 
         <div className="px-5 py-5 space-y-5">
+          {/* Apodo */}
+          <div>
+            <label className={labelCls}>Apodo / nombre preferido</label>
+            {editing ? (
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  value={apodo}
+                  onChange={e => setApodo(e.target.value)}
+                  placeholder={`Por defecto: ${nombre}`}
+                  maxLength={40}
+                  className={inputCls}
+                />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Si lo completás, lo usamos en lugar de tu nombre de Google en toda la plataforma.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className={`text-sm py-2.5 px-3.5 rounded-xl border border-transparent flex-1 ${apodo ? 'text-foreground font-medium' : 'text-muted-foreground italic'}`}>
+                  {apodo || <span className="font-normal">Usando nombre de Google: <span className="font-semibold not-italic text-foreground">{nombre}</span></span>}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Teléfono */}
           <div>
             <label className={labelCls}>Número de teléfono</label>
