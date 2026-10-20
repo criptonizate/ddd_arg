@@ -57,7 +57,7 @@ export default function AddToCartSection({ product }: { product: ProductWithVari
                   disabled={sin_stock}
                   className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
                     selectedVariantId === v.id
-                      ? 'bg-foreground text-primary-foreground border-foreground'
+                      ? 'bg-foreground text-background border-foreground'
                       : sin_stock
                       ? 'border-border text-muted-foreground line-through cursor-not-allowed'
                       : 'border-border hover:border-foreground/40'
@@ -115,7 +115,7 @@ export default function AddToCartSection({ product }: { product: ProductWithVari
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-colors ${
             added
               ? 'bg-green-600 text-white'
-              : 'bg-foreground text-primary-foreground hover:bg-foreground/90'
+              : 'bg-foreground text-background hover:bg-foreground/90'
           } disabled:opacity-40`}
         >
           {added ? (

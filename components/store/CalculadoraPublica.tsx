@@ -97,7 +97,7 @@ export default function CalculadoraPublica({ config }: { config: CalculadoraConf
                 <p className="text-xs text-muted-foreground mb-1">Precio mayorista</p>
                 <p className="text-2xl font-bold">{fmtARS(resultado.x3)}</p>
               </div>
-              <div className="bg-foreground text-primary-foreground rounded-xl p-4 text-center">
+              <div className="bg-foreground text-background rounded-xl p-4 text-center">
                 <p className="text-xs opacity-70 mb-1">Precio minorista</p>
                 <p className="text-2xl font-bold">{fmtARS(resultado.x4)}</p>
               </div>

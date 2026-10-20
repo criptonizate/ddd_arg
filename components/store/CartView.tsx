@@ -33,7 +33,7 @@ export default function CartView() {
         </p>
         <Link
           href="/catalogo"
-          className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
+          className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
         >
           Ver catálogo
         </Link>
@@ -53,7 +53,7 @@ export default function CartView() {
         </p>
         <Link
           href="/catalogo"
-          className="inline-flex items-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
+          className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
         >
           Seguir comprando
         </Link>
@@ -180,7 +180,7 @@ export default function CartView() {
                   onClick={() => setForm({ ...form, entrega: op })}
                   className={`py-2.5 px-4 rounded-xl text-sm font-medium border transition-colors ${
                     form.entrega === op
-                      ? 'bg-foreground text-primary-foreground border-foreground'
+                      ? 'bg-foreground text-background border-foreground'
                       : 'border-border hover:border-foreground/40'
                   }`}
                 >
@@ -289,7 +289,7 @@ export default function CartView() {
 
       <button
         onClick={() => setStep('checkout')}
-        className="w-full flex items-center justify-center gap-2 bg-foreground text-primary-foreground hover:bg-foreground/90 transition-colors rounded-xl py-3.5 text-sm font-medium"
+        className="w-full flex items-center justify-center gap-2 bg-foreground text-background hover:bg-foreground/90 transition-colors rounded-xl py-3.5 text-sm font-medium"
       >
         <ShoppingBag size={16} />
         Finalizar compra
