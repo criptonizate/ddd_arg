@@ -201,3 +201,13 @@ export async function confirmarPedidoYDescontarStock(
   revalidatePath('/filamentos')
   return {}
 }
+
+export async function getFilamentoPedidosPendientesCount(): Promise<number> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { count } = await supabase
+    .from('filamento_pedidos')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado', 'pendiente')
+  return count ?? 0
+}

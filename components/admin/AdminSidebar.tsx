@@ -24,17 +24,19 @@ const NAV_ITEMS = [
   { href: '/admin/calculadora', label: '🧮 Calculadora' },
   { href: '/admin/productos', label: '🛍️ Productos' },
   { href: '/admin/produccion', label: '🏭 Producción' },
-  { href: '/admin/filamentos', label: '🧵 Filamentos' },
+  { href: '/admin/filamentos', label: '🧵 Filamentos', showFilamentoBadge: true },
   { href: '/admin/gastos', label: '💸 Mis gastos' },
 ]
 
 export default function AdminSidebar({
   userEmail,
   pendingCount = 0,
+  filamentoPendingCount = 0,
   calculadoraConfig,
 }: {
   userEmail: string
   pendingCount?: number
+  filamentoPendingCount?: number
   calculadoraConfig?: CalculadoraConfig
 }) {
   const pathname = usePathname()
@@ -111,6 +113,14 @@ export default function AdminSidebar({
                     active ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
                   )}>
                     {pendingCount}
+                  </span>
+                )}
+                {item.showFilamentoBadge && filamentoPendingCount > 0 && (
+                  <span className={cn(
+                    'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
+                    active ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                  )}>
+                    {filamentoPendingCount}
                   </span>
                 )}
               </Link>

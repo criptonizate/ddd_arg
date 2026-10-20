@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
+import { createBrowserClient } from '@supabase/ssr'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { signInWithGoogleCliente } from '@/lib/actions/auth'
 
 const WHATSAPP_NUMBER = '543804559909'
 const PRECIO_BASE = 22000
@@ -258,6 +261,25 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
   const [checkoutError, setCheckoutError] = useState('')
   const [, startTransition] = useTransition()
 
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null
+      setUser(u)
+      if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user ?? null
+      setUser(u)
+      if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   const marcas = useMemo(() => Array.from(new Set(filamentos.map(f => f.marca))).sort(), [filamentos])
   const materiales = useMemo(() => Array.from(new Set(filamentos.map(f => f.material))).sort(), [filamentos])
 
@@ -326,6 +348,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
     startTransition(async () => {
       const result = await crearPedidoFilamento({
         cliente_nombre: clienteNombre, cliente_telefono: clienteTelefono,
+
         items: cart.map(i => ({
           filamento_id: i.filamento.id, nombre: i.filamento.nombre, color: i.filamento.color,
           material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos, precio_unitario: precioUnitario,
@@ -619,7 +642,9 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                     <button onClick={() => setShowCheckout(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
                   )}
                 </div>
-                <div className="px-6 py-5 space-y-4">
+
+                {/* Resumen del carrito — siempre visible */}
+                <div className="px-6 pt-5 space-y-4">
                   <div className="bg-secondary/40 rounded-xl px-4 py-3 space-y-1">
                     {cart.map(i => (
                       <div key={i.filamento.id} className="flex items-center gap-2 text-sm">
@@ -635,31 +660,75 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
                       <p className="text-[10px] text-orange-600 dark:text-orange-400 text-center">Descuento: -{fmtARS(descuento)}/kg ({descLabel})</p>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
-                      <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
-                        placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
-                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                </div>
+
+                {/* Bloque condicional: login o formulario */}
+                {!user ? (
+                  <div className="px-6 py-6 space-y-4">
+                    <div className="text-center space-y-2">
+                      <p className="text-sm font-semibold">Iniciá sesión para continuar</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Para hacer un pedido necesitás estar logueado. Esto evita reservas falsas y nos permite contactarte para confirmar.
+                      </p>
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
-                      <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
-                        placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
-                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
-                    </div>
+                    <form action={signInWithGoogleCliente}>
+                      <button type="submit"
+                        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl py-3 text-sm font-semibold shadow-sm transition-colors">
+                        <svg width="18" height="18" viewBox="0 0 24 24">
+                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Continuar con Google
+                      </button>
+                    </form>
                   </div>
-                  {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Una vez que confirmes el pedido, revisamos el stock y te avisamos por WhatsApp. Para separar los filamentos se requiere abonar una seña o el total.
-                  </p>
-                </div>
-                <div className="px-6 pb-5">
-                  <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || !clienteNombre.trim()}
-                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
-                    {checkoutStep === 'saving' ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}
-                  </button>
-                </div>
+                ) : (
+                  <div className="px-6 py-5 space-y-4">
+                    <div className="flex items-center gap-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-3.5 py-2.5">
+                      {user.user_metadata?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.user_metadata.avatar_url} alt="" className="w-7 h-7 rounded-full shrink-0" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-green-200 dark:bg-green-700 shrink-0 flex items-center justify-center text-xs font-bold text-green-800 dark:text-green-200">
+                          {(user.user_metadata?.full_name ?? user.email ?? '?')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-green-800 dark:text-green-300 truncate">{user.user_metadata?.full_name ?? user.email}</p>
+                        <p className="text-[10px] text-green-600 dark:text-green-400 truncate">{user.email}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
+                        <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
+                          placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
+                        <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
+                          placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                      </div>
+                    </div>
+                    {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Una vez que confirmes el pedido, revisamos el stock y te avisamos por WhatsApp. Para separar los filamentos se requiere abonar una seña o el total.
+                    </p>
+                  </div>
+                )}
+
+                {user && (
+                  <div className="px-6 pb-5">
+                    <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || !clienteNombre.trim()}
+                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
+                      {checkoutStep === 'saving' ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="px-6 py-8 text-center space-y-4">
