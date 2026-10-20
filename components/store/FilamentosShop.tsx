@@ -270,7 +270,7 @@ export default function FilamentosShop({ filamentos }: { filamentos: Filamento[]
       if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
       if (u?.user_metadata?.phone) setClienteTelefono(u.user_metadata.phone)
     })
-    const { data: { subscription } } = supabaseRef.current.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange((_e, session) => {
       const u = session?.user ?? null
       setUser(u)
       if (u?.user_metadata?.full_name) setClienteNombre(u.user_metadata.full_name)
