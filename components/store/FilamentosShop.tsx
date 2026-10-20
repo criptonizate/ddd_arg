@@ -434,6 +434,38 @@ export default function FilamentosShop({ filamentos, initialUser }: { filamentos
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Prefetch images in background after viewport loads
+  useEffect(() => {
+    if (!localFilamentos.length) return
+    const idle = typeof requestIdleCallback !== 'undefined'
+      ? (fn: () => void) => requestIdleCallback(fn, { timeout: 3000 })
+      : (fn: () => void) => setTimeout(fn, 50)
+
+    // Build queue: [lightbox of first 10] + [thumbnails of rest] + [lightbox of rest]
+    const all = localFilamentos.flatMap(f =>
+      [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
+    )
+    const visible = all.slice(0, 10)
+    const rest = all.slice(10)
+    const queue = [
+      ...visible.map(u => imgUrl(u, 1200, 90)),
+      ...rest.map(u => imgUrl(u, 400, 75)),
+      ...rest.map(u => imgUrl(u, 1200, 90)),
+    ]
+
+    let i = 0
+    let timer: ReturnType<typeof setTimeout>
+
+    function next() {
+      if (i >= queue.length) return
+      new Image().src = queue[i++]
+      idle(next)
+    }
+
+    timer = setTimeout(() => idle(next), 2000)
+    return () => clearTimeout(timer)
+  }, [localFilamentos]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const marcas = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.marca))).sort(), [localFilamentos])
   const materiales = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.material))).sort(), [localFilamentos])
 
