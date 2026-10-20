@@ -96,21 +96,21 @@ export default async function CuentaPage() {
           {/* Título y kg */}
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="font-black text-lg leading-none mb-1" style={{ color: '#fff' }}>
+              <p className="font-black text-lg leading-none mb-1" style={{ color: '#f0fdf4' }}>
                 {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}
                 Mayorista {membresia.nivel !== 'Mayorista' && membresia.nivel}
               </p>
-              <p className="text-xs mt-1" style={{ color: 'oklch(0.65 0.006 264)' }}>
-                Descuento activo: <strong style={{ color: '#fff' }}>−{fmtARS(membresia.descuento)}/kg</strong>
+              <p className="text-xs mt-1" style={{ color: '#86efac' }}>
+                Descuento activo: <strong style={{ color: '#f0fdf4' }}>−{fmtARS(membresia.descuento)}/kg</strong>
                 {' '}· Vence {fmtDate(membresia.periodoFin)}
               </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-2xl font-black tabular-nums leading-none" style={{ color: '#fff' }}>
+              <p className="text-2xl font-black tabular-nums leading-none" style={{ color: '#f0fdf4' }}>
                 {membresia.kgPeriodo}
-                <span className="text-sm font-medium" style={{ color: 'oklch(0.55 0.006 264)' }}> / {TIER_MAX} kg</span>
+                <span className="text-sm font-medium" style={{ color: '#86efac' }}> / {TIER_MAX} kg</span>
               </p>
-              <p className="text-[11px] mt-0.5" style={{ color: 'oklch(0.55 0.006 264)' }}>{membresia.diasRestantes} días restantes</p>
+              <p className="text-[11px] mt-0.5" style={{ color: '#86efac' }}>{membresia.diasRestantes} días restantes</p>
             </div>
           </div>
 
@@ -123,10 +123,10 @@ export default async function CuentaPage() {
               />
             </div>
             {TIERS_MEMBRESIA.slice().reverse().map(t => (
-              <div key={t.min} className="absolute top-0 h-3 w-px" style={{ left: `${(t.min / TIER_MAX) * 100}%`, backgroundColor: 'oklch(1 0 0 / 25%)' }} />
+              <div key={t.min} className="absolute top-0 h-3 w-px" style={{ left: `${(t.min / TIER_MAX) * 100}%`, backgroundColor: 'rgba(255,255,255,0.2)' }} />
             ))}
           </div>
-          <div className="flex justify-between text-[10px] mb-4" style={{ color: 'oklch(0.48 0.006 264)' }}>
+          <div className="flex justify-between text-[10px] mb-4" style={{ color: '#86efac' }}>
             {TIERS_MEMBRESIA.slice().reverse().map(t => (
               <span key={t.min} style={{ position: 'relative', left: `${(t.min / TIER_MAX) * 100 - 5}%` }}>
                 {t.emoji} {t.min}kg
@@ -140,19 +140,19 @@ export default async function CuentaPage() {
             return (
               <div
                 className="rounded-xl px-4 py-3.5 mb-3"
-                style={{ backgroundColor: 'oklch(1 0 0 / 6%)', border: `1px solid ${styles.cardBorder}55` }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: `1px solid ${styles.cardBorder}` }}
               >
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="text-sm font-black" style={{ color: '#fff' }}>
+                    <p className="text-sm font-black" style={{ color: '#f0fdf4' }}>
                       {siguienteTier.emoji} Te faltan solo <span style={{ color: styles.bar }}>{faltan} kg</span> para subir
                     </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'oklch(0.60 0.006 264)' }}>
+                    <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>
                       Mayorista {siguienteTier.label} · −{fmtARS(siguienteTier.descuento)}/kg en todos los filamentos
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[10px] font-semibold" style={{ color: 'oklch(0.55 0.006 264)' }}>ahorrás</p>
+                    <p className="text-[10px] font-semibold" style={{ color: '#86efac' }}>ahorrás</p>
                     <p className="text-lg font-black" style={{ color: styles.bar }}>
                       +{fmtARS((siguienteTier.descuento - membresia.descuento) * siguienteTier.min)}/pedido
                     </p>
@@ -163,9 +163,9 @@ export default async function CuentaPage() {
           })()}
 
           {/* Renovación */}
-          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'oklch(1 0 0 / 4%)', border: '1px solid oklch(1 0 0 / 8%)' }}>
-            <p className="text-xs" style={{ color: 'oklch(0.58 0.006 264)' }}>
-              🔄 Comprá <strong style={{ color: 'oklch(0.78 0.005 264)' }}>{KG_RENOVACION} kg o más</strong> antes del vencimiento y extendés la membresía 30 días automáticamente
+          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <p className="text-xs" style={{ color: '#86efac' }}>
+              🔄 Comprá <strong style={{ color: '#f0fdf4' }}>{KG_RENOVACION} kg o más</strong> antes del vencimiento y extendés la membresía 30 días automáticamente
             </p>
           </div>
         </div>
