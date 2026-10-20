@@ -176,7 +176,7 @@ export default async function CuentaPage() {
                   </span>
                   <span className="text-xs text-muted-foreground">{t.min}+ kg</span>
                 </span>
-                <span className="font-bold tabular-nums text-orange-600 dark:text-orange-400">−{fmtARS(t.descuento)}/kg</span>
+                <span className="font-bold tabular-nums" style={{ color: '#7a9e27' }}>−{fmtARS(t.descuento)}/kg</span>
               </div>
             ))}
           </div>
@@ -194,7 +194,7 @@ export default async function CuentaPage() {
             </p>
           )}
 
-          <Link href="/filamentos" className="inline-flex w-full items-center justify-center gap-2 mt-4 text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-5 py-2.5 transition-colors">
+          <Link href="/filamentos" className="inline-flex w-full items-center justify-center gap-2 mt-4 text-sm font-bold text-white rounded-xl px-5 py-2.5 transition-colors hover:opacity-90" style={{ backgroundColor: '#7a9e27' }}>
             Ver filamentos disponibles →
           </Link>
         </div>

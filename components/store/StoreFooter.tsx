@@ -20,16 +20,59 @@ function WhatsAppIcon() {
   )
 }
 
+const MAP_EMBED = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3563.680!2d-65.4!3d-24.3!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjTCsDE4JzAwLjAiUyA2NcKwMjQnMDAuMCJX!5e0!3m2!1ses!2sar!4v1'
+const MAP_LINK = 'https://maps.app.goo.gl/H4zc7kSGzD4zqmS69'
+
 export default function StoreFooter() {
   return (
     <footer
-      className="mt-16 border-t py-10"
+      className="mt-16 border-t"
       style={{
-        backgroundColor: 'oklch(0.12 0.005 264)',
+        backgroundColor: 'oklch(0.17 0.005 264)',
         borderColor: 'oklch(1 0 0 / 8%)',
       }}
     >
-      <div className="max-w-6xl mx-auto px-4">
+      {/* Sección ubicación */}
+      <div
+        className="border-b"
+        style={{ borderColor: 'oklch(1 0 0 / 8%)' }}
+      >
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Info */}
+            <div className="md:w-1/3 shrink-0">
+              <h3 className="text-sm font-bold mb-1" style={{ color: 'oklch(0.85 0.005 264)' }}>📍 Dónde encontrarnos</h3>
+              <p className="text-xs mb-4" style={{ color: 'oklch(0.50 0.006 264)' }}>
+                Visitanos en nuestro local para ver los materiales en persona o retirar tu pedido.
+              </p>
+              <a
+                href={MAP_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg transition-colors hover:opacity-80"
+                style={{ backgroundColor: '#7a9e27', color: '#fff' }}
+              >
+                Cómo llegar →
+              </a>
+            </div>
+            {/* Mapa */}
+            <div className="flex-1 w-full rounded-xl overflow-hidden" style={{ height: 200 }}>
+              <iframe
+                src={`https://maps.google.com/maps?q=DDD+ARG+impresion+3d&output=embed&z=15`}
+                width="100%"
+                height="200"
+                style={{ border: 0, display: 'block' }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación DDD ARG"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
 
           {/* Logo + tagline */}
@@ -49,14 +92,14 @@ export default function StoreFooter() {
           <div className="flex items-center gap-6 text-sm">
             <Link
               href="/filamentos"
-              className="font-semibold transition-colors hover:text-[#f97316]"
+              className="font-semibold transition-colors hover:text-[#7a9e27]"
               style={{ color: 'oklch(0.60 0.005 264)' }}
             >
               🧵 Filamentos
             </Link>
             <Link
               href="/cuenta"
-              className="font-semibold transition-colors hover:text-[#f97316]"
+              className="font-semibold transition-colors hover:text-[#7a9e27]"
               style={{ color: 'oklch(0.60 0.005 264)' }}
             >
               Mi cuenta
@@ -93,6 +136,7 @@ export default function StoreFooter() {
         >
           © {new Date().getFullYear()} DDD ARG · Todos los derechos reservados
         </div>
+      </div>
       </div>
     </footer>
   )

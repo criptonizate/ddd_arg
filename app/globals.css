@@ -142,39 +142,36 @@
 }
 
 /* ── Store dark theme ────────────────────────────────────────────────────────
-   Se aplica wrapeando el layout de la store en <div class="store-dark">.
-   El admin usa .dark (azul pizarra). La store usa store-dark (carbón + naranja).
-   Los componentes de la store usan variables CSS (bg-background, bg-card, etc.)
-   y las reciben automáticamente de este scope.
+   Gris grafito + verde oliva. Fondos medios (no negro puro), texto nítido.
    ─────────────────────────────────────────────────────────────────────────── */
 .store-dark {
   color-scheme: dark;
-  /* Fondo: carbón profundo */
-  --background: oklch(0.10 0.004 264);      /* #101010 */
-  --foreground: oklch(0.95 0.003 264);      /* #f2f2f2 */
-  /* Cards: gris oscuro elevado */
-  --card: oklch(0.145 0.005 264);           /* #181818 */
-  --card-foreground: oklch(0.95 0.003 264);
-  --popover: oklch(0.155 0.005 264);
-  --popover-foreground: oklch(0.95 0.003 264);
-  /* Naranja como primario */
-  --primary: oklch(0.68 0.21 44);           /* #f97316 naranja-500 */
-  --primary-foreground: oklch(0.10 0.004 264);
-  /* Secundario: gris medio para hovers y estados */
-  --secondary: oklch(0.20 0.005 264);       /* #222 */
-  --secondary-foreground: oklch(0.90 0.003 264);
-  --muted: oklch(0.20 0.005 264);
-  --muted-foreground: oklch(0.56 0.007 264); /* #808080 */
-  --accent: oklch(0.24 0.008 264);
-  --accent-foreground: oklch(0.95 0.003 264);
+  /* Fondos: grises grafito, no negro */
+  --background: oklch(0.17 0.004 264);      /* gris grafito medio */
+  --foreground: oklch(0.97 0.002 264);      /* blanco casi puro — máximo contraste */
+  /* Cards: un escalón más claro que el fondo */
+  --card: oklch(0.21 0.005 264);
+  --card-foreground: oklch(0.97 0.002 264);
+  --popover: oklch(0.23 0.005 264);
+  --popover-foreground: oklch(0.97 0.002 264);
+  /* Verde oliva como color primario */
+  --primary: oklch(0.57 0.13 110);          /* verde oliva vibrante */
+  --primary-foreground: oklch(0.97 0.002 264);
+  /* Secundario: gris para hovers */
+  --secondary: oklch(0.27 0.005 264);
+  --secondary-foreground: oklch(0.92 0.003 264);
+  --muted: oklch(0.27 0.005 264);
+  --muted-foreground: oklch(0.42 0.006 264); /* texto secundario oscuro — más negro */
+  --accent: oklch(0.30 0.007 264);
+  --accent-foreground: oklch(0.97 0.002 264);
   --destructive: oklch(0.65 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  /* Bordes: muy sutiles */
-  --border: oklch(1 0 0 / 7%);
-  --input: oklch(1 0 0 / 9%);
-  --ring: oklch(0.68 0.21 44);              /* naranja para focus */
-  /* Resto */
-  --chart-1: oklch(0.68 0.21 44);
+  /* Bordes: sutiles pero visibles */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.57 0.13 110);             /* oliva para focus */
+  /* Charts */
+  --chart-1: oklch(0.57 0.13 110);         /* oliva */
   --chart-2: oklch(0.72 0.18 230);
   --chart-3: oklch(0.68 0.15 160);
   --chart-4: oklch(0.72 0.18 80);
@@ -185,29 +182,24 @@
   border-color: var(--border);
 }
 
-/* Overrides de clases hardcodeadas del header/footer de la store */
-.store-dark .bg-\[#f0f0f0\]          { background-color: var(--card) !important; }
-.store-dark .border-\[#d8d8d8\]      { border-color: var(--border) !important; }
-.store-dark .hover\:bg-black\/5:hover { background-color: oklch(1 0 0 / 6%) !important; }
-
 /* Badges y colores contextuales en store-dark */
-.store-dark .bg-green-100  { background-color: oklch(0.22 0.06 160) !important; }
-.store-dark .text-green-800 { color: oklch(0.80 0.18 160) !important; }
-.store-dark .bg-yellow-100  { background-color: oklch(0.24 0.07 85) !important; }
-.store-dark .text-yellow-800 { color: oklch(0.82 0.18 85) !important; }
-.store-dark .bg-blue-100    { background-color: oklch(0.22 0.06 230) !important; }
-.store-dark .text-blue-800  { color: oklch(0.80 0.16 230) !important; }
-.store-dark .bg-red-100     { background-color: oklch(0.22 0.07 25) !important; }
-.store-dark .text-red-700   { color: oklch(0.72 0.20 25) !important; }
-.store-dark .bg-orange-100  { background-color: oklch(0.24 0.08 50) !important; }
-.store-dark .text-orange-600 { color: oklch(0.74 0.19 50) !important; }
-.store-dark .text-orange-700 { color: oklch(0.78 0.19 50) !important; }
-.store-dark .text-orange-400 { color: oklch(0.74 0.19 50) !important; }
-.store-dark .bg-amber-100   { background-color: oklch(0.24 0.08 70) !important; }
-.store-dark .text-amber-800 { color: oklch(0.82 0.18 70) !important; }
-.store-dark .border-amber-200 { border-color: oklch(0.44 0.14 70 / 40%) !important; }
-.store-dark .bg-violet-100  { background-color: oklch(0.22 0.06 300) !important; }
-.store-dark .text-violet-800 { color: oklch(0.78 0.18 300) !important; }
+.store-dark .bg-green-100   { background-color: oklch(0.24 0.06 160) !important; }
+.store-dark .text-green-800  { color: oklch(0.80 0.18 160) !important; }
+.store-dark .bg-yellow-100   { background-color: oklch(0.25 0.07 85) !important; }
+.store-dark .text-yellow-800  { color: oklch(0.82 0.18 85) !important; }
+.store-dark .bg-blue-100     { background-color: oklch(0.24 0.06 230) !important; }
+.store-dark .text-blue-800   { color: oklch(0.80 0.16 230) !important; }
+.store-dark .bg-red-100      { background-color: oklch(0.24 0.07 25) !important; }
+.store-dark .text-red-700    { color: oklch(0.72 0.20 25) !important; }
+.store-dark .bg-orange-100   { background-color: oklch(0.26 0.07 110) !important; }
+.store-dark .text-orange-600  { color: oklch(0.65 0.13 110) !important; }
+.store-dark .text-orange-700  { color: oklch(0.60 0.13 110) !important; }
+.store-dark .text-orange-400  { color: oklch(0.68 0.13 110) !important; }
+.store-dark .bg-amber-100    { background-color: oklch(0.25 0.07 70) !important; }
+.store-dark .text-amber-800   { color: oklch(0.82 0.18 70) !important; }
+.store-dark .border-amber-200  { border-color: oklch(0.44 0.14 70 / 40%) !important; }
+.store-dark .bg-violet-100   { background-color: oklch(0.24 0.06 300) !important; }
+.store-dark .text-violet-800  { color: oklch(0.78 0.18 300) !important; }
 .store-dark .border-violet-200 { border-color: oklch(0.42 0.12 300 / 40%) !important; }
 .store-dark input, .store-dark select, .store-dark textarea {
   color-scheme: dark;
