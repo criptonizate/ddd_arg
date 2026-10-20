@@ -91,7 +91,7 @@ export default function AdminSidebar({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {NAV_ITEMS.map((item) => {
             const active = pathname.startsWith(item.href)
             return (
