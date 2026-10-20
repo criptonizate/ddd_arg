@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useCart } from './CartProvider'
-import { ShoppingBag, User, LogOut, Package, Crown } from 'lucide-react'
+import { ShoppingBag, User, LogOut, Package } from 'lucide-react'
 import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -178,15 +178,6 @@ export default function StoreHeader() {
                         >
                           <Package size={13} />
                           Mis pedidos
-                        </Link>
-                        <Link
-                          href="/cuenta"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"
-                          style={{ color: 'oklch(0.80 0.005 264)' }}
-                        >
-                          <Crown size={13} className="text-amber-400" />
-                          Membresía mayorista
                         </Link>
                         <div className="my-1 border-t" style={{ borderColor: 'oklch(1 0 0 / 8%)' }} />
                         <form action={signOutCliente}>

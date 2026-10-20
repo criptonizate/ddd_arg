@@ -297,12 +297,24 @@ export default async function CuentaPage({
                   <div key={t.min} className="absolute top-0 h-3 w-px" style={{ left: `${(t.min / TIER_MAX) * 100}%`, backgroundColor: 'rgba(255,255,255,0.2)' }} />
                 ))}
               </div>
-              <div className="flex justify-between text-[10px] mb-4" style={{ color: '#86efac' }}>
-                {TIERS_MEMBRESIA.slice().reverse().map(t => (
-                  <span key={t.min} style={{ position: 'relative', left: `${(t.min / TIER_MAX) * 100 - 5}%` }}>
-                    {t.emoji} {t.min}kg
-                  </span>
-                ))}
+              <div className="relative h-5 mb-4">
+                {TIERS_MEMBRESIA.slice().reverse().map(t => {
+                  const pct = (t.min / TIER_MAX) * 100
+                  return (
+                    <span
+                      key={t.min}
+                      className="absolute text-[10px] whitespace-nowrap"
+                      style={{
+                        color: '#86efac',
+                        left: `${pct}%`,
+                        transform: pct >= 90 ? 'translateX(-100%)' : pct <= 10 ? 'translateX(0)' : 'translateX(-50%)',
+                        top: 0,
+                      }}
+                    >
+                      {t.emoji} {t.min}kg
+                    </span>
+                  )
+                })}
               </div>
 
               {siguienteTier && (() => {
@@ -441,12 +453,12 @@ export default async function CuentaPage({
               <p className="text-base font-bold text-white leading-snug mb-3">
                 Somos todos makers. Sabemos lo que cuesta conseguir buen filamento.
               </p>
-              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+              <p className="text-sm text-gray-200 leading-relaxed mb-4">
                 Imprimir mucho tiene un costo real: horas de máquina, energía, y sobre todo material.
                 Por eso creamos el programa mayorista — no como un truco de marketing, sino porque
                 si imprimís en serio, queremos que el precio del filamento no sea el freno.
               </p>
-              <p className="text-sm text-gray-400 leading-relaxed">
+              <p className="text-sm text-gray-200 leading-relaxed">
                 No hay letra chica. No hay cuota mensual. Solo comprás, el sistema lo detecta,
                 y el descuento se aplica solo en tu próximo pedido.
               </p>

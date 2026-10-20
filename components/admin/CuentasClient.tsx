@@ -377,10 +377,12 @@ function UserDetail({
     filtroEstado === 'todos' ? true : p.estado === filtroEstado
   ) ?? []
 
-  const totalKg = pedidos?.filter(p => p.estado === 'confirmado' || p.estado === 'entregado')
-    .reduce((s, p) => s + p.total_rollos, 0) ?? 0
-  const totalGastado = pedidos?.filter(p => p.estado === 'confirmado' || p.estado === 'entregado')
-    .reduce((s, p) => s + p.total, 0) ?? 0
+  const totalKg = (pedidos?.filter(p => p.estado === 'confirmado' || p.estado === 'entregado')
+    .reduce((s, p) => s + p.total_rollos, 0) ?? 0)
+    + (ventas?.reduce((s, v) => s + v.gramos / 1000, 0) ?? 0)
+  const totalGastado = (pedidos?.filter(p => p.estado === 'confirmado' || p.estado === 'entregado')
+    .reduce((s, p) => s + p.total, 0) ?? 0)
+    + (ventas?.reduce((s, v) => s + (v.gramos / 1000) * v.precio_kg, 0) ?? 0)
 
   return (
     <div className="flex flex-col h-full">
