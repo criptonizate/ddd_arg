@@ -25,6 +25,7 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
     setError('')
     startTransition(async () => {
       const result = await saveMyProfile({
+        numero_cliente: initialProfile?.numero_cliente ?? null,
         apodo: apodo || null,
         telefono: telefono || null,
         dni: dni || null,
@@ -51,6 +52,24 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
 
   return (
     <div className="space-y-6">
+
+      {/* Número de cliente */}
+      {initialProfile?.numero_cliente && (
+        <div className="bg-card border border-border rounded-2xl px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-0.5">Tu número de cliente</p>
+            <p className="text-3xl font-black tracking-tight" style={{ color: '#4ade80' }}>
+              N° {initialProfile.numero_cliente}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Mencionalo cuando vengas al local o nos escribas por WhatsApp
+            </p>
+          </div>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ backgroundColor: 'oklch(0.25 0.02 145)' }}>
+            🪪
+          </div>
+        </div>
+      )}
 
       {/* Identidad Google (solo lectura) */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">

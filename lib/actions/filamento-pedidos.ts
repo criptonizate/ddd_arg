@@ -17,6 +17,8 @@ export interface FilamentoPedidoItem {
 export interface FilamentoPedido {
   id: string
   numero: number
+  user_id: string | null
+  numero_cliente: number | null
   estado: 'pendiente' | 'confirmado' | 'cancelado' | 'entregado'
   cliente_nombre: string
   cliente_telefono: string | null
@@ -98,7 +100,22 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
     .order('created_at', { ascending: false })
   if (estado) q = q.eq('estado', estado)
   const { data } = await q
-  return (data ?? []) as FilamentoPedido[]
+  const pedidos = (data ?? []) as FilamentoPedido[]
+
+  // Enrich with numero_cliente from user_profiles
+  const userIds = [...new Set(pedidos.filter(p => p.user_id).map(p => p.user_id!))]
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, numero_cliente')
+      .in('user_id', userIds)
+    const map: Record<string, number> = {}
+    for (const p of profiles ?? []) map[p.user_id] = p.numero_cliente
+    for (const p of pedidos) {
+      p.numero_cliente = p.user_id ? (map[p.user_id] ?? null) : null
+    }
+  }
+  return pedidos
 }
 
 export async function getPedidosByUser(userId: string): Promise<FilamentoPedido[]> {

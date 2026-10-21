@@ -2117,6 +2117,11 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                       {p.estado}
                     </span>
                     <span className="text-sm font-semibold">{p.cliente_nombre}</span>
+                    {p.numero_cliente && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                        Cliente N° {p.numero_cliente}
+                      </span>
+                    )}
                     {p.cliente_telefono && (
                       <a
                         href={`https://wa.me/${p.cliente_telefono.replace(/\D/g, '')}`}

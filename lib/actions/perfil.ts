@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export interface UserProfile {
+  numero_cliente: number | null
   telefono: string | null
   dni: string | null
   sexo: 'M' | 'F' | 'otro' | null
@@ -19,7 +20,7 @@ export async function getMyProfile(): Promise<UserProfile | null> {
   const db = createServiceClient()
   const { data } = await db
     .from('user_profiles')
-    .select('telefono, dni, sexo, apodo')
+    .select('numero_cliente, telefono, dni, sexo, apodo')
     .eq('user_id', user.id)
     .single()
 
