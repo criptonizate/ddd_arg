@@ -1817,6 +1817,7 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
   const [editNombre, setEditNombre] = useState('')
   const [editDni, setEditDni] = useState('')
   const [editTel, setEditTel] = useState('')
+  const [editApodo, setEditApodo] = useState('')
   const [editError, setEditError] = useState('')
   const [, startTransition] = useTransition()
 
@@ -1825,11 +1826,13 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
     getClientesConVentasFilamento().then(data => { setStats(data); setLoading(false) })
   }, [])
 
-  const lista = (stats ?? []).filter(c =>
-    c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-    (c.dni ?? '').includes(search) ||
-    (c.telefono ?? '').includes(search)
-  )
+  const lista = (stats ?? []).filter(c => {
+    const q = search.toLowerCase()
+    return c.nombre.toLowerCase().includes(q) ||
+      (c.dni ?? '').includes(q) ||
+      (c.telefono ?? '').includes(q) ||
+      (c.apodo ?? '').toLowerCase().includes(q)
+  })
 
   async function toggleExpand(id: string) {
     if (expandedId === id) { setExpandedId(null); return }
@@ -1843,16 +1846,16 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
   }
 
   function startEdit(c: ClienteFilamentoStats) {
-    setEditId(c.id); setEditNombre(c.nombre); setEditDni(c.dni ?? ''); setEditTel(c.telefono ?? ''); setEditError('')
+    setEditId(c.id); setEditNombre(c.nombre); setEditDni(c.dni ?? ''); setEditTel(c.telefono ?? ''); setEditApodo(c.apodo ?? ''); setEditError('')
   }
 
   function saveEdit(id: string) {
     if (!editNombre.trim()) { setEditError('El nombre es requerido'); return }
     setEditError('')
     startTransition(async () => {
-      const res = await updateClienteBasico(id, { nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null })
+      const res = await updateClienteBasico(id, { nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null, apodo: editApodo.trim() || null })
       if (res.error) { setEditError(res.error); return }
-      setStats(prev => prev ? prev.map(c => c.id === id ? { ...c, nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null } : c) : prev)
+      setStats(prev => prev ? prev.map(c => c.id === id ? { ...c, nombre: editNombre.trim(), dni: editDni.trim() || null, telefono: editTel.trim() || null, apodo: editApodo.trim() || null } : c) : prev)
       setEditId(null)
     })
   }
@@ -1885,6 +1888,11 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
                   <input value={editTel} onChange={e => setEditTel(e.target.value)} placeholder="Teléfono"
                     className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none" />
                 </div>
+                <div>
+                  <input value={editApodo} onChange={e => setEditApodo(e.target.value)} placeholder='Apodo / referencia (ej: "el del taller azul")'
+                    className="w-full text-sm border border-amber-400/40 rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-amber-400/60" />
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">🔒 Solo visible para vos (no lo ve el cliente)</p>
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => setEditId(null)} className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors">Cancelar</button>
                   <button onClick={() => saveEdit(c.id)} className="flex-1 text-xs bg-foreground text-background rounded-lg py-1.5 hover:opacity-90 transition-opacity">Guardar</button>
@@ -1898,6 +1906,11 @@ function ClientesFilamentoTab({ clientes }: { clientes: ClienteBasic[] }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold truncate">{c.nombre}</p>
+                    {c.apodo && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: 'oklch(0.35 0.05 85 / 30%)', color: '#f59e0b' }}>
+                        🏷️ {c.apodo}
+                      </span>
+                    )}
                     {c.dni && <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">DNI {c.dni}</span>}
                     {c.telefono && <span className="text-[10px] text-muted-foreground">📱 {c.telefono}</span>}
                   </div>

@@ -260,7 +260,7 @@ export async function createClienteRapido(
 
 export async function updateClienteBasico(
   id: string,
-  data: { nombre?: string; dni?: string | null; telefono?: string | null }
+  data: { nombre?: string; dni?: string | null; telefono?: string | null; apodo?: string | null }
 ): Promise<{ error?: string }> {
   await getAdminUser()
   const supabase = createServiceClient()
@@ -276,6 +276,7 @@ export interface ClienteFilamentoStats {
   nombre: string
   dni: string | null
   telefono: string | null
+  apodo: string | null
   totalKg: number
   totalVentas: number
   cantVentas: number
@@ -287,7 +288,7 @@ export async function getClientesConVentasFilamento(): Promise<ClienteFilamentoS
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('filamento_ventas')
-    .select('cliente_id, gramos, precio_kg, fecha, clientes(id, nombre, dni, telefono)')
+    .select('cliente_id, gramos, precio_kg, fecha, clientes(id, nombre, dni, telefono, apodo)')
     .not('cliente_id', 'is', null)
     .order('fecha', { ascending: false })
   if (!data?.length) return []
@@ -304,7 +305,7 @@ export async function getClientesConVentasFilamento(): Promise<ClienteFilamentoS
       existing.cantVentas += 1
       if (!existing.ultimaCompra || row.fecha > existing.ultimaCompra) existing.ultimaCompra = row.fecha
     } else {
-      map.set(c.id, { id: c.id, nombre: c.nombre, dni: c.dni, telefono: c.telefono, totalKg: kg, totalVentas: venta, cantVentas: 1, ultimaCompra: row.fecha })
+      map.set(c.id, { id: c.id, nombre: c.nombre, dni: c.dni, telefono: c.telefono, apodo: c.apodo ?? null, totalKg: kg, totalVentas: venta, cantVentas: 1, ultimaCompra: row.fecha })
     }
   }
   return [...map.values()].sort((a, b) => (b.ultimaCompra ?? '').localeCompare(a.ultimaCompra ?? ''))
