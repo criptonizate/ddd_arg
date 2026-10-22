@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getAdminUser } from './auth'
 
 export interface UserProfile {
   numero_cliente: number | null
@@ -47,5 +48,38 @@ export async function saveMyProfile(profile: UserProfile): Promise<{ error?: str
 
   if (error) return { error: error.message }
   revalidatePath('/cuenta')
+  return {}
+}
+
+// ── Admin: notas privadas por usuario ────────────────────────────────────────
+
+export interface AdminUserNotes {
+  admin_telefono: string | null
+  admin_apodo: string | null
+}
+
+export async function getAdminUserNotes(userId: string): Promise<AdminUserNotes> {
+  await getAdminUser()
+  const db = createServiceClient()
+  const { data } = await db
+    .from('user_profiles')
+    .select('admin_telefono, admin_apodo')
+    .eq('user_id', userId)
+    .single()
+  return { admin_telefono: data?.admin_telefono ?? null, admin_apodo: data?.admin_apodo ?? null }
+}
+
+export async function saveAdminUserNotes(userId: string, notes: AdminUserNotes): Promise<{ error?: string }> {
+  await getAdminUser()
+  const db = createServiceClient()
+  const { error } = await db
+    .from('user_profiles')
+    .upsert({
+      user_id: userId,
+      admin_telefono: notes.admin_telefono?.trim() || null,
+      admin_apodo: notes.admin_apodo?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+  if (error) return { error: error.message }
   return {}
 }

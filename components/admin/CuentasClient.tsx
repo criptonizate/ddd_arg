@@ -5,6 +5,7 @@ import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck,
 import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
+import { getAdminUserNotes, saveAdminUserNotes, type AdminUserNotes } from '@/lib/actions/perfil'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -357,6 +358,16 @@ function UserDetail({
   const [showVincular, setShowVincular] = useState(false)
   const [editarVenta, setEditarVenta] = useState<VentaFilamento | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notas, setNotas] = useState<AdminUserNotes | null>(null)
+  const [editNotas, setEditNotas] = useState(false)
+  const [editTel, setEditTel] = useState('')
+  const [editApodo, setEditApodo] = useState('')
+  const [savingNotas, setSavingNotas] = useState(false)
+  const [, startTransitionNotas] = useTransition()
+
+  useEffect(() => {
+    getAdminUserNotes(usuario.id).then(setNotas)
+  }, [usuario.id])
 
   useEffect(() => {
     setLoading(true)
@@ -387,35 +398,99 @@ function UserDetail({
   return (
     <div className="flex flex-col h-full">
       {/* Header del usuario */}
-      <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-        {usuario.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={usuario.avatar_url} alt="" className="w-12 h-12 rounded-full ring-2 ring-border" />
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-bold">
-            {usuario.nombre[0]?.toUpperCase()}
+      <div className="px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          {usuario.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={usuario.avatar_url} alt="" className="w-12 h-12 rounded-full ring-2 ring-border shrink-0" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-bold shrink-0">
+              {usuario.nombre[0]?.toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate">{usuario.nombre}</p>
+            <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Registrado el {fmtDate(usuario.created_at)}</p>
+            {notas && (notas.admin_apodo || notas.admin_telefono) && !editNotas && (
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {notas.admin_apodo && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: 'oklch(0.35 0.05 85 / 30%)', color: '#f59e0b' }}>
+                    🏷️ {notas.admin_apodo}
+                  </span>
+                )}
+                {notas.admin_telefono && (
+                  <span className="text-[10px] text-muted-foreground">📱 {notas.admin_telefono}</span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => { setEditTel(notas?.admin_telefono ?? ''); setEditApodo(notas?.admin_apodo ?? ''); setEditNotas(true) }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors"
+            >
+              <Pencil size={11} /> Editar
+            </button>
+            <button
+              onClick={() => setShowVincular(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors"
+            >
+              🔗 Vincular
+            </button>
+            <button
+              onClick={() => setShowVenta(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              <Plus size={12} />
+              Venta
+            </button>
+          </div>
+        </div>
+
+        {/* Formulario de notas admin */}
+        {editNotas && (
+          <div className="mt-3 p-3 rounded-xl border border-amber-400/30 space-y-2" style={{ backgroundColor: 'oklch(0.20 0.02 85 / 20%)' }}>
+            <p className="text-[10px] font-semibold text-amber-500">🔒 Notas privadas — solo visibles para vos</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={editTel}
+                onChange={e => setEditTel(e.target.value)}
+                placeholder="Teléfono de referencia"
+                className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none"
+              />
+              <input
+                value={editApodo}
+                onChange={e => setEditApodo(e.target.value)}
+                placeholder='Apodo (ej: "el del taller")'
+                className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditNotas(false)}
+                className="flex-1 text-xs border border-border rounded-lg py-1.5 hover:bg-secondary transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={savingNotas}
+                onClick={() => {
+                  setSavingNotas(true)
+                  startTransitionNotas(async () => {
+                    await saveAdminUserNotes(usuario.id, { admin_telefono: editTel || null, admin_apodo: editApodo || null })
+                    setNotas({ admin_telefono: editTel || null, admin_apodo: editApodo || null })
+                    setSavingNotas(false)
+                    setEditNotas(false)
+                  })
+                }}
+                className="flex-1 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-1.5 transition-colors disabled:opacity-50"
+              >
+                {savingNotas ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate">{usuario.nombre}</p>
-          <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Registrado el {fmtDate(usuario.created_at)}</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => setShowVincular(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors"
-          >
-            🔗 Vincular
-          </button>
-          <button
-            onClick={() => setShowVenta(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            <Plus size={12} />
-            Registrar venta
-          </button>
-        </div>
       </div>
 
       {/* Stats */}
