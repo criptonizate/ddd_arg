@@ -1,9 +1,8 @@
 import { getDashboardStats, getCajaSnapshot } from '@/lib/actions/finance'
 import { formatARS } from '@/lib/utils'
 import DashboardCharts from '@/components/admin/DashboardCharts'
-import StockAlerts from '@/components/admin/StockAlerts'
 import RealtimeDashboardPanel from '@/components/admin/RealtimeDashboardPanel'
-import { TrendingUp, ShoppingCart, Users, DollarSign, AlertTriangle, Clock, Inbox } from 'lucide-react'
+import { TrendingUp, ShoppingCart, Users, DollarSign, Clock, Inbox } from 'lucide-react'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -156,19 +155,6 @@ export default async function DashboardPage({
           )
         })}
       </div>
-
-      {/* Alertas de stock bajo */}
-      {stats.stockBajo.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 dark:bg-orange-950/30 dark:border-orange-800">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={16} className="text-orange-600" />
-            <span className="text-sm font-semibold text-orange-800 dark:text-orange-400">
-              ⚠️ Stock bajo — {stats.stockBajo.length} variante{stats.stockBajo.length > 1 ? 's' : ''} casi sin stock
-            </span>
-          </div>
-          <StockAlerts variants={stats.stockBajo} />
-        </div>
-      )}
 
       {/* Snapshot de caja */}
       <div>
