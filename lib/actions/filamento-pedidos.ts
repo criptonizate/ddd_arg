@@ -277,42 +277,8 @@ export async function editarItemsPedidoFilamento(
   return {}
 }
 
-import { KG_RENOVACION, DIAS_PERIODO, TIERS_MEMBRESIA, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
+import { KG_RENOVACION, TIERS_MEMBRESIA, calcularPeriodo, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
-
-// Evento de compra unificado: pedidos web + ventas históricas vinculadas
-type EventoCompra = { fecha_iso: string; kg: number }
-
-function addDias(date: Date, dias: number): Date {
-  return new Date(date.getTime() + dias * 24 * 60 * 60 * 1000)
-}
-
-// Lógica: un evento >= KG_RENOVACION dentro del período lo extiende 30d desde esa fecha
-function calcularPeriodo(eventos: EventoCompra[]): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
-  let periodoInicio = new Date(eventos[0].fecha_iso)
-  let periodoFin = addDias(periodoInicio, DIAS_PERIODO)
-  let kgPeriodo = 0
-
-  for (const e of eventos) {
-    const fecha = new Date(e.fecha_iso)
-    const kg = e.kg
-
-    if (fecha < periodoFin) {
-      kgPeriodo += kg
-      if (kg >= KG_RENOVACION) {
-        const nuevaFin = addDias(fecha, DIAS_PERIODO)
-        if (nuevaFin > periodoFin) periodoFin = nuevaFin
-      }
-    } else {
-      // Fuera del período — inicia uno nuevo desde este evento
-      periodoInicio = fecha
-      periodoFin = addDias(fecha, DIAS_PERIODO)
-      kgPeriodo = kg
-    }
-  }
-
-  return { periodoInicio, periodoFin, kgPeriodo }
-}
 
 // Público — sin auth de admin, llamado desde la página de cuenta del cliente
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
@@ -463,4 +429,79 @@ export async function getFilamentoPedidosPendientesCount(): Promise<number> {
     .select('*', { count: 'exact', head: true })
     .eq('estado', 'pendiente')
   return count ?? 0
+}
+
+// ── Admin: membresías de todos los usuarios ────────────────────────────────────
+
+export interface MembresiaAdminRow {
+  userId: string
+  nombre: string
+  email: string
+  nivel: NivelMembresia
+  kgPeriodo: number
+  diasRestantes: number
+  periodoFin: string
+  admin_apodo: string | null
+}
+
+export async function getMembresiasAdmin(): Promise<MembresiaAdminRow[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const [{ data: pedidosData }, { data: ventasData }, { data: usersData }, { data: notasData }] = await Promise.all([
+    supabase.from('filamento_pedidos').select('user_id, updated_at, total_rollos').in('estado', ['confirmado', 'entregado']).not('user_id', 'is', null),
+    supabase.from('filamento_ventas').select('user_id, fecha, gramos').not('user_id', 'is', null),
+    supabase.auth.admin.listUsers({ perPage: 500 }),
+    supabase.from('user_profiles').select('user_id, admin_apodo'),
+  ])
+
+  const userMap: Record<string, { nombre: string; email: string }> = {}
+  for (const u of usersData?.users ?? []) {
+    userMap[u.id] = {
+      nombre: (u.user_metadata?.full_name as string) || (u.email?.split('@')[0] ?? ''),
+      email: u.email ?? '',
+    }
+  }
+
+  const notasMap: Record<string, string | null> = {}
+  for (const n of notasData ?? []) notasMap[n.user_id] = n.admin_apodo ?? null
+
+  // Agrupar eventos por user_id
+  const eventosMap: Record<string, EventoCompra[]> = {}
+  for (const p of pedidosData ?? []) {
+    if (!p.user_id || !(p.total_rollos > 0)) continue
+    ;(eventosMap[p.user_id] ??= []).push({ fecha_iso: p.updated_at, kg: p.total_rollos })
+  }
+  for (const v of ventasData ?? []) {
+    if (!v.user_id || !(v.gramos > 0)) continue
+    const fecha_iso = v.fecha.includes('T') ? v.fecha : `${v.fecha}T12:00:00Z`
+    ;(eventosMap[v.user_id] ??= []).push({ fecha_iso, kg: v.gramos / 1000 })
+  }
+
+  const now = Date.now()
+  const rows: MembresiaAdminRow[] = []
+
+  for (const [userId, eventos] of Object.entries(eventosMap)) {
+    const sorted = eventos.filter(e => e.kg > 0).sort((a, b) => new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime())
+    if (!sorted.length) continue
+    const { periodoFin, kgPeriodo } = calcularPeriodo(sorted)
+    const activo = periodoFin.getTime() > now
+    if (!activo) continue
+    const diasRestantes = Math.max(0, Math.ceil((periodoFin.getTime() - now) / 86400000))
+    const tier = TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min)
+    if (!tier) continue
+    rows.push({
+      userId,
+      nombre: userMap[userId]?.nombre ?? 'Usuario',
+      email: userMap[userId]?.email ?? '',
+      nivel: tier.label,
+      kgPeriodo,
+      diasRestantes,
+      periodoFin: periodoFin.toISOString(),
+      admin_apodo: notasMap[userId] ?? null,
+    })
+  }
+
+  const orden: Record<string, number> = { Elite: 0, Plus: 1, Mayorista: 2 }
+  return rows.sort((a, b) => (orden[a.nivel!] ?? 9) - (orden[b.nivel!] ?? 9) || b.kgPeriodo - a.kgPeriodo)
 }

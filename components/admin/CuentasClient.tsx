@@ -4,8 +4,9 @@ import { useState, useTransition, useEffect } from 'react'
 import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil } from 'lucide-react'
 import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
-import { getPedidosByUser, type FilamentoPedido } from '@/lib/actions/filamento-pedidos'
-import { getAdminUserNotes, saveAdminUserNotes, type AdminUserNotes } from '@/lib/actions/perfil'
+import { getPedidosByUser, getMembresiasAdmin, type FilamentoPedido, type MembresiaAdminRow } from '@/lib/actions/filamento-pedidos'
+import { getAdminUserNotes, saveAdminUserNotes, getAdminApodoMap, type AdminUserNotes } from '@/lib/actions/perfil'
+import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -718,14 +719,28 @@ export default function CuentasClient({
 }) {
   const [busqueda, setBusqueda] = useState('')
   const [selId, setSelId] = useState<string | null>(null)
+  const [apodoMap, setApodoMap] = useState<Record<string, string>>({})
+  const [membresias, setMembresias] = useState<MembresiaAdminRow[] | null>(null)
 
-  const filtrados = usuarios.filter(u =>
-    !busqueda ||
-    u.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    u.email.toLowerCase().includes(busqueda.toLowerCase())
-  )
+  useEffect(() => {
+    getAdminApodoMap().then(setApodoMap)
+    getMembresiasAdmin().then(setMembresias)
+  }, [])
+
+  const filtrados = usuarios.filter(u => {
+    if (!busqueda) return true
+    const q = busqueda.toLowerCase()
+    return u.nombre.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (apodoMap[u.id] ?? '').toLowerCase().includes(q)
+  })
 
   const selUsuario = usuarios.find(u => u.id === selId) ?? null
+
+  const tierCounts = TIERS_MEMBRESIA.map(t => ({
+    ...t,
+    count: (membresias ?? []).filter(m => m.nivel === t.label).length,
+  }))
 
   return (
     <div className="space-y-6">
@@ -748,7 +763,7 @@ export default function CuentasClient({
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre o email..."
+                placeholder="Buscar por nombre, email o apodo..."
                 className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
               />
             </div>
@@ -776,6 +791,9 @@ export default function CuentasClient({
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{u.nombre}</p>
+                    {apodoMap[u.id] && (
+                      <p className="text-[10px] font-semibold truncate" style={{ color: '#f59e0b' }}>🏷️ {apodoMap[u.id]}</p>
+                    )}
                     <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
                   </div>
                 </button>
@@ -796,6 +814,83 @@ export default function CuentasClient({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Dashboard membresías */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div>
+            <p className="font-bold">⭐ Membresías activas</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {membresias === null ? 'Cargando...' : `${membresias.length} cliente${membresias.length !== 1 ? 's' : ''} con membresía vigente`}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {tierCounts.map(t => (
+              <div key={t.label} className="text-center">
+                <p className="text-lg font-black">{t.count}</p>
+                <p className="text-[10px] text-muted-foreground">{t.emoji} {t.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {membresias === null ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Cargando membresías...</div>
+        ) : membresias.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Ningún cliente tiene membresía activa en este momento.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {membresias.map(m => {
+              const tier = TIERS_MEMBRESIA.find(t => t.label === m.nivel)
+              const pct = Math.min(100, Math.round((m.diasRestantes / 30) * 100))
+              return (
+                <div key={m.userId} className="flex items-center gap-4 px-5 py-3">
+                  <button
+                    onClick={() => setSelId(m.userId)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black hover:opacity-80 transition-opacity shrink-0"
+                    style={{ backgroundColor: tier?.color === 'violet' ? '#7c3aed22' : tier?.color === 'blue' ? '#2563eb22' : '#d9770622', color: tier?.color === 'violet' ? '#7c3aed' : tier?.color === 'blue' ? '#2563eb' : '#d97706' }}
+                    title="Ver cuenta"
+                  >
+                    {tier?.emoji}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold truncate">
+                        {m.admin_apodo ? `${m.admin_apodo}` : m.nombre}
+                      </span>
+                      {m.admin_apodo && (
+                        <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">{m.nombre}</span>
+                      )}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                        m.nivel === 'Elite' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                        : m.nivel === 'Plus' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {tier?.emoji} {m.nivel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, backgroundColor: m.diasRestantes <= 5 ? '#ef4444' : m.diasRestantes <= 10 ? '#f59e0b' : '#22c55e' }}
+                        />
+                      </div>
+                      <span className={`text-[10px] font-semibold shrink-0 ${m.diasRestantes <= 5 ? 'text-red-500' : m.diasRestantes <= 10 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                        {m.diasRestantes}d restantes
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold tabular-nums">{m.kgPeriodo.toFixed(1)} kg</p>
+                    <p className="text-[10px] text-muted-foreground">en el período</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

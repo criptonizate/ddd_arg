@@ -51,6 +51,22 @@ export async function saveMyProfile(profile: UserProfile): Promise<{ error?: str
   return {}
 }
 
+// ── Admin: mapa de apodos para todos los usuarios ────────────────────────────
+
+export async function getAdminApodoMap(): Promise<Record<string, string>> {
+  await getAdminUser()
+  const db = createServiceClient()
+  const { data } = await db
+    .from('user_profiles')
+    .select('user_id, admin_apodo')
+    .not('admin_apodo', 'is', null)
+  const map: Record<string, string> = {}
+  for (const row of data ?? []) {
+    if (row.admin_apodo) map[row.user_id] = row.admin_apodo
+  }
+  return map
+}
+
 // ── Admin: notas privadas por usuario ────────────────────────────────────────
 
 export interface AdminUserNotes {
