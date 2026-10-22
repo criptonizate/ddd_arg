@@ -2,6 +2,7 @@ import { getDashboardStats, getCajaSnapshot } from '@/lib/actions/finance'
 import { formatARS } from '@/lib/utils'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import StockAlerts from '@/components/admin/StockAlerts'
+import RealtimeDashboardPanel from '@/components/admin/RealtimeDashboardPanel'
 import { TrendingUp, ShoppingCart, Users, DollarSign, AlertTriangle, Clock, Inbox } from 'lucide-react'
 
 export const metadata = { title: 'Dashboard' }
@@ -135,6 +136,9 @@ export default async function DashboardPage({
           )}
         </form>
       </div>
+
+      {/* Panel en tiempo real */}
+      <RealtimeDashboardPanel />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
