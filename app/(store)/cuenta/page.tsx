@@ -269,7 +269,7 @@ export default async function CuentaPage({
                         </p>
                       </div>
                     ) : (
-                      <form action={solicitarExtensionMembresia}>
+                      <form action={async () => { await solicitarExtensionMembresia() }}>
                         <button
                           type="submit"
                           className="w-full px-4 py-2.5 text-xs font-bold transition-opacity hover:opacity-90"
