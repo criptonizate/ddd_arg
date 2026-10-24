@@ -40,16 +40,17 @@ export default async function CuentaPage({
   if (!user) redirect('/?login=1')
 
   const db = createServiceClient()
-  const [{ data: pedidos }, membresiaResult, ventasHistoricas, profile] = await Promise.all([
+  const [pedidosResult, membresia, ventasHistoricas, profile] = await Promise.all([
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
-    getMembresiaCliente(user.id).catch(() => null),
-    getVentasDeUsuario(user.id),
-    getMyProfile(),
+      .order('created_at', { ascending: false })
+      .catch(() => ({ data: [] as FilamentoPedido[] })),
+    getMembresiaCliente(user.id).catch((err) => { console.error('membresia error:', err); return null }),
+    getVentasDeUsuario(user.id).catch(() => []),
+    getMyProfile().catch(() => null),
   ])
-  const membresia = membresiaResult
+  const pedidos = pedidosResult.data
 
   const { tab: tabParam } = await searchParams
   const tab = tabParam === 'pedidos' ? 'pedidos' : tabParam === 'membresia' ? 'membresia' : 'perfil'
