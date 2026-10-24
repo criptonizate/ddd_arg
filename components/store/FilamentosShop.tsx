@@ -11,7 +11,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 
 const WHATSAPP_NUMBER = '543804559909'
-const PRECIO_BASE = 22000
+const PRECIO_BASE_DEFAULT = 22000
 
 const DESCUENTOS = [
   { min: 15, descuento: 4000, label: '15+ kg' },
@@ -456,7 +456,7 @@ export default function FilamentosShop({
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
-  const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: typeof cart; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
+  const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: (typeof cart[0] & { precioUnitario: number })[]; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
   const [, startTransition] = useTransition()
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
   const [user, setUser] = useState<User | null>(initialUser ?? null)
@@ -601,8 +601,8 @@ export default function FilamentosShop({
   // El tier se calcula sobre el total efectivo: lo que ya compró + lo que está comprando ahora
   const kgEfectivo = kgAcumulados + totalKg
   const { descuento, label: descLabel } = getDescuento(kgEfectivo)
-  const precioUnitario = PRECIO_BASE - descuento
-  const subtotal = totalKg * precioUnitario
+  const subtotal = cart.reduce((s, i) => s + i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento), 0)
+  const precioUnitarioPromedio = totalKg > 0 ? Math.round(subtotal / totalKg) : PRECIO_BASE_DEFAULT - descuento
 
   function loginConCarrito() {
     try { localStorage.setItem('ddd_cart_filamentos', JSON.stringify(cart)) } catch { /* noop */ }
@@ -697,7 +697,7 @@ export default function FilamentosShop({
 
         items: cart.map(i => ({
           filamento_id: i.filamento.id, nombre: i.filamento.nombre, color: i.filamento.color,
-          material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos, precio_unitario: precioUnitario,
+          material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos, precio_unitario: (i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento,
         })),
         total_rollos: totalKg, descuento_por_rollo: descuento, total: subtotal,
       })
@@ -707,7 +707,7 @@ export default function FilamentosShop({
         const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
         sb.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
       }
-      setPedidoSnapshot({ items: cart, kg: totalKg, subtotal, descuento, descLabel })
+      setPedidoSnapshot({ items: cart.map(i => ({ ...i, precioUnitario: (i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento })), kg: totalKg, subtotal, descuento, descLabel })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
       // Item 5 — Limpiar carrito en DB
       import('@/lib/actions/filamentos').then(({ limpiarCarritoUsuario }) => limpiarCarritoUsuario())
@@ -959,7 +959,7 @@ export default function FilamentosShop({
                   enCart={getCartRollos(f.id)}
                   onAdd={() => addToCart(f)}
                   onSetRollos={n => setRollos(f.id, n)}
-                  precioUnitario={precioUnitario}
+                  precioUnitario={(f.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento}
                   descuento={descuento}
                 />
               ))}
@@ -1099,7 +1099,7 @@ export default function FilamentosShop({
               </div>
               <div className="space-y-1 pt-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{totalKg} kg × {fmtARS(precioUnitario)}</span>
+                  <span className="text-muted-foreground">{totalKg} kg · subtotal</span>
                   <span>{fmtARS(subtotal)}</span>
                 </div>
                 {descuento > 0 && (
@@ -1162,7 +1162,7 @@ export default function FilamentosShop({
                       <div key={i.filamento.id} className="flex items-center gap-2 text-sm">
                         <span className="w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: colorToCss(i.filamento.color) }} />
                         <span className="flex-1 truncate text-xs">{i.rollos}x {i.filamento.color} — {i.filamento.material}</span>
-                        <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * precioUnitario)}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento))}</span>
                       </div>
                     ))}
                     <div className="border-t border-border mt-2 pt-2 flex justify-between text-sm font-bold">

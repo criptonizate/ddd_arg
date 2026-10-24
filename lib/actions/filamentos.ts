@@ -26,7 +26,7 @@ export async function getFilamentosDisponibles(): Promise<Filamento[]> {
   const [{ data: fils }, { data: reservas }] = await Promise.all([
     supabase
       .from('filamentos')
-      .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, imagen_url, imagen_url_2, imagen_url_3')
+      .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, precio_kg, imagen_url, imagen_url_2, imagen_url_3')
       .or('rollos_cerrados.gt.0,gramos_sueltos.gt.100')
       .order('material')
       .order('color'),

@@ -29,6 +29,7 @@ export interface Filamento {
   gramos_sueltos: number
   peso_rollo_gr: number
   costo_kg: number
+  precio_kg: number
   nota: string
   imagen_url?: string | null
   imagen_url_2?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE filamentos ADD COLUMN IF NOT EXISTS precio_kg numeric NOT NULL DEFAULT 22000;
