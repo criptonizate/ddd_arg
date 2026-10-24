@@ -5,7 +5,7 @@ import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHor
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
-import { getFilamentosDisponibles } from '@/lib/actions/filamentos'
+import { getFilamentosDisponibles, enviarSugerenciaFilamento } from '@/lib/actions/filamentos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
@@ -448,6 +448,9 @@ export default function FilamentosShop({
   const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
   const [alertando, setAlertando] = useState<string | null>(null)
   const [alertToast, setAlertToast] = useState(false)
+  const [sugerenciaMensaje, setSugerenciaMensaje] = useState('')
+  const [sugerenciaEnviada, setSugerenciaEnviada] = useState(false)
+  const [sugerenciaEnviando, setSugerenciaEnviando] = useState(false)
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
@@ -1016,6 +1019,42 @@ export default function FilamentosShop({
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Sugerencias de filamentos ── */}
+        <div className="mt-12 mb-6 px-1">
+          <div className="rounded-2xl border border-border bg-secondary/30 px-5 py-6 text-center space-y-3">
+            <p className="text-2xl">💡</p>
+            <p className="font-semibold text-base">¿Te gustaría que traigamos algo especial?</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Contanos qué filamento te interesaría: marca, material, color, lo que sea. Lo tenemos en cuenta para las próximas compras.
+            </p>
+            {sugerenciaEnviada ? (
+              <p className="text-sm font-semibold text-green-600 dark:text-green-400">✅ ¡Gracias! Tu sugerencia fue enviada.</p>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                if (!sugerenciaMensaje.trim()) return
+                setSugerenciaEnviando(true)
+                await enviarSugerenciaFilamento(sugerenciaMensaje.trim())
+                setSugerenciaEnviando(false)
+                setSugerenciaEnviada(true)
+                setSugerenciaMensaje('')
+              }} className="space-y-2">
+                <textarea
+                  value={sugerenciaMensaje}
+                  onChange={e => setSugerenciaMensaje(e.target.value)}
+                  placeholder="Ej: Filanova PLA+ en color nude, o PETG transparente..."
+                  rows={3}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                <button type="submit" disabled={sugerenciaEnviando || !sugerenciaMensaje.trim()}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
+                  {sugerenciaEnviando ? 'Enviando...' : 'Enviar sugerencia'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2 } from 'lucide-react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2, Eye, EyeOff, MessageSquare } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -18,7 +18,11 @@ import {
   getKgMensualesCliente,
   getUsuariosRegistrados,
   asignarUserAVentas,
+  toggleOcultoFilamento,
+  getSugerenciasAdmin,
+  marcarSugerenciaLeida,
   type UsuarioRegistrado,
+  type FilamentoSugerencia,
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
@@ -513,6 +517,15 @@ function FilamentoCard({
     })
   }
 
+  function handleToggleOculto() {
+    startTransition(async () => {
+      await toggleOcultoFilamento(fil.id, !fil.oculto)
+      const updated = { ...fil, oculto: !fil.oculto }
+      setFil(updated)
+      onUpdate(updated)
+    })
+  }
+
   function handleDelete() {
     if (!confirm(`¿Eliminar "${fil.nombre}"?`)) return
     startTransition(async () => {
@@ -585,6 +598,7 @@ function FilamentoCard({
               <span className="text-xs px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">{fil.tipo}</span>
             )}
             {fil.color && <span className="text-xs text-muted-foreground">{fil.color}</span>}
+            {fil.oculto && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-600 flex items-center gap-1"><EyeOff size={10} /> oculto</span>}
           </div>
         </button>
 
@@ -1165,8 +1179,12 @@ function FilamentoCard({
             </div>
           )}
 
-          {/* Eliminar */}
-          <div className="flex justify-end border-t border-border pt-3">
+          {/* Ocultar / Eliminar */}
+          <div className="flex justify-between items-center border-t border-border pt-3">
+            <button onClick={handleToggleOculto} disabled={isPending}
+              className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${fil.oculto ? 'text-amber-600 border-amber-300 hover:text-amber-700 dark:text-amber-400 dark:border-amber-600' : 'text-muted-foreground border-border hover:text-foreground'}`}>
+              {fil.oculto ? <><Eye size={12} /> Mostrar en tienda</> : <><EyeOff size={12} /> Ocultar de tienda</>}
+            </button>
             <button onClick={handleDelete} disabled={isPending}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
               <Trash2 size={12} /> Eliminar filamento
@@ -2486,7 +2504,9 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
   const [filamentos, setFilamentos] = useState<Filamento[]>(initialFilamentos)
   const [showNuevo, setShowNuevo] = useState(false)
   const [showVentaGlobal, setShowVentaGlobal] = useState(false)
-  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes' | 'pedidos' | 'insumos' | 'demanda'>('stock')
+  const [tab, setTab] = useState<'stock' | 'ventas' | 'clientes' | 'pedidos' | 'insumos' | 'demanda' | 'sugerencias'>('stock')
+  const [sugerencias, setSugerencias] = useState<FilamentoSugerencia[] | null>(null)
+  const [loadingSugs, setLoadingSugs] = useState(false)
 
   // Filtros
   const [filtroMarca, setFiltroMarca] = useState('')
@@ -2646,6 +2666,18 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'demanda' ? 'bg-purple-600 text-white border-purple-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-purple-400'}`}>
           📊 Demanda
         </button>
+        <button onClick={async () => {
+            setTab('sugerencias')
+            if (!sugerencias) {
+              setLoadingSugs(true)
+              const data = await getSugerenciasAdmin()
+              setSugerencias(data)
+              setLoadingSugs(false)
+            }
+          }}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${tab === 'sugerencias' ? 'bg-violet-600 text-white border-violet-600' : 'border-border text-muted-foreground hover:text-foreground hover:border-violet-400'}`}>
+          <MessageSquare size={13} /> Sugerencias
+        </button>
         <a href="/admin/filamentos/vincular"
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-purple-400 transition-colors">
           🔗 Vincular historial
@@ -2657,6 +2689,29 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
       {tab === 'clientes' && <ClientesFilamentoTab clientes={clientes} />}
       {tab === 'insumos' && <InsumosAdminTab />}
       {tab === 'demanda' && <DemandaTab />}
+      {tab === 'sugerencias' && (
+        <div className="space-y-3">
+          <h2 className="font-semibold text-base flex items-center gap-2"><MessageSquare size={16} /> Sugerencias de clientes</h2>
+          {loadingSugs && <p className="text-sm text-muted-foreground">Cargando...</p>}
+          {sugerencias && sugerencias.length === 0 && <p className="text-sm text-muted-foreground">No hay sugerencias todavía.</p>}
+          {sugerencias && sugerencias.map(s => (
+            <div key={s.id} className={`rounded-xl border p-4 space-y-1 ${s.leido ? 'border-border opacity-60' : 'border-violet-300 dark:border-violet-700 bg-violet-50/40 dark:bg-violet-900/10'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm">{s.mensaje}</p>
+                {!s.leido && (
+                  <button onClick={async () => {
+                    await marcarSugerenciaLeida(s.id)
+                    setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, leido: true } : x) : prev)
+                  }} className="shrink-0 text-xs text-violet-600 dark:text-violet-400 hover:underline">
+                    Marcar leída
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{s.nombre_usuario || 'Anónimo'} · {new Date(s.created_at).toLocaleDateString('es-AR')}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {tab === 'stock' && (
         <>

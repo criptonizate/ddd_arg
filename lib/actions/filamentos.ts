@@ -28,6 +28,7 @@ export async function getFilamentosDisponibles(): Promise<Filamento[]> {
       .from('filamentos')
       .select('id, nombre, marca, tipo, material, color, rollos_cerrados, gramos_sueltos, peso_rollo_gr, precio_kg, imagen_url, imagen_url_2, imagen_url_3')
       .or('rollos_cerrados.gt.0,gramos_sueltos.gt.100')
+      .eq('oculto', false)
       .order('material')
       .order('color'),
     supabase
@@ -640,4 +641,61 @@ export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
   }
 
   return result.sort((a, b) => (b.alertas + b.carrito_rollos) - (a.alertas + a.carrito_rollos))
+}
+
+// ── Ocultar/mostrar filamento (admin) ─────────────────────────────────────────
+
+export async function toggleOcultoFilamento(id: string, oculto: boolean): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('filamentos').update({ oculto }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/filamentos')
+  revalidatePath('/filamentos')
+  return {}
+}
+
+// ── Sugerencias de filamentos (clientes) ─────────────────────────────────────
+
+export async function enviarSugerenciaFilamento(mensaje: string): Promise<{ error?: string }> {
+  if (!mensaje.trim()) return { error: 'El mensaje no puede estar vacío' }
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Necesitás iniciar sesión para enviar una sugerencia' }
+
+  const sb = createServiceClient()
+  const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
+  const { error } = await sb.from('filamento_sugerencias').insert({
+    user_id: user.id,
+    nombre_usuario: nombre,
+    mensaje: mensaje.trim(),
+  })
+  if (error) return { error: 'Error al enviar la sugerencia' }
+  return {}
+}
+
+export interface FilamentoSugerencia {
+  id: string
+  user_id: string | null
+  nombre_usuario: string
+  mensaje: string
+  created_at: string
+  leido: boolean
+}
+
+export async function getSugerenciasAdmin(): Promise<FilamentoSugerencia[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('filamento_sugerencias')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return (data ?? []) as FilamentoSugerencia[]
+}
+
+export async function marcarSugerenciaLeida(id: string): Promise<void> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  await supabase.from('filamento_sugerencias').update({ leido: true }).eq('id', id)
 }

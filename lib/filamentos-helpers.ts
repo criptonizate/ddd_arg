@@ -30,6 +30,7 @@ export interface Filamento {
   peso_rollo_gr: number
   costo_kg: number
   precio_kg: number
+  oculto: boolean
   nota: string
   imagen_url?: string | null
   imagen_url_2?: string | null
