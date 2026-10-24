@@ -210,12 +210,21 @@ export default async function CuentaPage({
                       <p className="text-[11px]" style={{ color: '#86efac' }}>Tus precios mayoristas siguen activos mientras tanto.</p>
                     </div>
                   ) : (
-                    <form action={async () => { 'use server'; await solicitarExtensionMembresia() }}>
-                      <button type="submit" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
-                        style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.4)' }}>
-                        ⚡ Extender {DIAS_EXTENSION} días — ${costoExtension(membresia.nivel).toLocaleString('es-AR')} →
-                      </button>
-                    </form>
+                    <div className="space-y-2">
+                      {/* Datos de pago */}
+                      <div className="px-3 py-2.5 rounded-xl text-xs space-y-1" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <p style={{ color: '#86efac' }}>Transferí <strong style={{ color: '#f0fdf4' }}>${costoExtension(membresia.nivel).toLocaleString('es-AR')}</strong> a:</p>
+                        <p className="font-black text-base tracking-wide" style={{ color: '#f0fdf4' }}>juan3d.nx</p>
+                        <p style={{ color: '#86efac' }}>Juan Pablo Arnaudo Zalazar</p>
+                      </div>
+                      {/* Botón — registra pendiente y abre WA */}
+                      <form action={async () => { 'use server'; await solicitarExtensionMembresia() }}>
+                        <button type="submit" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
+                          style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.4)' }}>
+                          ✅ Ya pagué — enviar comprobante por WhatsApp →
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </div>
               )}

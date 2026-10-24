@@ -408,7 +408,7 @@ export async function solicitarExtensionMembresia(): Promise<void> {
     const costo = costoExtension(membresiaActual?.nivel ?? null)
     const nivel = membresiaActual?.nivel ?? 'Mayorista'
     await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
-    const msg = encodeURIComponent(`Hola! Quiero extender mi membresía ${nivel} por ${DIAS_EXTENSION} días ($${costo.toLocaleString('es-AR')}). Ya realicé la transferencia.`)
+    const msg = encodeURIComponent(`Hola! Quiero extender mi membresía ${nivel} por ${DIAS_EXTENSION} días. Transferí $${costo.toLocaleString('es-AR')} al alias juan3d.nx. Te mando el comprobante 👇`)
     redirect(`https://wa.me/543804559909?text=${msg}`)
   }
 
