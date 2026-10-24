@@ -284,7 +284,7 @@ export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
   const supabase = createServiceClient()
 
-  const [{ data: pedidos }, { data: ventas }, { data: extensiones }] = await Promise.all([
+  const [{ data: pedidos }, { data: ventas }, { data: extensiones }, { data: trial }] = await Promise.all([
     supabase
       .from('filamento_pedidos')
       .select('updated_at, total_rollos')
@@ -298,6 +298,11 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
       .from('membresia_extensiones')
       .select('dias, estado')
       .eq('user_id', userId),
+    supabase
+      .from('membresia_trial')
+      .select('trial_fin')
+      .eq('user_id', userId)
+      .single(),
   ])
 
   const eventosPedidos: EventoCompra[] = (pedidos ?? []).map((p: { updated_at: string; total_rollos: number }) => ({
@@ -314,7 +319,28 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     .filter(e => e.kg > 0)
     .sort((a, b) => new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime())
 
-  if (!todos.length) return null
+  const nowMs = Date.now()
+
+  // Si no tiene compras, verificar si tiene trial activo
+  if (!todos.length) {
+    if (trial?.trial_fin && new Date(trial.trial_fin).getTime() > nowMs) {
+      const trialFin = new Date(trial.trial_fin)
+      const diasRestantes = Math.max(0, Math.ceil((trialFin.getTime() - nowMs) / (24 * 60 * 60 * 1000)))
+      const mayoristaTier = TIERS_MEMBRESIA.find(t => t.label === 'Mayorista')!
+      return {
+        kgPeriodo: 0,
+        periodoInicio: new Date(trial.trial_fin as string).toISOString(), // se reemplaza al primer pedido
+        periodoFin: trialFin.toISOString(),
+        diasRestantes,
+        nivel: 'Mayorista',
+        descuento: mayoristaTier.descuento,
+        totalHistorico: 0,
+        extensionPendiente: false,
+        esTrial: true,
+      }
+    }
+    return null
+  }
 
   const extensionConfirmadaDias = (extensiones ?? [])
     .filter((e: { dias: number; estado: string }) => e.estado === 'confirmado')
@@ -334,7 +360,6 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
   const extensionDias = extensionConfirmadaDias + extensionPendienteDias
   const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(todos, extensionDias)
 
-  const nowMs = Date.now()
   const activo = periodoFin.getTime() > nowMs
   const diasRestantes = activo ? Math.max(0, Math.ceil((periodoFin.getTime() - nowMs) / (24 * 60 * 60 * 1000))) : 0
 
@@ -350,6 +375,7 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     descuento: tierActivo?.descuento ?? 0,
     totalHistorico,
     extensionPendiente,
+    esTrial: false,
   }
 }
 

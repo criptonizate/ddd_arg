@@ -602,8 +602,9 @@ export default function FilamentosShop({
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
   const kgAcumulados = membresia?.kgPeriodo ?? 0
-  // El tier se calcula sobre el total efectivo: lo que ya compró + lo que está comprando ahora
-  const kgEfectivo = kgAcumulados + totalKg
+  // El tier se calcula sobre el total efectivo: lo que ya compró + lo que está comprando ahora.
+  // En trial, se fuerza el mínimo para que siempre aplique el descuento Mayorista.
+  const kgEfectivo = membresia?.esTrial ? Math.max(5, kgAcumulados + totalKg) : kgAcumulados + totalKg
   const { descuento, label: descLabel } = getDescuento(kgEfectivo)
   const subtotal = cart.reduce((s, i) => s + i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento), 0)
   const precioUnitarioPromedio = totalKg > 0 ? Math.round(subtotal / totalKg) : PRECIO_BASE_DEFAULT - descuento

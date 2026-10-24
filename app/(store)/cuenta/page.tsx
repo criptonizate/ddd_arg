@@ -77,6 +77,7 @@ export default async function CuentaPage({
                 <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
                   <Crown size={11} />
                   {membresia.nivel === 'Mayorista' ? 'Mayorista' : `Mayorista ${membresia.nivel}`}
+                  {membresia.esTrial && ' · Prueba'}
                 </span>
               )}
             </div>
@@ -164,11 +165,17 @@ export default async function CuentaPage({
               className="rounded-2xl border p-5"
               style={{ backgroundColor: styles.cardBg, borderColor: styles.cardBorder }}
             >
+              {membresia.esTrial && (
+                <div className="mb-4 px-3 py-2 rounded-xl text-xs font-medium" style={{ backgroundColor: '#1a2e1a', border: '1px solid #166534', color: '#86efac' }}>
+                  🎉 <strong style={{ color: '#f0fdf4' }}>Período de prueba</strong> — Disfrutás precios mayoristas por 5 días gratis. ¡Hacé tu primer pedido para activar la membresía completa!
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <p className="font-black text-lg leading-none mb-1" style={{ color: '#f0fdf4' }}>
                     {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}
                     Mayorista {membresia.nivel !== 'Mayorista' && membresia.nivel}
+                    {membresia.esTrial && <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#166534', color: '#86efac' }}>Prueba</span>}
                   </p>
                   <p className="text-xs mt-1" style={{ color: '#86efac' }}>
                     Descuento activo: <strong style={{ color: '#f0fdf4' }}>−{fmtARS(membresia.descuento)}/kg</strong>

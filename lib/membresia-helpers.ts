@@ -93,4 +93,5 @@ export interface MembresiaStatus {
   descuento: number
   totalHistorico: number
   extensionPendiente: boolean  // hay una solicitud de extensión esperando confirmación
+  esTrial: boolean             // período de prueba gratuito para nuevos usuarios
 }
