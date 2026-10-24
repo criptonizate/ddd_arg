@@ -1070,7 +1070,7 @@ export default function FilamentosShop({
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="p-1 rounded-md border border-border hover:bg-secondary"><Minus size={11} /></button>
-                      <span className="text-sm font-bold w-6 text-center">{item.rollos}</span>
+                      <span className="text-sm font-bold w-10 text-center">{item.rollos} kg</span>
                       <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="p-1 rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={11} /></button>
                       <button onClick={() => removeFromCart(item.filamento.id)} className="p-1 rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={11} /></button>
                     </div>
@@ -1161,7 +1161,7 @@ export default function FilamentosShop({
                     {cart.map(i => (
                       <div key={i.filamento.id} className="flex items-center gap-2 text-sm">
                         <span className="w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: colorToCss(i.filamento.color) }} />
-                        <span className="flex-1 truncate text-xs">{i.rollos}x {i.filamento.color} — {i.filamento.material}</span>
+                        <span className="flex-1 truncate text-xs">{i.rollos} kg {i.filamento.color} — {i.filamento.material}</span>
                         <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento))}</span>
                       </div>
                     ))}
