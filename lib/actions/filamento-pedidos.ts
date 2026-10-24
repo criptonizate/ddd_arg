@@ -383,13 +383,14 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
   }
 }
 
-// Cliente solicita extensión (queda como 'pendiente' hasta que admin confirme)
-// El costo se calcula según el nivel actual del cliente
-export async function solicitarExtensionMembresia(): Promise<{ error?: string }> {
+// Cliente solicita extensión — registra como pendiente y redirige a WhatsApp
+export async function solicitarExtensionMembresia(): Promise<void> {
   const { createClient } = await import('@/lib/supabase/server')
+  const { redirect } = await import('next/navigation')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'No autenticado' }
+  if (!user) redirect('/cuenta?tab=membresia')
+  const userId = user!.id
 
   const sb = createServiceClient()
 
@@ -397,20 +398,21 @@ export async function solicitarExtensionMembresia(): Promise<{ error?: string }>
   const { data: existente } = await sb
     .from('membresia_extensiones')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('estado', 'pendiente')
     .maybeSingle()
-  if (existente) return { error: 'Ya tenés una solicitud de extensión pendiente' }
 
-  // Calcular costo según nivel actual
-  const membresiaActual = await getMembresiaCliente(user.id)
-  const costo = costoExtension(membresiaActual?.nivel ?? null)
+  if (!existente) {
+    // Calcular costo según nivel actual y registrar solicitud
+    const membresiaActual = await getMembresiaCliente(userId)
+    const costo = costoExtension(membresiaActual?.nivel ?? null)
+    const nivel = membresiaActual?.nivel ?? 'Mayorista'
+    await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
+    const msg = encodeURIComponent(`Hola! Quiero extender mi membresía ${nivel} por ${DIAS_EXTENSION} días ($${costo.toLocaleString('es-AR')}). Ya realicé la transferencia.`)
+    redirect(`https://wa.me/543804559909?text=${msg}`)
+  }
 
-  const { error } = await sb
-    .from('membresia_extensiones')
-    .insert({ user_id: user.id, dias: DIAS_EXTENSION, costo })
-  if (error) return { error: 'Error al solicitar extensión' }
-  return {}
+  redirect('/cuenta?tab=membresia')
 }
 
 // Admin confirma o rechaza una extensión
