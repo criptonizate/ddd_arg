@@ -284,7 +284,7 @@ export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
   const supabase = createServiceClient()
 
-  const [{ data: pedidos }, { data: ventas }, { data: extensiones }, { data: trial }] = await Promise.all([
+  const [{ data: pedidos, error: e1 }, { data: ventas, error: e2 }, { data: extensiones, error: e3 }, { data: trial, error: e4 }] = await Promise.all([
     supabase
       .from('filamento_pedidos')
       .select('updated_at, total_rollos')
@@ -304,6 +304,10 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
       .eq('user_id', userId)
       .maybeSingle(),
   ])
+
+  if (e1 || e2 || e3 || e4) {
+    console.error('getMembresiaCliente errors:', { e1, e2, e3, e4 })
+  }
 
   const eventosPedidos: EventoCompra[] = (pedidos ?? []).map((p: { updated_at: string; total_rollos: number }) => ({
     fecha_iso: p.updated_at,
