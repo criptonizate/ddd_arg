@@ -340,6 +340,7 @@ function FilamentoCard({
       {/* ── Información ── */}
       <div className="p-3.5 flex flex-col gap-2.5">
         <p className="font-bold text-sm leading-tight">{f.color}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight -mt-1.5">{f.nombre}</p>
 
         <div className="flex items-center justify-between gap-2">
           <div>
