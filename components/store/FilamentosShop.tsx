@@ -345,7 +345,7 @@ function FilamentoCard({
           <div>
             {descuento > 0 ? (
               <>
-                <p className="text-[11px] text-muted-foreground line-through leading-none">{fmtARS(PRECIO_BASE)}</p>
+                <p className="text-[11px] text-muted-foreground line-through leading-none">{fmtARS(f.precio_kg ?? PRECIO_BASE_DEFAULT)}</p>
                 <p className="text-base font-black leading-none" style={{ color: '#4ade80' }}>{fmtARS(precioUnitario)}</p>
                 <p className="text-[10px] font-semibold" style={{ color: '#4ade80' }}>−{fmtARS(descuento)}/kg</p>
               </>
