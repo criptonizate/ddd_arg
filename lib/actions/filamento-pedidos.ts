@@ -302,7 +302,7 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
       .from('membresia_trial')
       .select('trial_fin')
       .eq('user_id', userId)
-      .single(),
+      .maybeSingle(),
   ])
 
   const eventosPedidos: EventoCompra[] = (pedidos ?? []).map((p: { updated_at: string; total_rollos: number }) => ({
