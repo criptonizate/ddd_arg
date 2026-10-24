@@ -316,13 +316,22 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
 
   if (!todos.length) return null
 
-  const extensionDias = (extensiones ?? [])
+  const extensionConfirmadaDias = (extensiones ?? [])
     .filter((e: { dias: number; estado: string }) => e.estado === 'confirmado')
     .reduce((s: number, e: { dias: number; estado: string }) => s + e.dias, 0)
 
-  const extensionPendiente = (extensiones ?? []).some((e: { estado: string }) => e.estado === 'pendiente')
+  const extensionPendienteDias = (extensiones ?? [])
+    .filter((e: { dias: number; estado: string }) => e.estado === 'pendiente')
+    .reduce((s: number, e: { dias: number; estado: string }) => s + e.dias, 0)
+
+  const extensionPendiente = extensionPendienteDias > 0
 
   const totalHistorico = todos.reduce((s, e) => s + e.kg, 0)
+
+  // Días confirmados ya aplicados permanentemente.
+  // Días pendientes se suman provisionalmente para mantener la membresía activa
+  // mientras el admin no confirme ni rechace. Si admin rechaza, se eliminan.
+  const extensionDias = extensionConfirmadaDias + extensionPendienteDias
   const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(todos, extensionDias)
 
   const nowMs = Date.now()
