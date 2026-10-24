@@ -3,10 +3,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
-import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
+import { getMembresiaCliente, solicitarExtensionMembresia } from '@/lib/actions/filamento-pedidos'
 import { getVentasDeUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
-import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
+import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION } from '@/lib/membresia-helpers'
 import { getMyProfile } from '@/lib/actions/perfil'
 import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import PerfilTab from '@/components/store/PerfilTab'
@@ -21,7 +21,7 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const KG_RENOVACION = 5
+const KG_ACTIVACION = 5   // kg mínimos para activar membresía
 const TIER_MAX = TIERS_MEMBRESIA[0].min   // 15 kg
 
 const NIVEL_STYLES = {
@@ -244,9 +244,44 @@ export default async function CuentaPage({
 
               <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <p className="text-xs" style={{ color: '#86efac' }}>
-                  🔄 Comprá <strong style={{ color: '#f0fdf4' }}>{KG_RENOVACION} kg o más</strong> antes del vencimiento y extendés el período 30 días automáticamente
+                  🔄 Acumulá <strong style={{ color: '#f0fdf4' }}>5 kg más</strong> antes del vencimiento y el período se reinicia 30 días desde esa última compra.
+                  Cada 5 kg adicionales subís de nivel automáticamente.
                 </p>
               </div>
+
+              {/* Botón extensión — visible cuando quedan ≤10 días */}
+              {membresia.diasRestantes <= 10 && (() => {
+                const costoExt = costoExtension(membresia.nivel)
+                return (
+                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #d97706' }}>
+                    <div className="px-4 py-3" style={{ backgroundColor: 'rgba(217,119,6,0.15)' }}>
+                      <p className="text-sm font-black mb-0.5" style={{ color: '#fcd34d' }}>
+                        ⚡ Extender {DIAS_EXTENSION} días — ${costoExt.toLocaleString('es-AR')}
+                      </p>
+                      <p className="text-xs" style={{ color: '#86efac' }}>
+                        Hacé una transferencia y avisanos por WhatsApp. Confirmamos manualmente.
+                      </p>
+                    </div>
+                    {membresia.extensionPendiente ? (
+                      <div className="px-4 py-2.5 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                        <p className="text-xs font-semibold" style={{ color: '#86efac' }}>
+                          ⏳ Solicitud enviada — esperando confirmación
+                        </p>
+                      </div>
+                    ) : (
+                      <form action={solicitarExtensionMembresia}>
+                        <button
+                          type="submit"
+                          className="w-full px-4 py-2.5 text-xs font-bold transition-opacity hover:opacity-90"
+                          style={{ backgroundColor: 'rgba(217,119,6,0.25)', color: '#fcd34d' }}
+                        >
+                          Solicitar extensión →
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           ) : (
             /* Sin membresía activa */
@@ -258,7 +293,7 @@ export default async function CuentaPage({
               {membresia && membresia.kgPeriodo > 0 ? (
                 <p className="text-sm text-muted-foreground mb-4">
                   Tenés <strong className="text-foreground">{membresia.kgPeriodo.toFixed(1)} kg</strong> acumulados este período.
-                  Te faltan <strong className="text-foreground">{(KG_RENOVACION - membresia.kgPeriodo).toFixed(1)} kg</strong> para activar tu descuento mayorista.
+                  Te faltan <strong className="text-foreground">{(KG_ACTIVACION - membresia.kgPeriodo).toFixed(1)} kg</strong> para activar tu descuento mayorista.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground mb-4">
@@ -268,7 +303,7 @@ export default async function CuentaPage({
               <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full mb-1 overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, ((membresia?.kgPeriodo ?? 0) / KG_RENOVACION) * 100)}%` }}
+                  style={{ width: `${Math.min(100, ((membresia?.kgPeriodo ?? 0) / KG_ACTIVACION) * 100)}%` }}
                 />
               </div>
               <div className="flex justify-between text-[10px] text-muted-foreground mb-4">
@@ -316,29 +351,29 @@ export default async function CuentaPage({
               <div className="flex gap-3">
                 <span className="text-lg shrink-0">1️⃣</span>
                 <p>
-                  Hacé un pedido de <strong className="text-foreground">5 kg o más</strong> y tu membresía se activa automáticamente.
-                  El sistema lo detecta solo, sin trámites ni suscripciones.
+                  Acumulá <strong className="text-foreground">5 kg</strong> (en uno o varios pedidos) y tu membresía Mayorista se activa automáticamente.
+                  El período dura <strong className="text-foreground">30 días</strong> desde ese último pedido que completó los 5 kg.
                 </p>
               </div>
               <div className="flex gap-3">
                 <span className="text-lg shrink-0">2️⃣</span>
                 <p>
-                  Tus <strong className="text-foreground">descuentos duran 30 días</strong> desde la última compra que los activó.
-                  Cuantos más kg en ese período, mayor el descuento que desbloqueás.
+                  Los kg se <strong className="text-foreground">acumulan dentro del período activo</strong>.
+                  Cada vez que sumás 5 kg más (10 kg total → Plus, 15 kg total → Elite), subís de nivel y el período se reinicia 30 días desde esa fecha.
                 </p>
               </div>
               <div className="flex gap-3">
                 <span className="text-lg shrink-0">3️⃣</span>
                 <p>
-                  Para <strong className="text-foreground">mantener el descuento</strong>, comprá al menos 5 kg antes de que venza el período
-                  y se extiende 30 días más automáticamente desde esa fecha.
+                  Para <strong className="text-foreground">renovar</strong>, acumulá 5 kg más antes de que venza.
+                  El período se reinicia exactamente 30 días desde ese último pedido — los días restantes no se suman.
                 </p>
               </div>
               <div className="flex gap-3">
                 <span className="text-lg shrink-0">4️⃣</span>
                 <p>
-                  Los kg se <strong className="text-foreground">acumulan dentro del período</strong>.
-                  Si comprás 3 kg hoy y 7 kg en dos semanas, ya tenés 10 kg acumulados y accedés al nivel Plus.
+                  Si te quedan 10 días o menos, podés <strong className="text-foreground">extender 15 días</strong> abonando por transferencia.
+                  El costo varía según tu nivel actual.
                 </p>
               </div>
             </div>

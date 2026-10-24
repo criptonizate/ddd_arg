@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil } from 'lucide-react'
 import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
-import { getPedidosByUser, getMembresiasAdmin, type FilamentoPedido, type MembresiaAdminRow } from '@/lib/actions/filamento-pedidos'
+import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, type FilamentoPedido, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
 import { getAdminUserNotes, saveAdminUserNotes, getAdminApodoMap, type AdminUserNotes } from '@/lib/actions/perfil'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 
@@ -721,10 +721,13 @@ export default function CuentasClient({
   const [selId, setSelId] = useState<string | null>(null)
   const [apodoMap, setApodoMap] = useState<Record<string, string>>({})
   const [membresias, setMembresias] = useState<MembresiaAdminRow[] | null>(null)
+  const [extensiones, setExtensiones] = useState<ExtensionPendiente[] | null>(null)
+  const [resolviendoExt, setResolviendoExt] = useState<string | null>(null)
 
   useEffect(() => {
     getAdminApodoMap().then(setApodoMap)
     getMembresiasAdmin().then(setMembresias)
+    getExtensionesAdmin().then(setExtensiones)
   }, [])
 
   const filtrados = usuarios.filter(u => {
@@ -815,6 +818,55 @@ export default function CuentasClient({
           )}
         </div>
       </div>
+
+      {/* Extensiones pendientes */}
+      {extensiones && extensiones.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-amber-200 dark:border-amber-800 flex items-center gap-2">
+            <span className="text-lg">⏳</span>
+            <div>
+              <p className="font-bold text-amber-800 dark:text-amber-200">Extensiones pendientes de confirmación</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">Confirmar una vez recibida la transferencia</p>
+            </div>
+          </div>
+          <div className="divide-y divide-amber-100 dark:divide-amber-900">
+            {extensiones.map(ext => (
+              <div key={ext.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{ext.nombre}</p>
+                  <p className="text-xs text-muted-foreground">{ext.email} · solicitó +{ext.dias} días · ${ext.costo.toLocaleString('es-AR')}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    disabled={resolviendoExt === ext.id}
+                    onClick={async () => {
+                      setResolviendoExt(ext.id)
+                      await resolverExtensionMembresia(ext.id, 'confirmado')
+                      setExtensiones(prev => prev?.filter(e => e.id !== ext.id) ?? null)
+                      setResolviendoExt(null)
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-colors"
+                  >
+                    {resolviendoExt === ext.id ? '...' : '✓ Confirmar'}
+                  </button>
+                  <button
+                    disabled={resolviendoExt === ext.id}
+                    onClick={async () => {
+                      setResolviendoExt(ext.id)
+                      await resolverExtensionMembresia(ext.id, 'rechazado')
+                      setExtensiones(prev => prev?.filter(e => e.id !== ext.id) ?? null)
+                      setResolviendoExt(null)
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    ✗ Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Dashboard membresías */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">

@@ -277,25 +277,28 @@ export async function editarItemsPedidoFilamento(
   return {}
 }
 
-import { KG_RENOVACION, TIERS_MEMBRESIA, calcularPeriodo, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
+import { TIERS_MEMBRESIA, calcularPeriodo, costoExtension, DIAS_EXTENSION, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
 
 // Público — sin auth de admin, llamado desde la página de cuenta del cliente
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
   const supabase = createServiceClient()
 
-  // Pedidos web confirmados/entregados
-  const { data: pedidos } = await supabase
-    .from('filamento_pedidos')
-    .select('updated_at, total_rollos')
-    .eq('user_id', userId)
-    .in('estado', ['confirmado', 'entregado'])
-
-  // Ventas históricas vinculadas al usuario
-  const { data: ventas } = await supabase
-    .from('filamento_ventas')
-    .select('fecha, gramos')
-    .eq('user_id', userId)
+  const [{ data: pedidos }, { data: ventas }, { data: extensiones }] = await Promise.all([
+    supabase
+      .from('filamento_pedidos')
+      .select('updated_at, total_rollos')
+      .eq('user_id', userId)
+      .in('estado', ['confirmado', 'entregado']),
+    supabase
+      .from('filamento_ventas')
+      .select('fecha, gramos')
+      .eq('user_id', userId),
+    supabase
+      .from('membresia_extensiones')
+      .select('dias, estado')
+      .eq('user_id', userId),
+  ])
 
   const eventosPedidos: EventoCompra[] = (pedidos ?? []).map((p: { updated_at: string; total_rollos: number }) => ({
     fecha_iso: p.updated_at,
@@ -303,7 +306,6 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
   }))
 
   const eventosVentas: EventoCompra[] = (ventas ?? []).map((v: { fecha: string; gramos: number }) => ({
-    // fecha en filamento_ventas es DATE ('YYYY-MM-DD'), la tratamos como mediodía para evitar TZ edge cases
     fecha_iso: v.fecha.includes('T') ? v.fecha : `${v.fecha}T12:00:00Z`,
     kg: v.gramos / 1000,
   }))
@@ -314,8 +316,14 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
 
   if (!todos.length) return null
 
+  const extensionDias = (extensiones ?? [])
+    .filter((e: { dias: number; estado: string }) => e.estado === 'confirmado')
+    .reduce((s: number, e: { dias: number; estado: string }) => s + e.dias, 0)
+
+  const extensionPendiente = (extensiones ?? []).some((e: { estado: string }) => e.estado === 'pendiente')
+
   const totalHistorico = todos.reduce((s, e) => s + e.kg, 0)
-  const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(todos)
+  const { periodoInicio, periodoFin, kgPeriodo } = calcularPeriodo(todos, extensionDias)
 
   const nowMs = Date.now()
   const activo = periodoFin.getTime() > nowMs
@@ -332,7 +340,53 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     nivel,
     descuento: tierActivo?.descuento ?? 0,
     totalHistorico,
+    extensionPendiente,
   }
+}
+
+// Cliente solicita extensión (queda como 'pendiente' hasta que admin confirme)
+// El costo se calcula según el nivel actual del cliente
+export async function solicitarExtensionMembresia(): Promise<{ error?: string }> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const sb = createServiceClient()
+
+  // Verificar que no haya ya una pendiente
+  const { data: existente } = await sb
+    .from('membresia_extensiones')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('estado', 'pendiente')
+    .maybeSingle()
+  if (existente) return { error: 'Ya tenés una solicitud de extensión pendiente' }
+
+  // Calcular costo según nivel actual
+  const membresiaActual = await getMembresiaCliente(user.id)
+  const costo = costoExtension(membresiaActual?.nivel ?? null)
+
+  const { error } = await sb
+    .from('membresia_extensiones')
+    .insert({ user_id: user.id, dias: DIAS_EXTENSION, costo })
+  if (error) return { error: 'Error al solicitar extensión' }
+  return {}
+}
+
+// Admin confirma o rechaza una extensión
+export async function resolverExtensionMembresia(
+  extensionId: string,
+  accion: 'confirmado' | 'rechazado',
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('membresia_extensiones')
+    .update({ estado: accion, confirmado_at: new Date().toISOString() })
+    .eq('id', extensionId)
+  if (error) return { error: 'Error al actualizar extensión' }
+  return {}
 }
 
 export async function anularPedidoConfirmado(
@@ -504,4 +558,48 @@ export async function getMembresiasAdmin(): Promise<MembresiaAdminRow[]> {
 
   const orden: Record<string, number> = { Elite: 0, Plus: 1, Mayorista: 2 }
   return rows.sort((a, b) => (orden[a.nivel!] ?? 9) - (orden[b.nivel!] ?? 9) || b.kgPeriodo - a.kgPeriodo)
+}
+
+// ── Admin: extensiones pendientes ──────────────────────────────────────────────
+
+export interface ExtensionPendiente {
+  id: string
+  userId: string
+  nombre: string
+  email: string
+  dias: number
+  costo: number
+  createdAt: string
+}
+
+export async function getExtensionesAdmin(): Promise<ExtensionPendiente[]> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  const { data } = await supabase
+    .from('membresia_extensiones')
+    .select('id, user_id, dias, costo, created_at')
+    .eq('estado', 'pendiente')
+    .order('created_at', { ascending: true })
+
+  if (!data?.length) return []
+
+  const userIds = [...new Set(data.map((r: { user_id: string }) => r.user_id))]
+  const { data: users } = await supabase.auth.admin.listUsers({ perPage: 500 })
+  const userMap: Record<string, { nombre: string; email: string }> = {}
+  for (const u of users?.users ?? []) {
+    userMap[u.id] = { nombre: u.user_metadata?.full_name ?? u.email ?? u.id, email: u.email ?? '' }
+  }
+
+  return data
+    .filter((r: { user_id: string }) => userIds.includes(r.user_id))
+    .map((r: { id: string; user_id: string; dias: number; costo: number; created_at: string }) => ({
+      id: r.id,
+      userId: r.user_id,
+      nombre: userMap[r.user_id]?.nombre ?? 'Usuario',
+      email: userMap[r.user_id]?.email ?? '',
+      dias: r.dias,
+      costo: r.costo,
+      createdAt: r.created_at,
+    }))
 }
