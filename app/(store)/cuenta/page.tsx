@@ -44,8 +44,7 @@ export default async function CuentaPage({
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .catch(() => ({ data: [] as FilamentoPedido[] })),
+      .order('created_at', { ascending: false }),
     getMembresiaCliente(user.id).catch((err) => { console.error('membresia error:', err); return null }),
     getVentasDeUsuario(user.id).catch(() => []),
     getMyProfile().catch(() => null),
