@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
+import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente } from '@/lib/email'
 
 export interface FilamentoPedidoItem {
   filamento_id: string
@@ -86,6 +87,22 @@ export async function crearPedidoFilamento(data: {
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
+
+  // Emails — fire and forget, no bloqueamos la respuesta
+  const emailData = {
+    numero: row.numero,
+    clienteNombre: data.cliente_nombre,
+    clienteEmail: user.email,
+    items: data.items,
+    totalRollos: data.total_rollos,
+    descuentoPorRollo: data.descuento_por_rollo,
+    total: data.total,
+  }
+  void sendNuevoPedidoAdmin(emailData)
+  if (user.email) {
+    void sendPedidoRecibidoCliente({ ...emailData, clienteEmail: user.email })
+  }
+
   return { numero: row.numero, id: row.id }
 }
 
@@ -250,6 +267,24 @@ export async function confirmarPedidoYDescontarStock(
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/filamentos')
+
+  // Email de confirmación al cliente
+  if (pedido.user_id) {
+    const supabaseAuth = createServiceClient()
+    const { data: { user } } = await supabaseAuth.auth.admin.getUserById(pedido.user_id)
+    if (user?.email) {
+      void sendPedidoConfirmadoCliente({
+        numero: pedido.numero,
+        clienteNombre: pedido.cliente_nombre,
+        clienteEmail: user.email,
+        items: pedido.items as FilamentoPedidoItem[],
+        totalRollos: pedido.total_rollos,
+        descuentoPorRollo: pedido.descuento_por_rollo,
+        total: pedido.total,
+      })
+    }
+  }
+
   return {}
 }
 
