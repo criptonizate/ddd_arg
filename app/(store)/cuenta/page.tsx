@@ -3,13 +3,14 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
-import { getMembresiaCliente, solicitarExtensionMembresia } from '@/lib/actions/filamento-pedidos'
+import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import { getVentasDeUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION } from '@/lib/membresia-helpers'
 import { getMyProfile } from '@/lib/actions/perfil'
 import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import PerfilTab from '@/components/store/PerfilTab'
+import ExtensionModal from '@/components/store/ExtensionModal'
 import Link from 'next/link'
 import { Package, Crown, User } from 'lucide-react'
 
@@ -211,43 +212,6 @@ export default async function CuentaPage({
                 </div>
               </div>
 
-              {/* Aviso vencimiento próximo */}
-              {membresia.diasRestantes <= 10 && (
-                <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)' }}>
-                  <p className="text-sm font-bold" style={{ color: '#fca5a5' }}>
-                    ⚠️ Tu membresía está próxima a finalizar
-                  </p>
-                  <p className="text-xs leading-relaxed" style={{ color: '#fca5a5' }}>
-                    {membresia.kgPeriodo >= KG_ACTIVACION
-                      ? <>Te faltan <strong style={{ color: '#f0fdf4' }}>{(KG_ACTIVACION - (membresia.kgPeriodo % KG_ACTIVACION)).toFixed(1)} kg más</strong> para renovar automáticamente por 30 días más.</>
-                      : <>Para renovar la membresía, recordá que tenés que <strong style={{ color: '#f0fdf4' }}>comprar 5 kg de filamento</strong> antes de que se venza.</>
-                    }
-                  </p>
-
-                  {membresia.extensionPendiente ? (
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-semibold" style={{ color: '#fcd34d' }}>⏳ Extensión pendiente de confirmación</p>
-                      <p className="text-[11px]" style={{ color: '#86efac' }}>Tus precios mayoristas siguen activos mientras tanto.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 pt-1 border-t" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
-                      <p className="text-xs" style={{ color: '#fca5a5' }}>
-                        O si preferís, podés extender {DIAS_EXTENSION} días por <strong style={{ color: '#f0fdf4' }}>${costoExtension(membresia.nivel).toLocaleString('es-AR')}</strong> transferiendo a:
-                      </p>
-                      <div className="px-3 py-2 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                        <p className="font-black text-sm" style={{ color: '#f0fdf4' }}>juan3d.nx</p>
-                        <p className="text-xs" style={{ color: '#86efac' }}>Juan Pablo Arnaudo Zalazar</p>
-                      </div>
-                      <form action={async () => { 'use server'; await solicitarExtensionMembresia() }}>
-                        <button type="submit" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
-                          style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.4)' }}>
-                          ✅ Ya pagué — enviar comprobante por WhatsApp →
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           ) : (
             /* Sin membresía activa */
@@ -299,7 +263,36 @@ export default async function CuentaPage({
             })}
           </div>
 
-          {/* Preguntas */}
+          {/* Aviso vencimiento próximo — discreto, al fondo */}
+          {membresia?.nivel && membresia.diasRestantes <= 10 && (
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+              <p className="text-sm font-semibold text-foreground">⚠️ Tu membresía está próxima a finalizar</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Si no llegás a comprar <strong className="text-foreground">5 kg</strong> antes de que venza, tu membresía se desactivará.
+                Recordá que podés hacer los pedidos en partes — se acumulan dentro del período activo.
+              </p>
+              <Link
+                href="/filamentos"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-semibold border border-border hover:bg-secondary transition-colors"
+              >
+                🛒 Ver filamentos y hacer un pedido →
+              </Link>
+              {membresia.extensionPendiente ? (
+                <p className="text-xs text-center text-muted-foreground">
+                  ⏳ Extensión pendiente — tus precios siguen activos mientras confirmamos.
+                </p>
+              ) : (
+                <div className="pt-1 border-t border-border">
+                  <p className="text-[11px] text-muted-foreground text-center mb-2">
+                    ¿No llegás a los 5 kg? También podés extender la membresía pagando una tarifa.
+                  </p>
+                  <ExtensionModal nivel={membresia.nivel} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contacto */}
           <p className="text-xs text-center text-muted-foreground pb-2">
             ¿Dudas sobre tu membresía?{' '}
             <a href="https://wa.me/543804559909" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline">
