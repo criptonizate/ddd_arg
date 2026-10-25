@@ -162,7 +162,7 @@ export default async function CuentaPage({
 
           {/* Card principal */}
           {membresia?.nivel && styles ? (
-            <div className="rounded-2xl border p-5 space-y-4" style={{ backgroundColor: styles.cardBg, borderColor: styles.cardBorder }}>
+            <div className="rounded-2xl border p-5 space-y-5" style={{ backgroundColor: styles.cardBg, borderColor: styles.cardBorder }}>
 
               {/* Trial banner */}
               {membresia.esTrial && (
@@ -171,53 +171,73 @@ export default async function CuentaPage({
                 </div>
               )}
 
-              {/* Nivel + días */}
-              <div className="flex items-center justify-between gap-3">
+              {/* Nivel + días restantes */}
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-xl leading-none" style={{ color: '#f0fdf4' }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#86efac' }}>Tu membresía</p>
+                  <p className="font-black text-2xl leading-none" style={{ color: '#f0fdf4' }}>
                     {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}
                     Mayorista{membresia.nivel !== 'Mayorista' && ` ${membresia.nivel}`}
                   </p>
                   <p className="text-xs mt-1.5" style={{ color: '#86efac' }}>
-                    −{fmtARS(membresia.descuento)}/kg · vence {fmtDate(membresia.periodoFin)}
+                    Descuento: <strong style={{ color: '#f0fdf4' }}>−{fmtARS(membresia.descuento)}/kg</strong>
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>
+                    Vence el <strong style={{ color: '#f0fdf4' }}>{fmtDate(membresia.periodoFin)}</strong>
                   </p>
                 </div>
-                <div className="text-right shrink-0 px-3 py-2 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
-                  <p className="text-2xl font-black tabular-nums leading-none" style={{ color: '#f0fdf4' }}>{membresia.diasRestantes}</p>
-                  <p className="text-[11px]" style={{ color: '#86efac' }}>días</p>
+                <div className="text-center shrink-0 px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
+                  <p className="text-4xl font-black tabular-nums leading-none" style={{ color: '#f0fdf4' }}>{membresia.diasRestantes}</p>
+                  <p className="text-xs mt-1" style={{ color: '#86efac' }}>días vigentes</p>
                 </div>
               </div>
 
-              {/* Barra de progreso */}
-              {!membresia.esTrial && (
-                <div>
-                  <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: styles.barBg }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (membresia.kgPeriodo / TIER_MAX) * 100)}%`, backgroundColor: styles.bar }} />
-                  </div>
-                  <div className="flex justify-between text-[10px]" style={{ color: '#86efac' }}>
-                    <span>{membresia.kgPeriodo.toFixed(1)} kg acumulados</span>
-                    {siguienteTier && <span>{siguienteTier.emoji} {siguienteTier.min} kg → {siguienteTier.label}</span>}
-                  </div>
+              {/* Progreso kg hacia próximo nivel */}
+              <div>
+                <div className="flex justify-between text-xs mb-2" style={{ color: '#86efac' }}>
+                  <span><strong style={{ color: '#f0fdf4' }}>{membresia.kgPeriodo.toFixed(1)} kg</strong> comprados este período</span>
+                  {siguienteTier
+                    ? <span>faltan <strong style={{ color: '#f0fdf4' }}>{(siguienteTier.min - membresia.kgPeriodo).toFixed(1)} kg</strong> para {siguienteTier.emoji} {siguienteTier.label}</span>
+                    : <span style={{ color: '#fcd34d' }}>🏆 Nivel máximo</span>
+                  }
                 </div>
-              )}
+                <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: styles.barBg }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (membresia.kgPeriodo / TIER_MAX) * 100)}%`, backgroundColor: styles.bar }} />
+                </div>
+                <div className="flex justify-between text-[10px] mt-1" style={{ color: '#86efac' }}>
+                  {TIERS_MEMBRESIA.slice().reverse().map(t => (
+                    <span key={t.min}>{t.emoji} {t.min} kg</span>
+                  ))}
+                </div>
+              </div>
 
-              {/* Extensión — solo cuando quedan ≤10 días */}
+              {/* Aviso vencimiento próximo */}
               {membresia.diasRestantes <= 10 && (
-                <div className="pt-1 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)' }}>
+                  <p className="text-sm font-bold" style={{ color: '#fca5a5' }}>
+                    ⚠️ Tu membresía está próxima a finalizar
+                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: '#fca5a5' }}>
+                    {membresia.kgPeriodo >= KG_ACTIVACION
+                      ? <>Te faltan <strong style={{ color: '#f0fdf4' }}>{(KG_ACTIVACION - (membresia.kgPeriodo % KG_ACTIVACION)).toFixed(1)} kg más</strong> para renovar automáticamente por 30 días más.</>
+                      : <>Para renovar la membresía, recordá que tenés que <strong style={{ color: '#f0fdf4' }}>comprar 5 kg de filamento</strong> antes de que se venza.</>
+                    }
+                  </p>
+
                   {membresia.extensionPendiente ? (
-                    <div className="text-center py-2 space-y-0.5">
+                    <div className="space-y-0.5">
                       <p className="text-xs font-semibold" style={{ color: '#fcd34d' }}>⏳ Extensión pendiente de confirmación</p>
                       <p className="text-[11px]" style={{ color: '#86efac' }}>Tus precios mayoristas siguen activos mientras tanto.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {/* Datos de pago */}
-                      <div className="px-3 py-2.5 rounded-xl text-xs space-y-1" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <p style={{ color: '#86efac' }}>Transferí <strong style={{ color: '#f0fdf4' }}>${costoExtension(membresia.nivel).toLocaleString('es-AR')}</strong> a:</p>
-                        <p className="font-black text-base tracking-wide" style={{ color: '#f0fdf4' }}>juan3d.nx</p>
-                        <p style={{ color: '#86efac' }}>Juan Pablo Arnaudo Zalazar</p>
+                    <div className="space-y-2 pt-1 border-t" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+                      <p className="text-xs" style={{ color: '#fca5a5' }}>
+                        O si preferís, podés extender {DIAS_EXTENSION} días por <strong style={{ color: '#f0fdf4' }}>${costoExtension(membresia.nivel).toLocaleString('es-AR')}</strong> transferiendo a:
+                      </p>
+                      <div className="px-3 py-2 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                        <p className="font-black text-sm" style={{ color: '#f0fdf4' }}>juan3d.nx</p>
+                        <p className="text-xs" style={{ color: '#86efac' }}>Juan Pablo Arnaudo Zalazar</p>
                       </div>
-                      {/* Botón — registra pendiente y abre WA */}
                       <form action={async () => { 'use server'; await solicitarExtensionMembresia() }}>
                         <button type="submit" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
                           style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.4)' }}>
