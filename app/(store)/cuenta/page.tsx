@@ -286,7 +286,7 @@ export default async function CuentaPage({
                   <p className="text-[11px] text-muted-foreground text-center mb-2">
                     ¿No llegás a los 5 kg? También podés extender la membresía pagando una tarifa.
                   </p>
-                  <ExtensionModal nivel={membresia.nivel} />
+                  <ExtensionModal nivel={membresia.nivel} diasRestantes={membresia.diasRestantes} />
                 </div>
               )}
             </div>

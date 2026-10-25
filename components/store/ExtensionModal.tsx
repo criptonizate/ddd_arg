@@ -12,11 +12,12 @@ const COSTO_POR_NIVEL: Record<string, number> = {
   Elite: 10000,
 }
 
-export default function ExtensionModal({ nivel }: { nivel: NivelMembresia }) {
+export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: NivelMembresia; diasRestantes?: number }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const costo = COSTO_POR_NIVEL[nivel ?? 'Mayorista'] ?? 2000
+  const urgente = diasRestantes <= 2
 
   function handleSolicitar() {
     startTransition(async () => {
@@ -28,10 +29,13 @@ export default function ExtensionModal({ nivel }: { nivel: NivelMembresia }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
-        style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.4)' }}
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+        style={urgente
+          ? { backgroundColor: '#d97706', color: '#fff', border: '2px solid #f59e0b', boxShadow: '0 0 12px rgba(217,119,6,0.5)' }
+          : { backgroundColor: 'rgba(217,119,6,0.15)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.35)' }
+        }
       >
-        ⚡ Extender membresía {DIAS_EXTENSION} días →
+        {urgente ? '🚨' : '⚡'} Extender membresía {DIAS_EXTENSION} días →
       </button>
 
       {open && (
