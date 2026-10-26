@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const ADMIN_EMAIL = 'iarnaudojuanpablo@gmail.com'
-const FROM = 'DDD ARG <onboarding@resend.dev>'
+const FROM = process.env.RESEND_FROM_EMAIL || 'DDD ARG <onboarding@resend.dev>'
 
 export interface PedidoEmailData {
   numero: number

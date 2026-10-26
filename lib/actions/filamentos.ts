@@ -563,10 +563,11 @@ export async function saveCarritoUsuario(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
+  const itemsSaneados = items.slice(0, 50)
   const db = createServiceClient()
   await db
     .from('filamento_carrito')
-    .upsert({ user_id: user.id, items, updated_at: new Date().toISOString() })
+    .upsert({ user_id: user.id, items: itemsSaneados, updated_at: new Date().toISOString() })
 }
 
 export async function limpiarCarritoUsuario(): Promise<void> {
@@ -708,6 +709,7 @@ export async function toggleOcultoFilamento(id: string, oculto: boolean): Promis
 
 export async function enviarSugerenciaFilamento(mensaje: string): Promise<{ error?: string }> {
   if (!mensaje.trim()) return { error: 'El mensaje no puede estar vacío' }
+  if (mensaje.trim().length > 2000) return { error: 'El mensaje es demasiado largo (máx. 2000 caracteres)' }
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

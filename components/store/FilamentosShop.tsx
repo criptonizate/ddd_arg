@@ -1466,6 +1466,21 @@ export default function FilamentosShop({
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={loginConCarrito} />}
 
+      {/* Toast: items quitados del carrito por falta de stock */}
+      {stockRemovedNames.length > 0 && (
+        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-50" style={{ width: 'min(92vw, 360px)' }}>
+          <div className="flex items-start gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm"
+            style={{ backgroundColor: '#1c1208', border: '1px solid #78350f', color: '#fde68a' }}>
+            <span className="shrink-0 mt-0.5">⚠️</span>
+            <div className="leading-snug">
+              <span className="font-bold block">Sin stock disponible</span>
+              Se quitaron del carrito: {stockRemovedNames.join(', ')}
+            </div>
+            <button onClick={() => setStockRemovedNames([])} className="ml-auto shrink-0 opacity-60 hover:opacity-100 text-base">✕</button>
+          </div>
+        </div>
+      )}
+
       {/* Toast: alerta de stock registrada */}
       <div
         className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 pointer-events-none ${alertToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}

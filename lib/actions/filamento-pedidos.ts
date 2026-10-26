@@ -41,7 +41,15 @@ export async function crearPedidoFilamento(data: {
   items: FilamentoPedidoItem[]
 }): Promise<{ numero?: number; id?: string; error?: string }> {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
+  if (data.cliente_nombre.trim().length > 100) return { error: 'El nombre es demasiado largo' }
+  if (data.cliente_telefono && data.cliente_telefono.trim().length > 20) return { error: 'El teléfono es demasiado largo' }
   if (!data.items.length) return { error: 'El carrito está vacío' }
+  if (data.items.length > 20) return { error: 'El pedido no puede tener más de 20 items' }
+  for (const item of data.items) {
+    if (!Number.isInteger(item.rollos) || item.rollos <= 0 || item.rollos > 50) {
+      return { error: `Cantidad inválida para ${item.nombre}: debe ser entre 1 y 50 kg` }
+    }
+  }
 
   // Login obligatorio para hacer un pedido
   const { createClient } = await import('@/lib/supabase/server')
@@ -64,11 +72,14 @@ export async function crearPedidoFilamento(data: {
   const precioMap: Record<string, number> = {}
   for (const f of (filamentosDB ?? [])) precioMap[f.id] = f.precio_kg ?? 0
 
-  // Reconstruir items con precios reales y calcular totales server-side
-  const itemsValidados: FilamentoPedidoItem[] = data.items.map(item => ({
-    ...item,
-    precio_unitario: precioMap[item.filamento_id] ?? item.precio_unitario,
-  }))
+  // Reconstruir items con precios reales — excluir items con filamento_id desconocido
+  const itemsValidados: FilamentoPedidoItem[] = data.items
+    .filter(item => precioMap[item.filamento_id] !== undefined)
+    .map(item => ({
+      ...item,
+      precio_unitario: precioMap[item.filamento_id],
+    }))
+  if (!itemsValidados.length) return { error: 'Ningún filamento del pedido es válido' }
   const total_rollos = itemsValidados.reduce((s, i) => s + i.rollos, 0)
   const total = itemsValidados.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
 
@@ -315,12 +326,21 @@ export async function editarItemsPedidoFilamento(
   if (!items.length) return { error: 'El pedido debe tener al menos un ítem' }
 
   const total_rollos = items.reduce((s, i) => s + i.rollos, 0)
-  // Recalcular descuento por volumen
-  const TIERS = [{ min: 15, desc: 4000 }, { min: 10, desc: 3000 }, { min: 5, desc: 2000 }, { min: 0, desc: 0 }]
-  const descuento_por_rollo = TIERS.find(t => total_rollos >= t.min)?.desc ?? 0
-  const total = items.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
 
   const supabase = createServiceClient()
+
+  // Obtener user_id del pedido para recalcular descuento según membresía real
+  const { data: pedidoRow } = await supabase
+    .from('filamento_pedidos')
+    .select('user_id')
+    .eq('id', pedidoId)
+    .single()
+  const membresia = pedidoRow?.user_id
+    ? await getMembresiaCliente(pedidoRow.user_id).catch(() => null)
+    : null
+  const descuento_por_rollo = membresia?.descuento ?? 0
+
+  const total = items.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
   const { error } = await supabase
     .from('filamento_pedidos')
     .update({ items, total_rollos, descuento_por_rollo, total, updated_at: new Date().toISOString() })

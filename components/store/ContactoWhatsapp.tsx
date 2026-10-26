@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-const WHATSAPP_NUMBER = '543804559909'
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
 const MATERIALES = ['PLA', 'PETG', 'TPU (flexible)', 'No sé / que me recomienden']
 

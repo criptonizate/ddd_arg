@@ -183,7 +183,7 @@ export default function CuentaPedidosTab({
                   return (
                     <div className="px-5 py-3 border-t border-border flex flex-wrap items-center gap-2">
                       <a
-                        href={`https://wa.me/543804559909?text=${encodeURIComponent(msg)}`}
+                        href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'}?text=${encodeURIComponent(msg)}`}
                         target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-[#25D366]/10 text-[#128C7E] dark:text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors"
                       >
