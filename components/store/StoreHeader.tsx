@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useCart } from './CartProvider'
-import { ShoppingBag, User, LogOut, Package } from 'lucide-react'
+import { ShoppingBag, User, LogOut, Package, Menu, X } from 'lucide-react'
 import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -60,6 +60,7 @@ export default function StoreHeader() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [ready, setReady] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -88,6 +89,16 @@ export default function StoreHeader() {
         }}
       >
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between gap-4">
+
+          {/* Hamburguesa mobile */}
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            aria-label="Menú"
+            className="md:hidden p-2 rounded-lg transition-colors hover:opacity-80"
+            style={{ color: 'oklch(0.65 0.005 264)' }}
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
 
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
@@ -272,6 +283,62 @@ export default function StoreHeader() {
           ))}
         </div>
       </div>
+
+      {/* ── Menú mobile ── */}
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-30 md:hidden" onClick={() => setMenuOpen(false)} />
+          <div
+            className="absolute left-0 right-0 z-40 md:hidden border-b shadow-2xl"
+            style={{
+              backgroundColor: 'oklch(0.17 0.005 264)',
+              borderColor: 'oklch(1 0 0 / 10%)',
+            }}
+          >
+            <nav className="flex flex-col py-2 px-4">
+              <Link
+                href="/filamentos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ color: 'oklch(0.80 0.005 264)' }}
+              >
+                🧵 Filamentos
+              </Link>
+              <Link
+                href="/insumos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ color: 'oklch(0.80 0.005 264)' }}
+              >
+                📦 Insumos
+              </Link>
+              <div className="my-1 border-t" style={{ borderColor: 'oklch(1 0 0 / 8%)' }} />
+              <div className="flex items-center gap-3 px-3 py-2">
+                <a
+                  href={`https://wa.me/${WHATSAPP}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm transition-colors hover:opacity-80"
+                  style={{ color: '#25D366' }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <WhatsAppIcon size={16} />
+                  WhatsApp
+                </a>
+                <a
+                  href="https://instagram.com/DDD_ARG"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm transition-colors hover:opacity-80"
+                  style={{ color: '#E1306C' }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <InstagramIcon size={16} />
+                  Instagram
+                </a>
+              </div>
+            </nav>
+          </div>
+        </>
+      )}
 
       <style>{`
         @keyframes marquee-store {
