@@ -244,6 +244,35 @@ export default async function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════════════
+          CÓMO COMPRÁS — 3 pasos simples
+      ══════════════════════════════════════════════════ */}
+      <section className="bg-card border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
+          <h2 className="text-base font-black text-center mb-6 sm:mb-8" style={{ color: 'oklch(0.88 0.005 264)' }}>
+            ¿Cómo comprás?
+          </h2>
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 max-w-xl mx-auto">
+            {[
+              { num: '1', title: 'Elegí tu filamento', sub: 'Filtrá por color, material o marca' },
+              { num: '2', title: 'Registrá tu pedido', sub: 'Necesitás una cuenta de Google' },
+              { num: '3', title: 'Coordinamos por WhatsApp', sub: 'Envío a todo el país o retiro en local' },
+            ].map((step) => (
+              <div key={step.num} className="flex flex-col items-center text-center gap-2">
+                <span
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-base font-black shrink-0"
+                  style={{ backgroundColor: 'oklch(0.55 0.18 145 / 20%)', color: '#4ade80', border: '1.5px solid oklch(0.55 0.18 145 / 30%)' }}
+                >
+                  {step.num}
+                </span>
+                <p className="text-xs font-bold text-foreground leading-tight">{step.title}</p>
+                <p className="text-[10px] text-muted-foreground leading-snug hidden sm:block">{step.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════
           UBICACIÓN — solo en home
       ══════════════════════════════════════════════════ */}
       <section style={{ backgroundColor: 'oklch(0.17 0.005 264)', borderTop: '1px solid oklch(1 0 0 / 8%)' }}>

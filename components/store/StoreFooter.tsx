@@ -47,27 +47,39 @@ export default function StoreFooter() {
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-6 text-sm">
-            <Link
-              href="/filamentos"
-              className="font-semibold transition-colors hover:text-[#16a34a]"
-              style={{ color: 'oklch(0.60 0.005 264)' }}
-            >
-              🧵 Filamentos
-            </Link>
-            <Link
-              href="/cuenta"
-              className="font-semibold transition-colors hover:text-[#16a34a]"
-              style={{ color: 'oklch(0.60 0.005 264)' }}
-            >
-              Mi cuenta
-            </Link>
+          <div className="flex flex-col items-center sm:items-start gap-2 text-sm">
+            <div className="flex items-center gap-6">
+              <Link
+                href="/filamentos"
+                className="font-semibold transition-colors hover:text-[#16a34a]"
+                style={{ color: 'oklch(0.60 0.005 264)' }}
+              >
+                🧵 Filamentos
+              </Link>
+              <Link
+                href="/cuenta"
+                className="font-semibold transition-colors hover:text-[#16a34a]"
+                style={{ color: 'oklch(0.60 0.005 264)' }}
+              >
+                Mi cuenta
+              </Link>
+              <Link
+                href="/privacidad"
+                className="transition-colors hover:text-[#16a34a]"
+                style={{ color: 'oklch(0.45 0.005 264)' }}
+              >
+                Privacidad
+              </Link>
+            </div>
+            <p className="text-xs" style={{ color: 'oklch(0.40 0.005 264)' }}>
+              📍 Capital, La Rioja, Argentina
+            </p>
           </div>
 
           {/* Sociales */}
           <div className="flex items-center gap-3">
             <a
-              href="https://wa.me/543804559909"
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'}`}
               target="_blank" rel="noopener noreferrer"
               aria-label="WhatsApp"
               className="p-2 rounded-lg transition-colors text-[#25D366] hover:opacity-70"

@@ -11,7 +11,7 @@ import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 
-const WHATSAPP_NUMBER = '543804559909'
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const PRECIO_BASE_DEFAULT = 22000
 
 const DESCUENTOS = [
@@ -379,7 +379,7 @@ function FilamentoCard({
             ) : (
               <>
                 <p className="text-base font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
-                <p className="text-[10px] text-muted-foreground">por kg</p>
+                <p className="text-[10px] text-muted-foreground">por kg · 1 rollo = 1 kg</p>
               </>
             )}
           </div>
@@ -421,17 +421,17 @@ function FilamentoCard({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onSetRollos(enCart - 1)}
-                className="flex-none p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
+                className="flex-none w-9 h-9 flex items-center justify-center rounded-lg border border-border hover:bg-secondary transition-colors"
               >
-                <Minus size={12} />
+                <Minus size={14} />
               </button>
               <span className="flex-1 text-center text-sm font-bold">{enCart} kg</span>
               <button
                 onClick={() => onSetRollos(enCart + 1)}
                 disabled={enMax}
-                className="flex-none p-2 rounded-lg border border-border hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-none w-9 h-9 flex items-center justify-center rounded-lg border border-border hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <Plus size={12} />
+                <Plus size={14} />
               </button>
             </div>
             {enMax && (
@@ -495,6 +495,18 @@ export default function FilamentosShop({
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
   const cartSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Persistir carrito anónimo en localStorage continuamente
+  useEffect(() => {
+    if (user) return // usuarios logueados usan DB
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem('ddd_cart_filamentos', JSON.stringify(cart))
+      } else {
+        localStorage.removeItem('ddd_cart_filamentos')
+      }
+    } catch { /* noop */ }
+  }, [cart, user]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Item 5 — Debounced save del carrito a la DB cuando cambia
   useEffect(() => {
     if (!user) return
@@ -507,7 +519,7 @@ export default function FilamentosShop({
     return () => { if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current) }
   }, [cart, user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore cart saved before OAuth redirect, reconciling against current stock
+  // Restore cart from localStorage on init (anon users) or after OAuth redirect
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ddd_cart_filamentos')
@@ -515,7 +527,7 @@ export default function FilamentosShop({
         const parsed: CartItem[] = JSON.parse(saved)
         if (parsed.length > 0) {
           setCart(prev => {
-            // Use the already-loaded filamentos to cap quantities
+            if (prev.length > 0) return prev
             const current = localFilamentos
             return parsed.flatMap(item => {
               const fil = current.find(f => f.id === item.filamento.id)
@@ -526,7 +538,8 @@ export default function FilamentosShop({
             })
           })
         }
-        localStorage.removeItem('ddd_cart_filamentos')
+        // Only remove if user is logged in (will use DB from now on)
+        if (initialUser) localStorage.removeItem('ddd_cart_filamentos')
       }
     } catch { /* noop */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -544,6 +557,8 @@ export default function FilamentosShop({
       }
       if (u) {
         setShowAuthModal(false)
+        // Limpiar carrito anónimo de localStorage — ahora usa DB
+        try { localStorage.removeItem('ddd_cart_filamentos') } catch { /* noop */ }
         // Fetch membership for newly logged-in user
         import('@/lib/actions/filamento-pedidos').then(({ getMembresiaCliente }) => {
           getMembresiaCliente(u.id).then(setMembresia)
@@ -630,8 +645,9 @@ export default function FilamentosShop({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localFilamentos, matFilter])
 
-  const filtered = useMemo(() => {
-    let list = localFilamentos
+  const normalizeStr = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+  const applyFilters = (list: Filamento[]) => {
     if (matFilter) list = list.filter(f => f.material === matFilter)
     if (marcaFilter) list = list.filter(f => f.marca === marcaFilter)
     if (colorFilter) {
@@ -639,20 +655,29 @@ export default function FilamentosShop({
       if (grupo) list = list.filter(f => grupo.keywords.some(k => f.color.toLowerCase().includes(k)))
     }
     if (search.trim()) {
-      const q = search.toLowerCase()
+      const q = normalizeStr(search.trim())
       list = list.filter(f =>
-        f.color.toLowerCase().includes(q) ||
-        f.nombre.toLowerCase().includes(q) ||
-        f.marca.toLowerCase().includes(q)
+        normalizeStr(f.color).includes(q) ||
+        normalizeStr(f.nombre).includes(q) ||
+        normalizeStr(f.marca).includes(q)
       )
     }
-    list = [...list]
+    return list
+  }
+
+  const filtered = useMemo(() => {
+    let list = applyFilters([...localFilamentos])
     if (sortBy === 'az') list.sort((a, b) => a.color.localeCompare(b.color, 'es'))
     else if (sortBy === 'material') list.sort((a, b) => a.material.localeCompare(b.material, 'es') || a.color.localeCompare(b.color, 'es'))
-    else if (sortBy === 'precio') list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    else if (sortBy === 'precio') list.sort((a, b) => (a.precio_kg ?? 0) - (b.precio_kg ?? 0))
     else list.sort((a, b) => (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos))
     return list
-  }, [localFilamentos, matFilter, marcaFilter, colorFilter, search, sortBy])
+  }, [localFilamentos, matFilter, marcaFilter, colorFilter, search, sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const agotadosFiltrados = useMemo(
+    () => applyFilters([...agotados]),
+    [agotados, matFilter, marcaFilter, colorFilter, search] // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
@@ -716,6 +741,12 @@ export default function FilamentosShop({
       const fresh = await getFilamentosDisponibles()
       setLocalFilamentos(sortByStock(fresh))
     } catch { /* noop */ }
+    // Revalidar membresía para detectar vencimientos mid-session
+    if (user) {
+      import('@/lib/actions/filamento-pedidos').then(({ getMembresiaCliente }) => {
+        getMembresiaCliente(user.id).then(setMembresia).catch(() => setMembresia(null))
+      })
+    }
   }
 
   function removeFromCart(id: string) { setCart(prev => prev.filter(i => i.filamento.id !== id)) }
@@ -937,6 +968,7 @@ export default function FilamentosShop({
             { value: 'stock',    label: 'Mayor stock' },
             { value: 'az',       label: 'A–Z por color' },
             { value: 'material', label: 'Por material' },
+            { value: 'precio',   label: 'Menor precio' },
           ] as { value: SortOption; label: string }[]).map(opt => (
             <button
               key={opt.value}
@@ -964,8 +996,8 @@ export default function FilamentosShop({
       {/* ── Layout: sidebar + grid ── */}
       <div className="flex gap-6 items-start">
 
-        {/* Sidebar desktop */}
-        <aside className="hidden lg:block w-52 shrink-0 sticky top-[72px] bg-card border border-border rounded-2xl p-4">
+        {/* Sidebar — visible desde tablet (md:) */}
+        <aside className="hidden md:block w-52 shrink-0 sticky top-[72px] bg-card border border-border rounded-2xl p-4">
           {filterSidebar}
         </aside>
 
@@ -973,7 +1005,7 @@ export default function FilamentosShop({
         <div className="flex-1 min-w-0">
 
           {/* Barra top mobile */}
-          <div className="flex items-center gap-2 mb-4 lg:hidden">
+          <div className="flex items-center gap-2 mb-4 md:hidden">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -1056,13 +1088,13 @@ export default function FilamentosShop({
           )}
 
           {/* Item 4 — Filamentos sin stock */}
-          {agotados.length > 0 && !matFilter && !marcaFilter && !search && (
+          {agotadosFiltrados.length > 0 && (
             <div className="mt-10">
               <h3 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
                 <span>⏳</span> Sin stock por ahora
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                {agotados.map(f => {
+                {agotadosFiltrados.map(f => {
                   const yaAlertado = misAlertas.includes(f.id)
                   const cargando = alertando === f.id
                   return (
@@ -1194,10 +1226,10 @@ export default function FilamentosShop({
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="p-1 rounded-md border border-border hover:bg-secondary"><Minus size={11} /></button>
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-secondary"><Minus size={13} /></button>
                       <span className="text-sm font-bold w-10 text-center">{item.rollos} kg</span>
-                      <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="p-1 rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={11} /></button>
-                      <button onClick={() => removeFromCart(item.filamento.id)} className="p-1 rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={11} /></button>
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={13} /></button>
+                      <button onClick={() => removeFromCart(item.filamento.id)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={13} /></button>
                     </div>
                   </div>
                 )
@@ -1383,17 +1415,21 @@ export default function FilamentosShop({
                     </div>
                     {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Una vez que confirmes el pedido, revisamos el stock y te avisamos por WhatsApp. Para separar los filamentos se requiere abonar una seña o el total.
+                      Tu pedido queda registrado en tu cuenta. Te avisamos por WhatsApp cuando esté listo para coordinar la entrega. Para separar los filamentos se requiere abonar una seña o el total.
                     </p>
                   </div>
                 )}
 
                 {user && (
-                  <div className="px-6 pb-5">
+                  <div className="px-6 pb-5 space-y-2">
                     <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || isPending || !clienteNombre.trim()}
                       className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
                       {checkoutStep === 'saving' || isPending ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}
                     </button>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      Al confirmar aceptás nuestra{' '}
+                      <a href="/privacidad" target="_blank" className="underline hover:text-foreground">política de privacidad</a>
+                    </p>
                   </div>
                 )}
               </>
@@ -1403,7 +1439,10 @@ export default function FilamentosShop({
                 <div>
                   <p className="text-xl font-bold mb-1">¡Pedido N° {pedidoNumero} registrado!</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Avisame por WhatsApp para que revise el stock y confirme. Con una seña o el pago total te los reservo. 🙌
+                    Tu pedido está guardado en tu cuenta y te enviamos un mail de confirmación. 🎉
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                    Avisanos por WhatsApp para confirmar más rápido — así te reservamos el stock de inmediato.
                   </p>
                 </div>
                 <button onClick={() => { abrirWhatsApp(pedidoNumero!); setShowCheckout(false) }}
