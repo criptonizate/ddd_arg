@@ -444,6 +444,7 @@ export default function FilamentosShop({
   const [search, setSearch] = useState('')
   const [matFilter, setMatFilter] = useState<string>('')
   const [marcaFilter, setMarcaFilter] = useState<string>('')
+  const [colorFilter, setColorFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<SortOption>('stock')
   const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
   const [alertando, setAlertando] = useState<string | null>(null)
@@ -579,10 +580,38 @@ export default function FilamentosShop({
   const marcas = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.marca))).sort(), [localFilamentos])
   const materiales = useMemo(() => Array.from(new Set(localFilamentos.map(f => f.material))).sort(), [localFilamentos])
 
+  // Grupos de color para el filtro visual
+  const COLOR_GRUPOS: { label: string; keywords: string[]; css: string }[] = [
+    { label: 'Negro',    keywords: ['black', 'negro'],                          css: '#1a1a1a' },
+    { label: 'Blanco',   keywords: ['white', 'blanco'],                         css: '#e8e8e8' },
+    { label: 'Gris',     keywords: ['grey', 'gray', 'gris'],                    css: '#9ca3af' },
+    { label: 'Rojo',     keywords: ['red', 'vermilion', 'ruby', 'rojo', 'berry'], css: '#ef4444' },
+    { label: 'Naranja',  keywords: ['orange', 'naranja'],                       css: '#f97316' },
+    { label: 'Amarillo', keywords: ['yellow', 'sunshine', 'amarillo'],          css: '#eab308' },
+    { label: 'Verde',    keywords: ['green', 'verde', 'olive', 'teal'],         css: '#22c55e' },
+    { label: 'Azul',     keywords: ['blue', 'azul'],                            css: '#3b82f6' },
+    { label: 'Violeta',  keywords: ['purple', 'violet', 'taro', 'violeta'],     css: '#a855f7' },
+    { label: 'Rosa',     keywords: ['pink', 'rosa'],                            css: '#ec4899' },
+    { label: 'Marrón',   keywords: ['brown', 'madera'],                         css: '#92400e' },
+    { label: 'Dorado',   keywords: ['gold', 'silk', 'dorado'],                  css: '#d97706' },
+  ]
+
+  const coloresDisponibles = useMemo(() => {
+    const base = matFilter ? localFilamentos.filter(f => f.material === matFilter) : localFilamentos
+    return COLOR_GRUPOS.filter(g =>
+      base.some(f => g.keywords.some(k => f.color.toLowerCase().includes(k)))
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localFilamentos, matFilter])
+
   const filtered = useMemo(() => {
     let list = localFilamentos
     if (matFilter) list = list.filter(f => f.material === matFilter)
     if (marcaFilter) list = list.filter(f => f.marca === marcaFilter)
+    if (colorFilter) {
+      const grupo = COLOR_GRUPOS.find(g => g.label === colorFilter)
+      if (grupo) list = list.filter(f => grupo.keywords.some(k => f.color.toLowerCase().includes(k)))
+    }
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(f =>
@@ -597,7 +626,7 @@ export default function FilamentosShop({
     else if (sortBy === 'precio') list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     else list.sort((a, b) => (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos))
     return list
-  }, [localFilamentos, matFilter, marcaFilter, search, sortBy])
+  }, [localFilamentos, matFilter, marcaFilter, colorFilter, search, sortBy])
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
@@ -718,7 +747,7 @@ export default function FilamentosShop({
     })
   }
 
-  const hasFilters = !!(search || matFilter || marcaFilter)
+  const hasFilters = !!(search || matFilter || marcaFilter || colorFilter)
 
   // ── Sidebar content ──────────────────────────────────────────────────────
   const filterSidebar = (
@@ -760,6 +789,36 @@ export default function FilamentosShop({
           ))}
         </div>
       </div>
+
+      {/* Color */}
+      {coloresDisponibles.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Color</p>
+          <div className="flex flex-wrap gap-2">
+            {coloresDisponibles.map(g => {
+              const active = colorFilter === g.label
+              return (
+                <button
+                  key={g.label}
+                  onClick={() => setColorFilter(active ? '' : g.label)}
+                  title={g.label}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition-all"
+                  style={active
+                    ? { backgroundColor: g.css + '33', borderColor: g.css, color: 'var(--foreground)', fontWeight: 600 }
+                    : { borderColor: 'var(--border)', color: 'var(--muted-foreground)' }
+                  }
+                >
+                  <span
+                    className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                    style={{ backgroundColor: g.css }}
+                  />
+                  {g.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Marca */}
       <div>
@@ -865,7 +924,7 @@ export default function FilamentosShop({
       </div>
 
       {hasFilters && (
-        <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter('') }}
+        <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter(''); setColorFilter('') }}
           className="w-full text-xs text-center text-muted-foreground hover:text-foreground underline py-1">
           Limpiar filtros
         </button>
@@ -952,7 +1011,7 @@ export default function FilamentosShop({
             <div className="text-center py-20 text-muted-foreground">
               <p className="text-4xl mb-3">🔍</p>
               <p className="font-medium">Sin resultados</p>
-              <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter('') }}
+              <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter(''); setColorFilter('') }}
                 className="mt-3 text-sm text-orange-600 underline">Limpiar filtros</button>
             </div>
           ) : (
