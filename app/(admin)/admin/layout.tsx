@@ -11,8 +11,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await getAdminUser()
-  if (!user) redirect('/auth/login')
+  let user
+  try {
+    user = await getAdminUser()
+  } catch {
+    redirect('/auth/login')
+  }
 
   const [pendingCount, filamentoPendingCount, calculadoraConfig] = await Promise.all([
     getPendingOrdersCount(),

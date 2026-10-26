@@ -55,11 +55,8 @@ export async function signOutCliente() {
   redirect('/')
 }
 
+// Versión que lanza excepción — usar en server actions admin
 export async function getAdminUser() {
-  if (!process.env.ADMIN_EMAIL) {
-    throw new Error('ADMIN_EMAIL no está configurado')
-  }
-
   const supabase = await createClient()
   const {
     data: { user },
@@ -67,8 +64,21 @@ export async function getAdminUser() {
 
   if (!user) throw new Error('No autenticado')
 
-  const adminEmails = process.env.ADMIN_EMAIL.split(',').map((e) => e.trim()).filter(Boolean)
-  if (!adminEmails.includes(user.email ?? '')) throw new Error('Acceso denegado')
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+  if (!adminEmails.length || !adminEmails.includes(user.email ?? '')) throw new Error('Acceso denegado')
 
   return user
+}
+
+// Versión que retorna null — usar en layouts/páginas donde un no-admin es válido
+export async function checkIsAdmin(): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+    return adminEmails.length > 0 && adminEmails.includes(user.email ?? '')
+  } catch {
+    return false
+  }
 }
