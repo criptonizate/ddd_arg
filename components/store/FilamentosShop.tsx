@@ -10,6 +10,7 @@ import { getFilamentosDisponibles, enviarSugerenciaFilamento } from '@/lib/actio
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
+import { useCart } from '@/components/store/CartProvider'
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const PRECIO_BASE_DEFAULT = 22000
@@ -495,6 +496,13 @@ export default function FilamentosShop({
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
   const cartSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { setFilamentCount } = useCart()
+
+  // Sincronizar count de items con CartProvider para el badge del header
+  useEffect(() => {
+    setFilamentCount(cart.length)
+    return () => setFilamentCount(0)
+  }, [cart.length, setFilamentCount])
 
   // Persistir carrito anónimo en localStorage continuamente
   useEffect(() => {
@@ -699,7 +707,6 @@ export default function FilamentosShop({
   }
 
   function addToCart(f: Filamento) {
-    if (!user) { setShowAuthModal(true); return }
     const fil = localFilamentos.find(fl => fl.id === f.id) ?? f
     const max = maxKg(fil)
     setCart(prev => {

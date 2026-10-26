@@ -56,7 +56,7 @@ function InstagramIcon({ size = 16 }: { size?: number }) {
 }
 
 export default function StoreHeader() {
-  const { count } = useCart()
+  const { count, filamentCount } = useCart()
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [ready, setReady] = useState(false)
@@ -243,9 +243,9 @@ export default function StoreHeader() {
               style={{ color: 'oklch(0.55 0.005 264)' }}
             >
               <ShoppingBag size={19} />
-              {count > 0 && (
+              {(count + filamentCount) > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#16a34a] text-white text-[9px] font-black">
-                  {count > 9 ? '9+' : count}
+                  {(count + filamentCount) > 9 ? '9+' : (count + filamentCount)}
                 </span>
               )}
             </Link>

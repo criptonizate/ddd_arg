@@ -21,6 +21,8 @@ interface CartContextType {
   clearCart: () => void
   total: number
   count: number
+  filamentCount: number
+  setFilamentCount: (n: number) => void
 }
 
 const CartContext = createContext<CartContextType | null>(null)
@@ -36,6 +38,7 @@ export function useCart() {
 export default function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [hydrated, setHydrated] = useState(false)
+  const [filamentCount, setFilamentCount] = useState(0)
 
   // Cargar desde localStorage en el cliente
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, count }}
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, count, filamentCount, setFilamentCount }}
     >
       {children}
     </CartContext.Provider>
