@@ -19,7 +19,7 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   const [sexo, setSexo] = useState<'M' | 'F' | 'otro' | ''>(initialProfile?.sexo ?? '')
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   function handleSave() {
     setError('')
@@ -216,9 +216,10 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-green-600 hover:bg-green-700 text-white transition-colors"
+                  disabled={isPending}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50"
                 >
-                  Guardar cambios
+                  {isPending ? 'Guardando...' : 'Guardar cambios'}
                 </button>
                 <button
                   onClick={handleCancel}

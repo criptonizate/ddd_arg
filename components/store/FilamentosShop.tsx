@@ -1,6 +1,7 @@
 ﻿'use client'
 
-import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
+import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
@@ -217,7 +218,7 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
 // ── Componente tarjeta de filamento ───────────────────────────────────────────
 
 function FilamentoCard({
-  f, enCart, onAdd, onSetRollos, precioUnitario, descuento,
+  f, enCart, onAdd, onSetRollos, precioUnitario, descuento, index,
 }: {
   f: Filamento
   enCart: number
@@ -225,6 +226,7 @@ function FilamentoCard({
   onSetRollos: (n: number) => void
   precioUnitario: number
   descuento: number
+  index: number
 }) {
   const disponible = maxKg(f)
   const enMax = enCart >= disponible
@@ -235,7 +237,21 @@ function FilamentoCard({
   const [fotoIdx, setFotoIdx] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const [showMatInfo, setShowMatInfo] = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const preloaded = useRef(false)
   const fotoActual = fotos[fotoIdx] ?? null
+  const isPriority = index < 6  // primeros 6 cargan eager sin spinner
+
+  // Precargar fotos del carousel solo cuando el usuario interactúa con la card
+  const preloadFotos = useCallback(() => {
+    if (preloaded.current || fotos.length <= 1) return
+    preloaded.current = true
+    fotos.forEach((url, i) => {
+      if (i === fotoIdx) return
+      const img = new window.Image()
+      img.src = url
+    })
+  }, [fotos, fotoIdx])
 
   return (
     <>
@@ -257,22 +273,32 @@ function FilamentoCard({
           backgroundImage: `radial-gradient(circle at 30% 30%, ${isLight ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)'} 0%, transparent 60%)`,
           ...(isWhite ? { border: '1px solid #e5e7eb' } : {}),
         }}
+        onMouseEnter={preloadFotos}
+        onTouchStart={preloadFotos}
       >
         {fotoActual ? (
           <>
-            <img
-              key={fotoIdx}
-              src={imgUrl(fotoActual, 400, 75)}
+            {/* Skeleton de color mientras carga — desaparece al cargar la imagen */}
+            {!imgLoaded && (
+              <div
+                className="absolute inset-0 z-0"
+                style={{
+                  backgroundColor: css,
+                  backgroundImage: `radial-gradient(circle at 30% 30%, ${isLight ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'} 0%, transparent 60%)`,
+                }}
+              />
+            )}
+            <Image
+              key={fotoActual}
+              src={fotoActual}
               alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
-              loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className={`object-cover cursor-zoom-in transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              priority={isPriority}
               onClick={() => setLightbox(true)}
-              onError={(e) => { (e.target as HTMLImageElement).src = fotoActual }}
+              onLoad={() => setImgLoaded(true)}
             />
-            {/* Preload fotos siguientes */}
-            {fotos.filter((_, i) => i !== fotoIdx).map((url, i) => (
-              <img key={`pre-${i}`} src={imgUrl(url, 400, 75)} alt="" aria-hidden className="hidden" />
-            ))}
           </>
         ) : (
           <span
@@ -290,16 +316,16 @@ function FilamentoCard({
           <>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setFotoIdx((fotoIdx - 1 + fotos.length) % fotos.length) }}
-              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+              onClick={(e) => { e.stopPropagation(); setImgLoaded(false); setFotoIdx((fotoIdx - 1 + fotos.length) % fotos.length) }}
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
               aria-label="Foto anterior"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setFotoIdx((fotoIdx + 1) % fotos.length) }}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+              onClick={(e) => { e.stopPropagation(); setImgLoaded(false); setFotoIdx((fotoIdx + 1) % fotos.length) }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
               aria-label="Foto siguiente"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -462,7 +488,7 @@ export default function FilamentosShop({
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
   const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: (typeof cart[0] & { precioUnitario: number })[]; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -569,7 +595,7 @@ export default function FilamentosShop({
 
     function next() {
       if (i >= queue.length) return
-      new Image().src = queue[i++]
+      new window.Image().src = queue[i++]
       idle(next)
     }
 
@@ -1016,9 +1042,9 @@ export default function FilamentosShop({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filtered.map(f => (
+              {filtered.map((f, index) => (
                 <FilamentoCard
-                  key={f.id} f={f}
+                  key={f.id} f={f} index={index}
                   enCart={getCartRollos(f.id)}
                   onAdd={() => addToCart(f)}
                   onSetRollos={n => setRollos(f.id, n)}
@@ -1344,12 +1370,14 @@ export default function FilamentosShop({
                         <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
                         <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
                           placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
+                          maxLength={100}
                           className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
                         <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
                           placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
+                          maxLength={20}
                           className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                       </div>
                     </div>
@@ -1362,9 +1390,9 @@ export default function FilamentosShop({
 
                 {user && (
                   <div className="px-6 pb-5">
-                    <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || !clienteNombre.trim()}
+                    <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || isPending || !clienteNombre.trim()}
                       className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
-                      {checkoutStep === 'saving' ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}
+                      {checkoutStep === 'saving' || isPending ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}
                     </button>
                   </div>
                 )}
