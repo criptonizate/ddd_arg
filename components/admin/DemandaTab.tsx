@@ -35,6 +35,7 @@ export default function DemandaTab() {
   const [data, setData] = useState<DemandaFilamento[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<'score' | 'alertas' | 'carrito'>('score')
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
     getDemandaFilamentos().then(d => { setData(d); setLoading(false) })
@@ -48,7 +49,6 @@ export default function DemandaTab() {
 
   const totalAlertas = data.reduce((s, d) => s + d.alertas, 0)
   const totalCarritoRollos = data.reduce((s, d) => s + d.carrito_rollos, 0)
-  const totalCarritoUsuarios = new Set(data.flatMap(d => Array(d.carrito_usuarios).fill(d.filamento_id))).size
 
   const maxScore = sorted[0] ? sorted[0].alertas + sorted[0].carrito_rollos : 1
 
@@ -107,57 +107,118 @@ export default function DemandaTab() {
           const score = d.alertas + d.carrito_rollos
           const barWidth = Math.round((score / maxScore) * 100)
           const matCls = MATERIAL_COLORS[d.material] ?? 'bg-secondary text-muted-foreground'
+          const isOpen = expanded === d.filamento_id
+          const hasDetail = d.alertas_lista.length > 0 || d.carrito_lista.length > 0
+
           return (
-            <div key={d.filamento_id} className="bg-card border border-border rounded-xl px-4 py-3">
-              <div className="flex items-center gap-3 mb-2">
-                {/* Rank */}
-                <span className="text-xs font-black text-muted-foreground w-5 shrink-0">#{i + 1}</span>
-
-                {/* Color dot */}
-                <span className="w-6 h-6 rounded-full shrink-0 border border-black/10"
-                  style={{ backgroundColor: colorToCss(d.color) }} />
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-sm">{d.color}</p>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${matCls}`}>
-                      {d.material}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{d.marca}</span>
+            <div key={d.filamento_id} className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Fila principal */}
+              <button
+                className="w-full text-left px-4 py-3"
+                onClick={() => hasDetail && setExpanded(isOpen ? null : d.filamento_id)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xs font-black text-muted-foreground w-5 shrink-0">#{i + 1}</span>
+                  <span className="w-6 h-6 rounded-full shrink-0 border border-black/10"
+                    style={{ backgroundColor: colorToCss(d.color) }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm">{d.color}</p>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${matCls}`}>
+                        {d.material}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{d.marca}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {d.alertas > 0 && (
+                      <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
+                        style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}>
+                        🔔 {d.alertas}
+                      </span>
+                    )}
+                    {d.carrito_rollos > 0 && (
+                      <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
+                        style={{ backgroundColor: 'oklch(0.24 0.06 50)', color: '#fbbf24' }}>
+                        🛒 {d.carrito_rollos} kg
+                      </span>
+                    )}
+                    {hasDetail && (
+                      <span className="text-muted-foreground text-xs">{isOpen ? '▲' : '▼'}</span>
+                    )}
                   </div>
                 </div>
 
-                {/* Badges */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {d.alertas > 0 && (
-                    <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
-                      style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}>
-                      🔔 {d.alertas}
-                    </span>
-                  )}
-                  {d.carrito_rollos > 0 && (
-                    <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
-                      style={{ backgroundColor: 'oklch(0.24 0.06 50)', color: '#fbbf24' }}>
-                      🛒 {d.carrito_rollos} kg
-                    </span>
-                  )}
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'oklch(0.25 0.005 264)' }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${barWidth}%`, backgroundColor: d.alertas > d.carrito_rollos ? '#7c3aed' : '#f97316' }}
+                  />
                 </div>
-              </div>
 
-              {/* Bar */}
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'oklch(0.25 0.005 264)' }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${barWidth}%`, backgroundColor: d.alertas > d.carrito_rollos ? '#7c3aed' : '#f97316' }}
-                />
-              </div>
+                <div className="flex items-center gap-4 mt-1.5 text-[10px] text-muted-foreground">
+                  {d.alertas > 0 && <span>🔔 {d.alertas} {d.alertas === 1 ? 'persona quiere aviso' : 'personas quieren aviso'}</span>}
+                  {d.carrito_rollos > 0 && <span>🛒 {d.carrito_rollos} kg en carritos de {d.carrito_usuarios} {d.carrito_usuarios === 1 ? 'usuario' : 'usuarios'}</span>}
+                  {hasDetail && !isOpen && <span className="ml-auto text-muted-foreground/60">Tocar para ver quiénes →</span>}
+                </div>
+              </button>
 
-              {/* Detail */}
-              <div className="flex items-center gap-4 mt-1.5 text-[10px] text-muted-foreground">
-                {d.alertas > 0 && <span>🔔 {d.alertas} {d.alertas === 1 ? 'persona quiere aviso' : 'personas quieren aviso'}</span>}
-                {d.carrito_rollos > 0 && <span>🛒 {d.carrito_rollos} kg en carritos de {d.carrito_usuarios} {d.carrito_usuarios === 1 ? 'usuario' : 'usuarios'}</span>}
-              </div>
+              {/* Panel expandido */}
+              {isOpen && (
+                <div className="border-t border-border px-4 py-3 space-y-3" style={{ backgroundColor: 'oklch(0.18 0.005 264)' }}>
+
+                  {/* Avisos */}
+                  {d.alertas_lista.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c4b5fd' }}>
+                        🔔 Esperando reposición
+                      </p>
+                      <div className="space-y-1.5">
+                        {d.alertas_lista.map(u => (
+                          <div key={u.user_id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(124,58,237,0.12)' }}>
+                            <div>
+                              <p className="text-sm font-semibold leading-none">{u.nombre}</p>
+                              {u.email && <p className="text-[11px] text-muted-foreground mt-0.5">{u.email}</p>}
+                            </div>
+                            <a
+                              href={`https://wa.me/${u.email ? '' : ''}`}
+                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                              title={u.email}
+                            >
+                              📋
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Carrito */}
+                  {d.carrito_lista.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#fbbf24' }}>
+                        🛒 Tienen en el carrito
+                      </p>
+                      <div className="space-y-1.5">
+                        {d.carrito_lista.map(u => (
+                          <div key={u.user_id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(249,115,22,0.1)' }}>
+                            <div>
+                              <p className="text-sm font-semibold leading-none">{u.nombre}</p>
+                              {u.email && <p className="text-[11px] text-muted-foreground mt-0.5">{u.email}</p>}
+                            </div>
+                            {u.rollos != null && (
+                              <span className="text-xs font-bold tabular-nums" style={{ color: '#fbbf24' }}>
+                                {u.rollos} kg
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
             </div>
           )
         })}

@@ -583,6 +583,13 @@ export async function limpiarCarritoUsuario(): Promise<void> {
 
 // ── Admin: demanda ────────────────────────────────────────────────────────────
 
+export interface DemandaUsuario {
+  user_id: string
+  nombre: string
+  email: string
+  rollos?: number  // solo para carrito
+}
+
 export interface DemandaFilamento {
   filamento_id: string
   color: string
@@ -591,6 +598,8 @@ export interface DemandaFilamento {
   alertas: number
   carrito_rollos: number
   carrito_usuarios: number
+  alertas_lista: DemandaUsuario[]
+  carrito_lista: DemandaUsuario[]
 }
 
 export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
@@ -598,7 +607,7 @@ export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
   const supabase = createServiceClient()
 
   const [{ data: alertas }, { data: carritos }, { data: fils }] = await Promise.all([
-    supabase.from('filamento_alertas_stock').select('filamento_id'),
+    supabase.from('filamento_alertas_stock').select('filamento_id, user_id'),
     supabase.from('filamento_carrito').select('user_id, items').neq('items', '[]'),
     supabase.from('filamentos').select('id, color, material, marca'),
   ])
@@ -606,21 +615,59 @@ export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
   const filMap: Record<string, { color: string; material: string; marca: string }> = {}
   for (const f of (fils ?? [])) filMap[f.id] = { color: f.color, material: f.material, marca: f.marca }
 
+  // Juntar todos los user_ids involucrados para resolver nombres de una sola vez
+  const allUserIds = new Set<string>()
+  for (const a of (alertas ?? [])) allUserIds.add(a.user_id)
+  for (const c of (carritos ?? [])) allUserIds.add(c.user_id)
+
+  // Resolver nombres via auth.admin y user_profiles (apodo)
+  const userMap: Record<string, { nombre: string; email: string }> = {}
+  if (allUserIds.size > 0) {
+    const ids = Array.from(allUserIds)
+    const [{ data: profiles }, authResults] = await Promise.all([
+      supabase.from('user_profiles').select('user_id, apodo').in('user_id', ids),
+      Promise.all(ids.map(id => supabase.auth.admin.getUserById(id))),
+    ])
+    const profileMap: Record<string, string> = {}
+    for (const p of (profiles ?? [])) if (p.apodo) profileMap[p.user_id] = p.apodo
+
+    ids.forEach((id, i) => {
+      const u = authResults[i]?.data?.user
+      const email = u?.email ?? ''
+      const metaNombre = u?.user_metadata?.full_name ?? ''
+      const apodo = profileMap[id] ?? ''
+      userMap[id] = {
+        nombre: apodo || metaNombre || email.split('@')[0] || id.slice(0, 8),
+        email,
+      }
+    })
+  }
+
   // Agrupar alertas por filamento_id
   const alertCount: Record<string, number> = {}
+  const alertaListas: Record<string, DemandaUsuario[]> = {}
   for (const a of (alertas ?? [])) {
     alertCount[a.filamento_id] = (alertCount[a.filamento_id] ?? 0) + 1
+    if (!alertaListas[a.filamento_id]) alertaListas[a.filamento_id] = []
+    const u = userMap[a.user_id]
+    if (u) alertaListas[a.filamento_id].push({ user_id: a.user_id, ...u })
   }
 
   // Agrupar carritos por filamento_id
   const carritoRollos: Record<string, number> = {}
-  const carritoUsuarios: Record<string, Set<string>> = {}
+  const carritoUsuariosSet: Record<string, Set<string>> = {}
+  const carritoListas: Record<string, DemandaUsuario[]> = {}
   for (const cart of (carritos ?? [])) {
     for (const item of (cart.items ?? []) as { filamento_id: string; rollos: number }[]) {
       if (!item.filamento_id) continue
       carritoRollos[item.filamento_id] = (carritoRollos[item.filamento_id] ?? 0) + (item.rollos ?? 0)
-      if (!carritoUsuarios[item.filamento_id]) carritoUsuarios[item.filamento_id] = new Set()
-      carritoUsuarios[item.filamento_id].add(cart.user_id)
+      if (!carritoUsuariosSet[item.filamento_id]) carritoUsuariosSet[item.filamento_id] = new Set()
+      if (!carritoListas[item.filamento_id]) carritoListas[item.filamento_id] = []
+      if (!carritoUsuariosSet[item.filamento_id].has(cart.user_id)) {
+        carritoUsuariosSet[item.filamento_id].add(cart.user_id)
+        const u = userMap[cart.user_id]
+        if (u) carritoListas[item.filamento_id].push({ user_id: cart.user_id, ...u, rollos: item.rollos })
+      }
     }
   }
 
@@ -636,7 +683,9 @@ export async function getDemandaFilamentos(): Promise<DemandaFilamento[]> {
       marca: fil.marca,
       alertas: alertCount[id] ?? 0,
       carrito_rollos: carritoRollos[id] ?? 0,
-      carrito_usuarios: carritoUsuarios[id]?.size ?? 0,
+      carrito_usuarios: carritoUsuariosSet[id]?.size ?? 0,
+      alertas_lista: alertaListas[id] ?? [],
+      carrito_lista: carritoListas[id] ?? [],
     })
   }
 
