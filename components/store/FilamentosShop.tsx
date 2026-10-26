@@ -475,6 +475,7 @@ export default function FilamentosShop({
   const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
   const [alertando, setAlertando] = useState<string | null>(null)
   const [alertToast, setAlertToast] = useState(false)
+  const [stockRemovedNames, setStockRemovedNames] = useState<string[]>([])
   const [sugerenciaMensaje, setSugerenciaMensaje] = useState('')
   const [sugerenciaEnviada, setSugerenciaEnviada] = useState(false)
   const [sugerenciaEnviando, setSugerenciaEnviando] = useState(false)
@@ -569,13 +570,16 @@ export default function FilamentosShop({
             if (savedItems.length === 0) return
             setCart(prev => {
               if (prev.length > 0) return prev
-              return savedItems.flatMap(item => {
+              const removed: string[] = []
+              const restored = savedItems.flatMap(item => {
                 const fil = localFilamentos.find(f => f.id === item.filamento_id)
                 if (!fil) return []
                 const max = maxKg(fil)
-                if (max <= 0) return []
+                if (max <= 0) { removed.push(fil.color || fil.nombre); return [] }
                 return [{ filamento: fil, rollos: Math.min(item.rollos, max) }]
               })
+              if (removed.length) setStockRemovedNames(removed)
+              return restored
             })
           })
         })
