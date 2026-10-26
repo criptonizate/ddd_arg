@@ -56,15 +56,19 @@ export async function signOutCliente() {
 }
 
 export async function getAdminUser() {
+  if (!process.env.ADMIN_EMAIL) {
+    throw new Error('ADMIN_EMAIL no está configurado')
+  }
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return null
+  if (!user) throw new Error('No autenticado')
 
-  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
-  if (adminEmails.length > 0 && !adminEmails.includes(user.email ?? '')) return null
+  const adminEmails = process.env.ADMIN_EMAIL.split(',').map((e) => e.trim()).filter(Boolean)
+  if (!adminEmails.includes(user.email ?? '')) throw new Error('Acceso denegado')
 
   return user
 }

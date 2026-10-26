@@ -39,9 +39,6 @@ export async function crearPedidoFilamento(data: {
   cliente_nombre: string
   cliente_telefono?: string
   items: FilamentoPedidoItem[]
-  total_rollos: number
-  descuento_por_rollo: number
-  total: number
 }): Promise<{ numero?: number; id?: string; error?: string }> {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (!data.items.length) return { error: 'El carrito está vacío' }
@@ -53,6 +50,28 @@ export async function crearPedidoFilamento(data: {
   if (!user) return { error: 'Necesitás iniciar sesión para hacer un pedido' }
 
   const supabase = createServiceClient()
+
+  // Calcular descuento server-side según membresía real del usuario
+  const membresia = await getMembresiaCliente(user.id).catch(() => null)
+  const descuento_por_rollo = membresia?.descuento ?? 0
+
+  // Buscar precios reales de cada filamento en DB (no confiar en los del cliente)
+  const filamentoIds = [...new Set(data.items.map(i => i.filamento_id))]
+  const { data: filamentosDB } = await supabase
+    .from('filamentos')
+    .select('id, precio_kg')
+    .in('id', filamentoIds)
+  const precioMap: Record<string, number> = {}
+  for (const f of (filamentosDB ?? [])) precioMap[f.id] = f.precio_kg ?? 0
+
+  // Reconstruir items con precios reales y calcular totales server-side
+  const itemsValidados: FilamentoPedidoItem[] = data.items.map(item => ({
+    ...item,
+    precio_unitario: precioMap[item.filamento_id] ?? item.precio_unitario,
+  }))
+  const total_rollos = itemsValidados.reduce((s, i) => s + i.rollos, 0)
+  const total = itemsValidados.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
+
   const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
 
   const { data: row, error } = await supabase
@@ -60,10 +79,10 @@ export async function crearPedidoFilamento(data: {
     .insert({
       cliente_nombre: data.cliente_nombre.trim(),
       cliente_telefono: data.cliente_telefono?.trim() || null,
-      items: data.items,
-      total_rollos: data.total_rollos,
-      descuento_por_rollo: data.descuento_por_rollo,
-      total: data.total,
+      items: itemsValidados,
+      total_rollos,
+      descuento_por_rollo,
+      total,
       estado: 'pendiente',
       reservado_hasta: reservadoHasta,
       user_id: user.id,
@@ -74,10 +93,10 @@ export async function crearPedidoFilamento(data: {
   if (error) return { error: error.message }
 
   // Reservar stock por 3h para cada item
-  if (data.items.length > 0) {
+  if (itemsValidados.length > 0) {
     await supabase
       .from('filamento_reservas')
-      .insert(data.items.map(item => ({
+      .insert(itemsValidados.map(item => ({
         pedido_id: row.id,
         filamento_id: item.filamento_id,
         gramos: Math.round(item.rollos * 1000),
@@ -93,10 +112,10 @@ export async function crearPedidoFilamento(data: {
     numero: row.numero,
     clienteNombre: data.cliente_nombre,
     clienteEmail: user.email,
-    items: data.items,
-    totalRollos: data.total_rollos,
-    descuentoPorRollo: data.descuento_por_rollo,
-    total: data.total,
+    items: itemsValidados,
+    totalRollos: total_rollos,
+    descuentoPorRollo: descuento_por_rollo,
+    total,
   }
   void sendNuevoPedidoAdmin(emailData)
   if (user.email) {

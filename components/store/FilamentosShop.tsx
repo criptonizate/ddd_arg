@@ -699,12 +699,11 @@ export default function FilamentosShop({
     startTransition(async () => {
       const result = await crearPedidoFilamento({
         cliente_nombre: clienteNombre, cliente_telefono: clienteTelefono,
-
         items: cart.map(i => ({
           filamento_id: i.filamento.id, nombre: i.filamento.nombre, color: i.filamento.color,
-          material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos, precio_unitario: (i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento,
+          material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos,
+          precio_unitario: i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT,
         })),
-        total_rollos: totalKg, descuento_por_rollo: descuento, total: subtotal,
       })
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
       // Guardar teléfono en el perfil del usuario si lo ingresó
