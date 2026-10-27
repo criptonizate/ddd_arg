@@ -72,9 +72,6 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     puntosTransacciones.map(t => ({ user_id: user.id, ...t }))
   )
 
-  // Bienvenida (100 pts, una sola vez para todos los usuarios)
-  await sumarPuntosBienvenida(user.id)
-
   const ganados = puntosTransacciones.reduce((s, t) => s + t.puntos, 0)
   return { ganados, racha }
 }
