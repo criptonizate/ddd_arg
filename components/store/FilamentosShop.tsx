@@ -829,7 +829,7 @@ export default function FilamentosShop({
         <input
           type="search" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar color..."
-          className="w-full text-sm border border-border rounded-xl pl-8 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="w-full text-base border border-border rounded-xl pl-8 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
         />
       </div>
 
@@ -1025,7 +1025,7 @@ export default function FilamentosShop({
               <input
                 type="search" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar color..."
-                className="w-full text-sm border border-border rounded-xl pl-8 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full text-base border border-border rounded-xl pl-8 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
             </div>
             <button

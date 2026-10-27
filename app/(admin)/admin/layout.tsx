@@ -19,10 +19,10 @@ export default async function AdminLayout({
   }
 
   const [pendingCount, filamentoPendingCount, extensionPendingCount, calculadoraConfig] = await Promise.all([
-    getPendingOrdersCount(),
-    getFilamentoPedidosPendientesCount(),
-    getExtensionPendientesCount(),
-    getCalculadoraConfig(),
+    getPendingOrdersCount().catch(() => 0),
+    getFilamentoPedidosPendientesCount().catch(() => 0),
+    getExtensionPendientesCount().catch(() => 0),
+    getCalculadoraConfig().catch(() => null),
   ])
 
   return (

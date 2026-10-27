@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCart } from './CartProvider'
 import { ShoppingBag, User, LogOut, Package, Menu, X } from 'lucide-react'
 import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
@@ -63,8 +63,10 @@ export default function StoreHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [popping, setPopping] = useState(false)
   const totalCount = count + filamentCount
+  const isMount = useRef(true)
 
   useEffect(() => {
+    if (isMount.current) { isMount.current = false; return }
     if (totalCount === 0) return
     setPopping(true)
     const t = setTimeout(() => setPopping(false), 300)
@@ -326,6 +328,14 @@ export default function StoreHeader() {
                 style={{ color: 'oklch(0.80 0.005 264)' }}
               >
                 📦 Insumos
+              </Link>
+              <Link
+                href="/cuenta"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ color: 'oklch(0.80 0.005 264)' }}
+              >
+                👤 Mi Cuenta
               </Link>
               <div className="my-1 border-t" style={{ borderColor: 'oklch(1 0 0 / 8%)' }} />
               <div className="flex items-center gap-3 px-3 py-2">

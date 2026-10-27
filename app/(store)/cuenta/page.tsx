@@ -80,7 +80,7 @@ export default async function CuentaPage({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.user_metadata.avatar_url} alt="" className="w-12 h-12 rounded-full border border-border" />
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{displayName}</h1>
               {membresia?.nivel && styles && (
@@ -100,7 +100,7 @@ export default async function CuentaPage({
                 </Link>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+            <p className="text-sm text-muted-foreground truncate" style={{ maxWidth: '220px' }}>{user.email}</p>
           </div>
         </div>
         <form action={signOutCliente}>
@@ -110,17 +110,17 @@ export default async function CuentaPage({
         </form>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-8">
+      {/* Tabs — overflow-x-auto para que no desborden en mobile */}
+      <div className="flex gap-0.5 border-b border-border mb-8 overflow-x-auto scrollbar-hide">
         <Link
           href="/cuenta"
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
             tab === 'perfil'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <User size={14} />
+          <User size={13} />
           Mi perfil
           {!profile?.telefono && (
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
@@ -128,34 +128,34 @@ export default async function CuentaPage({
         </Link>
         <Link
           href="/cuenta?tab=pedidos"
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
             tab === 'pedidos'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Package size={14} />
+          <Package size={13} />
           Mis pedidos
         </Link>
         <Link
           href="/cuenta?tab=membresia"
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
             tab === 'membresia'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Crown size={14} />
+          <Crown size={13} />
           Membresía
           {membresia?.nivel && (
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
+            <span className={`hidden sm:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
               {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji} {membresia.nivel}
             </span>
           )}
         </Link>
         <Link
           href="/cuenta?tab=coins"
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
             tab === 'coins'
               ? 'border-yellow-500 text-yellow-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -164,7 +164,7 @@ export default async function CuentaPage({
           🪙 Coins
           {saldoCoins > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
-              {saldoCoins}
+              {saldoCoins.toLocaleString('es-AR')}
             </span>
           )}
         </Link>
@@ -214,7 +214,6 @@ export default async function CuentaPage({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#86efac' }}>Tu membresía</p>
                   <p className="font-black text-2xl leading-none" style={{ color: '#f0fdf4' }}>
-                    {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}
                     {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}{membresia.nivel}
                   </p>
                   <p className="text-xs mt-1.5" style={{ color: '#86efac' }}>

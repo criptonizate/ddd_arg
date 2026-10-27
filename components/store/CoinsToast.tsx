@@ -20,9 +20,11 @@ export default function CoinsToast({ ganados, racha }: { ganados: number; racha:
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       style={{
         position: 'fixed',
-        bottom: '80px',
+        bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
         left: '50%',
         transform: `translateX(-50%) translateY(${saliendo ? '20px' : '0px'})`,
         opacity: saliendo ? 0 : 1,
@@ -37,6 +39,8 @@ export default function CoinsToast({ ganados, racha }: { ganados: number; racha:
         gap: '8px',
         boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
         pointerEvents: 'none',
+        maxWidth: 'calc(100vw - 32px)',
+        width: 'max-content',
       }}
     >
       <span style={{ fontSize: '18px' }}>{emoji}</span>

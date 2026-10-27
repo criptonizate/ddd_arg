@@ -95,9 +95,9 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
       {/* Saldo principal */}
       <div className="rounded-2xl border border-border px-5 py-5" style={{ background: 'oklch(0.18 0.02 60)' }}>
         <div className="flex items-start justify-between">
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Tus DDD Coins</p>
-            <p className="text-4xl font-black" style={{ color: '#f59e0b' }}>
+            <p className="text-3xl font-black" style={{ color: '#f59e0b' }}>
               {saldo.toLocaleString('es-AR')} <span className="text-2xl">🪙</span>
             </p>
             {descuentoDisponible > 0 ? (
@@ -128,7 +128,7 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
 
       {/* Aviso de vencimiento próximo */}
       {proximoVencimiento && (
-        <div className="rounded-xl px-4 py-3 flex items-center gap-2.5 border" style={{ background: 'oklch(0.18 0.02 30)', borderColor: proximoVencimiento.diasQuedan <= 30 ? '#ef4444' : '#d97706' }}>
+        <div className="rounded-xl px-4 py-3 flex items-start gap-2.5 border" style={{ background: 'oklch(0.18 0.02 30)', borderColor: proximoVencimiento.diasQuedan <= 30 ? '#ef4444' : '#d97706' }}>
           <span style={{ fontSize: '15px' }}>{proximoVencimiento.diasQuedan <= 30 ? '⚠️' : '🕐'}</span>
           <p className="text-xs leading-relaxed">
             <strong style={{ color: proximoVencimiento.diasQuedan <= 30 ? '#ef4444' : '#f59e0b' }}>
@@ -201,12 +201,12 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
               const pct     = Math.min(100, Math.round((v.diasQuedan / 365) * 100))
               return (
                 <div key={i}>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <div>
-                      <span className="text-xs font-semibold capitalize">{v.mes}</span>
-                      <span className="text-xs text-muted-foreground ml-2">— {v.puntos} pts</span>
+                  <div className="flex justify-between items-start gap-2 mb-1.5">
+                    <div style={{ minWidth: 0 }}>
+                      <span className="text-xs font-semibold capitalize block">{v.mes}</span>
+                      <span className="text-xs text-muted-foreground">— {v.puntos} pts</span>
                     </div>
-                    <span className="text-xs font-bold" style={{ color }}>
+                    <span className="text-xs font-bold shrink-0" style={{ color }}>
                       {urgente ? '⚠️ ' : ''}{v.diasQuedan === 1 ? 'vence mañana' : `vence en ${v.diasQuedan} días`}
                     </span>
                   </div>
@@ -236,12 +236,12 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
             { accion: 'Compra de filamentos', pts: '+10 pts/kg' },
             { accion: 'Completar perfil',     pts: '+20 pts (una vez)' },
           ].map(r => (
-            <div key={r.accion} className="flex justify-between items-center px-5 py-3">
+            <div key={r.accion} className="flex justify-between items-center gap-2 px-5 py-3">
               <span className="text-sm text-muted-foreground">{r.accion}</span>
-              <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{r.pts}</span>
+              <span className="text-sm font-bold shrink-0" style={{ color: '#f59e0b' }}>{r.pts}</span>
             </div>
           ))}
-          <div className="flex justify-between items-center px-5 py-3">
+          <div className="flex justify-between items-center gap-2 px-5 py-3">
             <span className="text-sm text-muted-foreground">Descuento (canje)</span>
             <span className="text-sm font-bold" style={{ color: '#4ade80' }}>150 pts = $1.000</span>
           </div>
@@ -259,7 +259,7 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
               const info = MOTIVO_LABEL[row.motivo] ?? { label: row.motivo, icon: <Coins size={13} /> }
               const esGanancia = row.puntos > 0
               return (
-                <div key={row.id} className="flex items-center justify-between px-5 py-3">
+                <div key={row.id} className="flex items-center justify-between gap-2 px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <span className="text-muted-foreground">{info.icon}</span>
                     <div>
@@ -269,7 +269,7 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
                       </p>
                     </div>
                   </div>
-                  <span className={`text-sm font-bold ${!esGanancia ? 'text-red-400' : ''}`}
+                  <span className={`text-sm font-bold shrink-0 ${!esGanancia ? 'text-red-400' : ''}`}
                     style={esGanancia ? { color: '#f59e0b' } : {}}>
                     {esGanancia ? '+' : ''}{row.puntos} pts
                   </span>

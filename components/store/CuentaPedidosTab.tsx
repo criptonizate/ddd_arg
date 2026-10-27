@@ -115,11 +115,11 @@ export default function CuentaPedidosTab({
             return (
               <div key={p.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-sm">Pedido N° {p.numero}</span>
-                    <span className="text-xs text-muted-foreground">{fmtDate(p.created_at)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-sm shrink-0">N° {p.numero}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{fmtDate(p.created_at)}</span>
                   </div>
-                  <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.cls}`}>
+                  <span className={`shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ml-2 ${cfg.cls}`}>
                     <Icon size={11} />
                     {cfg.label}
                   </span>

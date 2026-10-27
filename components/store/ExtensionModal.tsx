@@ -42,12 +42,12 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-5 space-y-4"
+            className="relative w-full max-w-sm rounded-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
             style={{ backgroundColor: '#1a1500', border: '1px solid #d97706' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Cerrar */}
-            <button onClick={() => setOpen(false)} className="absolute top-3 right-3 p-1.5 rounded-lg" style={{ color: '#86efac' }}>
+            <button onClick={() => setOpen(false)} className="absolute top-3 right-3 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" style={{ color: '#86efac' }}>
               <X size={16} />
             </button>
 
