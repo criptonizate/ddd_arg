@@ -243,10 +243,20 @@ export async function confirmarPedidoYDescontarStock(
   const fecha = new Date().toISOString().split('T')[0]
   const errors: string[] = []
 
-  for (const item of items) {
-    const gramos = Math.round(item.rollos * 1000) // rollos = kg
+  // Pre-fetch de todos los costos en una sola query (evita N+1)
+  const filamentoIds = Array.from(new Set(items.map(i => i.filamento_id)))
+  const { data: costosData } = await supabase
+    .from('filamentos')
+    .select('id, costo_kg')
+    .in('id', filamentoIds)
+  const costoById = new Map<string, number>(
+    (costosData ?? []).map((f: { id: string; costo_kg: number | null }) => [f.id, f.costo_kg ?? 0])
+  )
 
-    // Descontar stock de forma atómica via RPC (evita race conditions)
+  // Procesar items en paralelo (cada RPC es atómico internamente)
+  const results = await Promise.all(items.map(async (item) => {
+    const gramos = Math.round(item.rollos * 1000)
+
     const { data: rpcResult, error: rpcError } = await supabase
       .rpc('descontar_stock_filamento', {
         p_filamento_id: item.filamento_id,
@@ -256,31 +266,28 @@ export async function confirmarPedidoYDescontarStock(
 
     if (rpcError || !(rpcResult as { ok: boolean })?.ok) {
       const msg = (rpcResult as { error?: string })?.error ?? rpcError?.message ?? 'Error descontando stock'
-      errors.push(`${item.color}: ${msg}`)
-      continue
+      return { ok: false, error: `${item.color}: ${msg}` }
     }
 
-    // Obtener costo_kg para el registro de venta
-    const { data: fil } = await supabase
-      .from('filamentos')
-      .select('costo_kg')
-      .eq('id', item.filamento_id)
-      .single()
-
-    // Registrar en historial de ventas
     await supabase
       .from('filamento_ventas')
       .insert({
         filamento_id: item.filamento_id,
         gramos,
         precio_kg: item.precio_unitario,
-        costo_kg: fil.costo_kg || 0,
+        costo_kg: costoById.get(item.filamento_id) ?? 0,
         cliente: pedido.cliente_nombre,
         nota: `Pedido web N°${pedido.numero}`,
         fecha,
         user_id: pedido.user_id ?? null,
         pedido_id: pedidoId,
       })
+
+    return { ok: true as const }
+  }))
+
+  for (const r of results) {
+    if (!r.ok) errors.push(r.error)
   }
 
   if (errors.length === items.length) {

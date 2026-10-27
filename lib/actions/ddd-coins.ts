@@ -11,11 +11,8 @@ export async function getSaldoCoins(userId: string): Promise<number> {
   if (user && user.id !== userId) return 0
 
   const db = createServiceClient()
-  const { data } = await db
-    .from('ddd_coins')
-    .select('puntos')
-    .eq('user_id', userId)
-  return (data ?? []).reduce((s: number, r: { puntos: number }) => s + r.puntos, 0)
+  const { data } = await db.rpc('get_saldo_coins', { p_user_id: userId })
+  return (data as number | null) ?? 0
 }
 
 export async function getHistorialCoins(userId: string) {

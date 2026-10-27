@@ -3,6 +3,7 @@ import { checkIsAdmin } from '@/lib/actions/auth'
 import StoreHeader from '@/components/store/StoreHeader'
 import StoreFooter from '@/components/store/StoreFooter'
 import CartProvider from '@/components/store/CartProvider'
+import InstallPWA from '@/components/store/InstallPWA'
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = await checkIsAdmin()
@@ -14,6 +15,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         <StoreHeader />
         <main className="flex-1">{children}</main>
         <StoreFooter />
+        <InstallPWA />
       </CartProvider>
     </div>
   )

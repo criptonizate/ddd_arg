@@ -22,7 +22,7 @@ export default async function AdminLayout({
     getPendingOrdersCount().catch(() => 0),
     getFilamentoPedidosPendientesCount().catch(() => 0),
     getExtensionPendientesCount().catch(() => 0),
-    getCalculadoraConfig().catch(() => null),
+    getCalculadoraConfig().catch(() => undefined),
   ])
 
   return (
