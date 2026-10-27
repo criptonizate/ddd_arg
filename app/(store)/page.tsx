@@ -265,7 +265,7 @@ export default async function HomePage() {
                   {step.num}
                 </span>
                 <p className="text-xs font-bold text-foreground leading-tight">{step.title}</p>
-                <p className="text-[10px] text-muted-foreground leading-snug hidden sm:block">{step.sub}</p>
+                <p className="text-[10px] text-muted-foreground leading-snug">{step.sub}</p>
               </div>
             ))}
           </div>

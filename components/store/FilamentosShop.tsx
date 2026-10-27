@@ -500,9 +500,10 @@ export default function FilamentosShop({
 
   // Sincronizar count de items con CartProvider para el badge del header
   useEffect(() => {
-    setFilamentCount(cart.length)
+    const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
+    setFilamentCount(totalKg)
     return () => setFilamentCount(0)
-  }, [cart.length, setFilamentCount])
+  }, [cart, setFilamentCount])
 
   // Persistir carrito anónimo en localStorage continuamente
   useEffect(() => {
@@ -605,17 +606,10 @@ export default function FilamentosShop({
       ? (fn: () => void) => requestIdleCallback(fn, { timeout: 3000 })
       : (fn: () => void) => setTimeout(fn, 50)
 
-    // Build queue: [lightbox of first 10] + [thumbnails of rest] + [lightbox of rest]
-    const all = localFilamentos.flatMap(f =>
+    // Only prefetch the first 6 filaments (those with priority load) to avoid burning mobile data
+    const queue = localFilamentos.slice(0, 6).flatMap(f =>
       [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
-    )
-    const visible = all.slice(0, 10)
-    const rest = all.slice(10)
-    const queue = [
-      ...visible.map(u => imgUrl(u, 1200, 90)),
-      ...rest.map(u => imgUrl(u, 400, 75)),
-      ...rest.map(u => imgUrl(u, 1200, 90)),
-    ]
+    ).map(u => imgUrl(u, 1200, 90))
 
     let i = 0
     let timer: ReturnType<typeof setTimeout>
@@ -763,9 +757,14 @@ export default function FilamentosShop({
   function removeFromCart(id: string) { setCart(prev => prev.filter(i => i.filamento.id !== id)) }
   function getCartRollos(id: string) { return cart.find(i => i.filamento.id === id)?.rollos ?? 0 }
 
-  function abrirCheckout() {
+  async function abrirCheckout() {
     if (!cart.length) return
     if (!user) { setShowCart(false); setShowAuthModal(true); return }
+    if (user) {
+      const { getMembresiaCliente } = await import('@/lib/actions/filamento-pedidos')
+      const mem = await getMembresiaCliente(user.id).catch(() => null)
+      setMembresia(mem)
+    }
     setShowCheckout(true); setCheckoutStep('form'); setCheckoutError(''); setPedidoNumero(null)
   }
 
@@ -1038,7 +1037,7 @@ export default function FilamentosShop({
 
           {/* Filtros colapsables mobile */}
           {showFilters && (
-            <div className="lg:hidden bg-card border border-border rounded-2xl p-4 mb-4">
+            <div className="md:hidden bg-card border border-border rounded-2xl p-4 mb-4">
               {filterSidebar}
             </div>
           )}
@@ -1084,7 +1083,7 @@ export default function FilamentosShop({
                 className="mt-3 text-sm text-orange-600 underline">Limpiar filtros</button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filtered.map((f, index) => (
                 <FilamentoCard
                   key={f.id} f={f} index={index}
@@ -1104,7 +1103,7 @@ export default function FilamentosShop({
               <h3 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
                 <span>⏳</span> Sin stock por ahora
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {agotadosFiltrados.map(f => {
                   const yaAlertado = misAlertas.includes(f.id)
                   const cargando = alertando === f.id
@@ -1175,6 +1174,7 @@ export default function FilamentosShop({
                 onChange={e => setSugerenciaMensaje(e.target.value)}
                 placeholder="Ej: Filanova PLA+ en color nude, o PETG transparente..."
                 rows={3}
+                maxLength={2000}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
               <button type="submit" disabled={sugerenciaEnviando || !sugerenciaMensaje.trim()}
@@ -1211,7 +1211,7 @@ export default function FilamentosShop({
           <div className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="font-bold text-base">Tu carrito</h2>
-              <button onClick={() => setShowCart(false)} className="p-1.5 rounded-lg hover:bg-secondary">
+              <button onClick={() => setShowCart(false)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary">
                 <X size={16} />
               </button>
             </div>
@@ -1237,10 +1237,10 @@ export default function FilamentosShop({
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-secondary"><Minus size={13} /></button>
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos - 1)} className="w-10 h-10 flex items-center justify-center rounded-md border border-border hover:bg-secondary"><Minus size={13} /></button>
                       <span className="text-sm font-bold w-10 text-center">{item.rollos} kg</span>
-                      <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={13} /></button>
-                      <button onClick={() => removeFromCart(item.filamento.id)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={13} /></button>
+                      <button onClick={() => setRollos(item.filamento.id, item.rollos + 1)} disabled={sinStock || item.rollos >= stockDisp} className="w-10 h-10 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"><Plus size={13} /></button>
+                      <button onClick={() => removeFromCart(item.filamento.id)} className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground ml-0.5"><Trash2 size={13} /></button>
                     </div>
                   </div>
                 )
@@ -1433,6 +1433,11 @@ export default function FilamentosShop({
 
                 {user && (
                   <div className="px-6 pb-5 space-y-2">
+                    <div className="bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground space-y-1 mb-1">
+                      <p><span className="font-semibold text-foreground">Envío:</span> A coordinar por WhatsApp según destino</p>
+                      <p><span className="font-semibold text-foreground">Pago:</span> Transferencia bancaria o efectivo al retirar</p>
+                      <p><span className="font-semibold text-foreground">Retiro en local:</span> Capital, La Rioja</p>
+                    </div>
                     <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || isPending || !clienteNombre.trim()}
                       className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
                       {checkoutStep === 'saving' || isPending ? <><Loader2 size={15} className="animate-spin" /> Guardando pedido...</> : 'Hacer el pedido'}

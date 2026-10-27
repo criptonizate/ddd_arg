@@ -94,7 +94,7 @@ export default function StoreHeader() {
           <button
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Menú"
-            className="md:hidden p-2 rounded-lg transition-colors hover:opacity-80"
+            className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
             style={{ color: 'oklch(0.65 0.005 264)' }}
           >
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -137,7 +137,7 @@ export default function StoreHeader() {
               href={`https://wa.me/${WHATSAPP}`}
               target="_blank" rel="noopener noreferrer"
               aria-label="WhatsApp"
-              className="p-2 rounded-lg transition-colors text-[#25D366] hover:opacity-80"
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors text-[#25D366] hover:opacity-80"
             >
               <WhatsAppIcon size={18} />
             </a>
@@ -147,7 +147,7 @@ export default function StoreHeader() {
               href="https://instagram.com/DDD_ARG"
               target="_blank" rel="noopener noreferrer"
               aria-label="Instagram"
-              className="p-2 rounded-lg transition-colors text-[#E1306C] hover:opacity-80"
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors text-[#E1306C] hover:opacity-80"
             >
               <InstagramIcon size={18} />
             </a>
@@ -161,7 +161,7 @@ export default function StoreHeader() {
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
                     aria-label="Mi cuenta"
-                    className="p-1.5 rounded-lg transition-colors hover:opacity-80 flex items-center gap-1.5"
+                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80 gap-1.5"
                   >
                     {user.user_metadata?.avatar_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -238,7 +238,7 @@ export default function StoreHeader() {
             {/* Carrito */}
             <Link
               href="/carrito"
-              className="relative p-2 rounded-lg transition-colors hover:opacity-80"
+              className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
               aria-label="Carrito"
               style={{ color: 'oklch(0.55 0.005 264)' }}
             >
