@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from './CartProvider'
 import { ShoppingBag, User, LogOut, Package, Menu, X } from 'lucide-react'
@@ -9,7 +10,7 @@ import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
-const WHATSAPP = '543804559909'
+const WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
 // Marcas con sus colores e iconos
 const MARCAS = [
@@ -64,6 +65,12 @@ export default function StoreHeader() {
   const [popping, setPopping] = useState(false)
   const totalCount = count + filamentCount
   const isMount = useRef(true)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    setShowDropdown(false)
+    setMenuOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     if (isMount.current) { isMount.current = false; return }

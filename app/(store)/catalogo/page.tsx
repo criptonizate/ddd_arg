@@ -3,7 +3,7 @@ import ProductCard from '@/components/store/ProductCard'
 import type { ProductWithVariants } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Catálogo — DDD ARG' }
-export const dynamic = 'force-dynamic'
+export const revalidate = 600
 
 export default async function CatalogoPage() {
   const products = await getActiveProducts()

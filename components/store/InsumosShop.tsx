@@ -9,7 +9,7 @@ import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 
-const WHATSAPP_NUMBER = '543804559909'
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
 const DESCUENTOS_INSUMOS = [
   { min: 15, pct: 15, label: 'Elite 15%' },

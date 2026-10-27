@@ -33,16 +33,6 @@ export async function getHistorialCoins(userId: string) {
   return data ?? []
 }
 
-export async function getRachaLogin(userId: string): Promise<number> {
-  const db = createServiceClient()
-  const { data } = await db
-    .from('ddd_coins_login')
-    .select('racha_dias')
-    .eq('user_id', userId)
-    .single()
-  return data?.racha_dias ?? 0
-}
-
 export async function registrarLoginDiario(): Promise<{ ganados: number; racha: number }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -58,7 +48,7 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     .from('ddd_coins_login')
     .select('*')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (loginRow?.last_login_date === hoy) return { ganados: 0, racha: loginRow.racha_dias }
   const racha = loginRow?.last_login_date === ayer ? (loginRow.racha_dias + 1) : 1
@@ -124,17 +114,6 @@ export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> 
   await db.from('ddd_coins').insert({ user_id: userId, puntos: 50, motivo: 'membresia_mensual' })
 }
 
-export async function sumarPuntosBienvenida(userId: string): Promise<void> {
-  const db = createServiceClient()
-  const { count } = await db
-    .from('ddd_coins')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('motivo', 'bienvenida')
-  if ((count ?? 0) > 0) return
-  await db.from('ddd_coins').insert({ user_id: userId, puntos: 100, motivo: 'bienvenida' })
-}
-
 export async function sumarPuntosPerfilCompleto(userId: string): Promise<void> {
   const db = createServiceClient()
   const { count } = await db
@@ -164,7 +143,6 @@ export async function canjearCoinsEnPedido(
   const saldo = (coinsData ?? []).reduce((s: number, r: { puntos: number }) => s + r.puntos, 0)
   if (saldo < puntosACanjear) return { error: 'No tenés suficientes DDD Coins' }
 
-  const db = createServiceClient()
   await db.from('ddd_coins').insert({
     user_id: userId,
     puntos: -puntosACanjear,

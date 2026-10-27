@@ -11,9 +11,9 @@ export const metadata = {
   description: 'Impresión 3D en Argentina. Filamentos, productos 3D y pedidos personalizados.',
 }
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
-const WHATSAPP = '543804559909'
+const WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
 function colorToCss(color: string): string {
   const c = color.toLowerCase()

@@ -8,6 +8,7 @@ import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { getFilamentosDisponibles, enviarSugerenciaFilamento } from '@/lib/actions/filamentos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
+import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 import { useCart } from '@/components/store/CartProvider'
@@ -1439,14 +1440,14 @@ export default function FilamentosShop({
                   <div className="px-6 pb-5 space-y-2">
 
                     {/* DDD Coins */}
-                    {saldoCoins >= 150 && checkoutStep === 'form' && (
+                    {saldoCoins >= PUNTOS_POR_CANJE && checkoutStep === 'form' && (
                       <div className="rounded-xl border border-border p-4" style={{ background: 'oklch(0.18 0.02 60)' }}>
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-sm font-bold">🪙 DDD Coins</p>
                           <p className="text-xs text-muted-foreground">Saldo: <span style={{ color: '#f59e0b' }} className="font-bold">{saldoCoins} pts</span></p>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                          {[0, 150, 300, 450, 600].filter(n => n === 0 || n <= saldoCoins).map(n => (
+                          {[0, PUNTOS_POR_CANJE, PUNTOS_POR_CANJE * 2, PUNTOS_POR_CANJE * 3, PUNTOS_POR_CANJE * 4].filter(n => n === 0 || n <= saldoCoins).map(n => (
                             <button
                               key={n}
                               type="button"
@@ -1454,13 +1455,13 @@ export default function FilamentosShop({
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-yellow-500' : 'border-border text-muted-foreground hover:border-yellow-500'}`}
                               style={puntosACanjear === n ? { background: '#d97706' } : {}}
                             >
-                              {n === 0 ? 'Sin descuento' : `-$${((n / 150) * 1000).toLocaleString('es-AR')}`}
+                              {n === 0 ? 'Sin descuento' : `-$${((n / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')}`}
                             </button>
                           ))}
                         </div>
                         {puntosACanjear > 0 && (
                           <p className="text-xs mt-2" style={{ color: '#4ade80' }}>
-                            Descuento: -${((puntosACanjear / 150) * 1000).toLocaleString('es-AR')} ARS aplicado al total
+                            Descuento: -${((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')} ARS aplicado al total
                           </p>
                         )}
                       </div>

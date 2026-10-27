@@ -1,9 +1,8 @@
 'use client'
 
 import { Coins, Flame, ShoppingBag, Crown, User, Star, Clock, Info } from 'lucide-react'
+import { PUNTOS_POR_CANJE as PUNTOS_CANJE, PESOS_POR_CANJE as PESOS_CANJE } from '@/lib/ddd-coins-helpers'
 
-const PUNTOS_CANJE = 150
-const PESOS_CANJE = 1000
 const MESES_VENCIMIENTO = 12
 
 interface CoinRow {
