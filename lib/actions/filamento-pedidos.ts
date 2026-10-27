@@ -182,6 +182,7 @@ export async function updateEstadoPedidoFilamento(
   nota?: string,
 ): Promise<{ error?: string }> {
   await getAdminUser()
+  if (nota && nota.length > 500) return { error: 'La nota no puede superar los 500 caracteres' }
   const supabase = createServiceClient()
   const { error } = await supabase
     .from('filamento_pedidos')
@@ -221,43 +222,26 @@ export async function confirmarPedidoYDescontarStock(
   for (const item of items) {
     const gramos = Math.round(item.rollos * 1000) // rollos = kg
 
-    // Stock actual
-    const { data: fil, error: filErr } = await supabase
-      .from('filamentos')
-      .select('gramos_sueltos, rollos_cerrados, peso_rollo_gr, costo_kg')
-      .eq('id', item.filamento_id)
-      .single()
+    // Descontar stock de forma atómica via RPC (evita race conditions)
+    const { data: rpcResult, error: rpcError } = await supabase
+      .rpc('descontar_stock_filamento', {
+        p_filamento_id: item.filamento_id,
+        p_gramos: gramos,
+        p_rollos: item.rollos,
+      })
 
-    if (filErr || !fil) { errors.push(`Filamento ${item.color} no encontrado`); continue }
-
-    const totalDisp = fil.rollos_cerrados * fil.peso_rollo_gr + fil.gramos_sueltos
-    if (gramos > totalDisp) {
-      errors.push(`Stock insuficiente para ${item.color} (pedido ${item.rollos} kg, stock ${Math.floor(totalDisp / 1000)} kg)`)
+    if (rpcError || !(rpcResult as { ok: boolean })?.ok) {
+      const msg = (rpcResult as { error?: string })?.error ?? rpcError?.message ?? 'Error descontando stock'
+      errors.push(`${item.color}: ${msg}`)
       continue
     }
 
-    // Descontar stock (sueltos primero, luego rollos)
-    let restante = gramos
-    let nuevoSueltos = fil.gramos_sueltos
-    let nuevoRollos = fil.rollos_cerrados
-
-    if (nuevoSueltos >= restante) {
-      nuevoSueltos -= restante
-      restante = 0
-    } else {
-      restante -= nuevoSueltos
-      nuevoSueltos = 0
-    }
-    if (restante > 0) {
-      const rollosNecesarios = Math.ceil(restante / fil.peso_rollo_gr)
-      nuevoRollos = Math.max(0, nuevoRollos - rollosNecesarios)
-      nuevoSueltos = Math.max(0, rollosNecesarios * fil.peso_rollo_gr - restante)
-    }
-
-    await supabase
+    // Obtener costo_kg para el registro de venta
+    const { data: fil } = await supabase
       .from('filamentos')
-      .update({ gramos_sueltos: nuevoSueltos, rollos_cerrados: nuevoRollos })
+      .select('costo_kg')
       .eq('id', item.filamento_id)
+      .single()
 
     // Registrar en historial de ventas
     await supabase
@@ -324,6 +308,11 @@ export async function editarItemsPedidoFilamento(
 ): Promise<{ error?: string }> {
   await getAdminUser()
   if (!items.length) return { error: 'El pedido debe tener al menos un ítem' }
+  for (const item of items) {
+    if (!Number.isInteger(item.rollos) || item.rollos < 1 || item.rollos > 50) {
+      return { error: 'Cantidad de rollos inválida (1-50)' }
+    }
+  }
 
   const total_rollos = items.reduce((s, i) => s + i.rollos, 0)
 

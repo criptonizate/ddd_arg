@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const ADMIN_EMAIL = 'iarnaudojuanpablo@gmail.com'
 const FROM = process.env.RESEND_FROM_EMAIL || 'DDD ARG <onboarding@resend.dev>'
+const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
 export interface PedidoEmailData {
   numero: number
@@ -157,7 +158,7 @@ export async function sendPedidoConfirmadoCliente(data: PedidoEmailData & { clie
           Coordinamos la entrega por WhatsApp. ¡Gracias por elegirnos!</p>
         </div>
 
-        <a href="https://wa.me/543804559909" style="display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+        <a href="https://wa.me/${WA_NUMBER}" style="display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
           Hablar por WhatsApp →
         </a>
       </div>

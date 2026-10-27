@@ -32,10 +32,10 @@ export default function CartView() {
           Explorá el catálogo y agregá productos
         </p>
         <Link
-          href="/catalogo"
+          href="/filamentos"
           className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
         >
-          Ver catálogo
+          Ver filamentos
         </Link>
       </div>
     )
@@ -52,7 +52,7 @@ export default function CartView() {
           Ya estamos hablando por WhatsApp. Te confirmamos el pedido a la brevedad.
         </p>
         <Link
-          href="/catalogo"
+          href="/filamentos"
           className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 transition-colors rounded-xl px-6 py-3 text-sm font-medium"
         >
           Seguir comprando
@@ -93,7 +93,7 @@ export default function CartView() {
         return
       }
 
-      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ''
+      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
       const message = buildWhatsAppMessage({
         items: items.map((i) => ({
           producto: i.nombre,
