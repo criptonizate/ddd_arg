@@ -42,11 +42,10 @@ export default async function CuentaPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/?login=1')
 
-  // Registrar login diario y usar su resultado para la racha (evita race condition con getRachaLogin)
-  const loginResult = await registrarLoginDiario().catch(() => ({ ganados: 0, racha: 0 }))
-
   const db = createServiceClient()
-  const [pedidosResult, membresia, ventasHistoricas, profile, saldoCoins, historialCoins] = await Promise.all([
+  // registrarLoginDiario corre en paralelo con el resto para no serializar latencia
+  const [loginResult, pedidosResult, membresia, ventasHistoricas, profile, saldoCoins, historialCoins] = await Promise.all([
+    registrarLoginDiario().catch(() => ({ ganados: 0, racha: 0 })),
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)

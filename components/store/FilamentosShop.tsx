@@ -1323,7 +1323,7 @@ export default function FilamentosShop({
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                   <h2 className="font-bold text-base">Confirmar pedido</h2>
                   {checkoutStep === 'form' && (
-                    <button onClick={() => setShowCheckout(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+                    <button onClick={() => { setShowCheckout(false); setPuntosACanjear(0) }} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
                   )}
                 </div>
 
