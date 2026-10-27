@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server'
 import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
 
 export async function getSaldoCoins(userId: string): Promise<number> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  // Permitir llamadas desde server actions admin (sin user autenticado) o del propio usuario
+  if (user && user.id !== userId) return 0
+
   const db = createServiceClient()
   const { data } = await db
     .from('ddd_coins')
@@ -14,6 +19,10 @@ export async function getSaldoCoins(userId: string): Promise<number> {
 }
 
 export async function getHistorialCoins(userId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user && user.id !== userId) return []
+
   const db = createServiceClient()
   const { data } = await db
     .from('ddd_coins')
@@ -73,6 +82,20 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
   )
 
   const ganados = puntosTransacciones.reduce((s, t) => s + t.puntos, 0)
+
+  // Sumar 50 pts de membresía activa (una vez por mes, idempotente)
+  // Verificación barata: si compró 5+ kg en los últimos 30 días tiene membresía
+  db.from('filamento_pedidos')
+    .select('total_rollos')
+    .eq('user_id', user.id)
+    .in('estado', ['confirmado', 'entregado'])
+    .gte('updated_at', new Date(now - 30 * 86400000).toISOString())
+    .then(({ data: pedidosRecientes }) => {
+      const kgRecientes = (pedidosRecientes ?? []).reduce((s: number, p: { total_rollos: number }) => s + p.total_rollos, 0)
+      if (kgRecientes >= 5) sumarPuntosMembresiaActiva(user.id).catch(() => {})
+    })
+    .catch(() => {})
+
   return { ganados, racha }
 }
 
@@ -131,7 +154,14 @@ export async function canjearCoinsEnPedido(
   if (puntosACanjear <= 0) return {}
   if (puntosACanjear % PUNTOS_POR_CANJE !== 0) return { error: 'Cantidad de puntos inválida' }
 
-  const saldo = await getSaldoCoins(userId)
+  // Verificar que el userId sea el del usuario autenticado
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) return { error: 'No autorizado' }
+
+  const db = createServiceClient()
+  const { data: coinsData } = await db.from('ddd_coins').select('puntos').eq('user_id', userId)
+  const saldo = (coinsData ?? []).reduce((s: number, r: { puntos: number }) => s + r.puntos, 0)
   if (saldo < puntosACanjear) return { error: 'No tenés suficientes DDD Coins' }
 
   const db = createServiceClient()

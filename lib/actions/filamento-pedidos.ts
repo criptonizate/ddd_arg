@@ -26,6 +26,7 @@ export interface FilamentoPedido {
   items: FilamentoPedidoItem[]
   total_rollos: number
   descuento_por_rollo: number
+  descuento_coins: number
   total: number
   nota: string | null
   reservado_hasta: string | null

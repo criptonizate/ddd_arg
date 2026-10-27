@@ -2171,6 +2171,9 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     {p.descuento_por_rollo > 0 && (
                       <span className="text-orange-600 dark:text-orange-400">-${p.descuento_por_rollo.toLocaleString('es-AR')}/kg</span>
                     )}
+                    {p.descuento_coins > 0 && (
+                      <span style={{ color: '#f59e0b' }}>🪙 -${p.descuento_coins.toLocaleString('es-AR')}</span>
+                    )}
                   </div>
                 </div>
                 <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -2202,7 +2205,12 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     </div>
                     {p.descuento_por_rollo > 0 && (
                       <p className="text-[11px] text-orange-600 dark:text-orange-400 mt-0.5">
-                        Descuento aplicado: -${p.descuento_por_rollo.toLocaleString('es-AR')} por kg
+                        Descuento membresía: -${p.descuento_por_rollo.toLocaleString('es-AR')}/kg
+                      </p>
+                    )}
+                    {p.descuento_coins > 0 && (
+                      <p className="text-[11px] mt-0.5" style={{ color: '#f59e0b' }}>
+                        🪙 Descuento DDD Coins: -${p.descuento_coins.toLocaleString('es-AR')}
                       </p>
                     )}
                   </div>
