@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { href: '/admin/finanzas', label: '💰 Finanzas' },
   { href: '/admin/negocios', label: '🏪 Negocios' },
   { href: '/admin/clientes', label: '👥 Clientes' },
-  { href: '/admin/cuentas', label: '🧑‍💻 Cuentas' },
+  { href: '/admin/cuentas', label: '🧑‍💻 Cuentas', badge: 'extensiones' as const },
   { href: '/admin/presupuesto', label: '📋 Presupuesto' },
   { href: '/admin/calculadora', label: '🧮 Calculadora' },
   { href: '/admin/productos', label: '🛍️ Productos' },
@@ -33,11 +33,13 @@ export default function AdminSidebar({
   userEmail,
   pendingCount = 0,
   filamentoPendingCount = 0,
+  extensionPendingCount = 0,
   calculadoraConfig,
 }: {
   userEmail: string
   pendingCount?: number
   filamentoPendingCount?: number
+  extensionPendingCount?: number
   calculadoraConfig?: CalculadoraConfig
 }) {
   const pathname = usePathname()
@@ -109,7 +111,7 @@ export default function AdminSidebar({
               >
                 <span>{item.label}</span>
                 {(() => {
-                  const count = item.badge === 'pedidos' ? pendingCount : item.badge === 'filamentos' ? filamentoPendingCount : 0
+                  const count = item.badge === 'pedidos' ? pendingCount : item.badge === 'filamentos' ? filamentoPendingCount : item.badge === 'extensiones' ? extensionPendingCount : 0
                   return count > 0 ? (
                     <span className={cn(
                       'text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center',

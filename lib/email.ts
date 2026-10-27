@@ -285,3 +285,71 @@ export async function sendMembresiaPorVencerCliente(data: {
   })
   if (error) console.error('[email] sendMembresiaPorVencerCliente error:', error)
 }
+
+export async function sendExtensionSolicitadaAdmin(data: {
+  userId: string
+  clienteNombre: string
+  clienteEmail: string
+  nivel: string
+  costo: number
+  dias: number
+  numeroCliente?: number | null
+}) {
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `⚡ Solicitud de extensión de membresía — ${data.clienteNombre}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#111;color:#f0fdf4;padding:24px;border-radius:12px">
+        <h2 style="color:#fcd34d;margin:0 0 4px">⚡ Nueva solicitud de extensión</h2>
+        <p style="color:#86efac;margin:0 0 20px">Un cliente solicitó extender su membresía y dice que ya realizó el pago.</p>
+
+        <div style="background:#1a1500;border:1px solid #d97706;border-radius:8px;padding:16px;margin-bottom:20px">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px;width:140px">Nombre</td>
+              <td style="padding:6px 0;color:#f0fdf4;font-weight:bold">${data.clienteNombre}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">Email</td>
+              <td style="padding:6px 0;color:#f0fdf4">${data.clienteEmail}</td>
+            </tr>
+            ${data.numeroCliente ? `
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">N° cliente</td>
+              <td style="padding:6px 0;color:#fcd34d;font-weight:bold">N° ${data.numeroCliente}</td>
+            </tr>` : ''}
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">User ID</td>
+              <td style="padding:6px 0;color:#9ca3af;font-size:12px;word-break:break-all">${data.userId}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">Membresía actual</td>
+              <td style="padding:6px 0;color:#f0fdf4;font-weight:bold">${data.nivel}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">Extensión</td>
+              <td style="padding:6px 0;color:#f0fdf4">${data.dias} días</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#86efac;font-size:13px">Monto a recibir</td>
+              <td style="padding:6px 0;color:#fcd34d;font-weight:900;font-size:16px">$${data.costo.toLocaleString('es-AR')}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#0a1a0a;border:1px solid #166534;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <p style="color:#86efac;margin:0;font-size:14px">
+            📲 El cliente te va a enviar el comprobante por WhatsApp al <strong style="color:#f0fdf4">+${WA_NUMBER}</strong>.
+            Una vez que confirmes el pago, aprobá la extensión desde el panel de admin.
+          </p>
+        </div>
+
+        <a href="https://ddd-arg.vercel.app/admin/cuentas" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+          Ver panel de Cuentas →
+        </a>
+      </div>
+    `,
+  })
+  if (error) console.error('[email] sendExtensionSolicitadaAdmin error:', error)
+}

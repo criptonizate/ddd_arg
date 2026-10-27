@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
-import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente } from '@/lib/email'
+import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente, sendExtensionSolicitadaAdmin } from '@/lib/email'
 
 export interface FilamentoPedidoItem {
   filamento_id: string
@@ -471,11 +471,37 @@ export async function solicitarExtensionMembresia(): Promise<void> {
     const costo = costoExtension(membresiaActual?.nivel ?? null)
     const nivel = membresiaActual?.nivel ?? 'Mayorista'
     await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
+
+    // Obtener datos del usuario para el email
+    const { data: authUser } = await sb.auth.admin.getUserById(userId)
+    const { data: perfil } = await sb.from('user_profiles').select('numero_cliente').eq('user_id', userId).maybeSingle()
+    const clienteNombre = authUser?.user?.user_metadata?.full_name ?? authUser?.user?.email?.split('@')[0] ?? 'Cliente'
+    const clienteEmail = authUser?.user?.email ?? ''
+    await sendExtensionSolicitadaAdmin({
+      userId,
+      clienteNombre,
+      clienteEmail,
+      nivel,
+      costo,
+      dias: DIAS_EXTENSION,
+      numeroCliente: perfil?.numero_cliente ?? null,
+    })
+
     const msg = encodeURIComponent(`Hola! Quiero extender mi membresía ${nivel} por ${DIAS_EXTENSION} días. Transferí $${costo.toLocaleString('es-AR')} al alias juan3d.nx. Te mando el comprobante 👇`)
     redirect(`https://wa.me/543804559909?text=${msg}`)
   }
 
   redirect('/cuenta?tab=membresia')
+}
+
+// Cuenta de extensiones pendientes para badge en admin
+export async function getExtensionPendientesCount(): Promise<number> {
+  const sb = createServiceClient()
+  const { count } = await sb
+    .from('membresia_extensiones')
+    .select('id', { count: 'exact', head: true })
+    .eq('estado', 'pendiente')
+  return count ?? 0
 }
 
 // Admin confirma o rechaza una extensión
