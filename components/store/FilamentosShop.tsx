@@ -458,12 +458,14 @@ export default function FilamentosShop({
   alertasIniciales = [],
   initialUser,
   membresia: initialMembresia,
+  saldoCoins = 0,
 }: {
   filamentos: Filamento[]
   agotados?: Filamento[]
   alertasIniciales?: string[]
   initialUser?: User | null
   membresia?: MembresiaStatus | null
+  saldoCoins?: number
 }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
@@ -483,6 +485,7 @@ export default function FilamentosShop({
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
+  const [puntosACanjear, setPuntosACanjear] = useState(0)
   const [clienteNombre, setClienteNombre] = useState(
     initialUser?.user_metadata?.full_name ? String(initialUser.user_metadata.full_name) : ''
   )
@@ -800,6 +803,7 @@ export default function FilamentosShop({
           material: i.filamento.material, marca: i.filamento.marca, rollos: i.rollos,
           precio_unitario: i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT,
         })),
+        puntosACanjear: puntosACanjear > 0 ? puntosACanjear : undefined,
       })
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
       // Guardar teléfono en el perfil del usuario si lo ingresó
@@ -1433,6 +1437,35 @@ export default function FilamentosShop({
 
                 {user && (
                   <div className="px-6 pb-5 space-y-2">
+
+                    {/* DDD Coins */}
+                    {saldoCoins >= 150 && checkoutStep === 'form' && (
+                      <div className="rounded-xl border border-border p-4" style={{ background: 'oklch(0.18 0.02 60)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-bold">🪙 DDD Coins</p>
+                          <p className="text-xs text-muted-foreground">Saldo: <span style={{ color: '#f59e0b' }} className="font-bold">{saldoCoins} pts</span></p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {[0, 150, 300, 450, 600].filter(n => n === 0 || n <= saldoCoins).map(n => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setPuntosACanjear(n)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-yellow-500' : 'border-border text-muted-foreground hover:border-yellow-500'}`}
+                              style={puntosACanjear === n ? { background: '#d97706' } : {}}
+                            >
+                              {n === 0 ? 'Sin descuento' : `-$${((n / 150) * 1000).toLocaleString('es-AR')}`}
+                            </button>
+                          ))}
+                        </div>
+                        {puntosACanjear > 0 && (
+                          <p className="text-xs mt-2" style={{ color: '#4ade80' }}>
+                            Descuento: -${((puntosACanjear / 150) * 1000).toLocaleString('es-AR')} ARS aplicado al total
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground space-y-1 mb-1">
                       <p><span className="font-semibold text-foreground">Envío:</span> A coordinar por WhatsApp según destino</p>
                       <p><span className="font-semibold text-foreground">Pago:</span> Transferencia bancaria o efectivo al retirar</p>

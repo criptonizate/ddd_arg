@@ -1,6 +1,7 @@
 import { getFilamentosDisponibles, getFilamentosAgotados, getMisAlertasStock } from '@/lib/actions/filamentos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
+import { getSaldoCoins } from '@/lib/actions/ddd-coins'
 import { createClient } from '@/lib/supabase/server'
 import FilamentosShop from '@/components/store/FilamentosShop'
 
@@ -15,9 +16,10 @@ export default async function FilamentosPage() {
     supabase.auth.getUser(),
   ])
 
-  const [membresia, alertasIniciales] = await Promise.all([
+  const [membresia, alertasIniciales, saldoCoins] = await Promise.all([
     user ? getMembresiaCliente(user.id) : Promise.resolve(null),
     user ? getMisAlertasStock() : Promise.resolve([]),
+    user ? getSaldoCoins(user.id).catch(() => 0) : Promise.resolve(0),
   ])
 
   const filamentos = [...raw].sort((a, b) => {
@@ -40,6 +42,7 @@ export default async function FilamentosPage() {
         alertasIniciales={alertasIniciales}
         initialUser={user}
         membresia={membresia}
+        saldoCoins={saldoCoins}
       />
     </div>
   )

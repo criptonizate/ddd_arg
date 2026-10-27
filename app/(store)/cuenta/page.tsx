@@ -8,9 +8,11 @@ import { getVentasDeUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION } from '@/lib/membresia-helpers'
 import { getMyProfile } from '@/lib/actions/perfil'
+import { getSaldoCoins, getHistorialCoins, getRachaLogin, registrarLoginDiario } from '@/lib/actions/ddd-coins'
 import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import PerfilTab from '@/components/store/PerfilTab'
 import ExtensionModal from '@/components/store/ExtensionModal'
+import DDDCoinsTab from '@/components/store/DDDCoinsTab'
 import Link from 'next/link'
 import { Package, Crown, User } from 'lucide-react'
 
@@ -40,8 +42,11 @@ export default async function CuentaPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/?login=1')
 
+  // Registrar login diario (fire and forget — no bloqueamos el render)
+  void registrarLoginDiario().catch(() => null)
+
   const db = createServiceClient()
-  const [pedidosResult, membresia, ventasHistoricas, profile] = await Promise.all([
+  const [pedidosResult, membresia, ventasHistoricas, profile, saldoCoins, historialCoins, racha] = await Promise.all([
     db.from('filamento_pedidos')
       .select('*')
       .eq('user_id', user.id)
@@ -49,11 +54,14 @@ export default async function CuentaPage({
     getMembresiaCliente(user.id).catch((err) => { console.error('membresia error:', err); return null }),
     getVentasDeUsuario(user.id).catch(() => []),
     getMyProfile().catch(() => null),
+    getSaldoCoins(user.id).catch(() => 0),
+    getHistorialCoins(user.id).catch(() => []),
+    getRachaLogin(user.id).catch(() => 0),
   ])
   const pedidos = pedidosResult.data
 
   const { tab: tabParam } = await searchParams
-  const tab = tabParam === 'pedidos' ? 'pedidos' : tabParam === 'membresia' ? 'membresia' : 'perfil'
+  const tab = tabParam === 'pedidos' ? 'pedidos' : tabParam === 'membresia' ? 'membresia' : tabParam === 'coins' ? 'coins' : 'perfil'
 
   const displayName = profile?.apodo || user.user_metadata?.full_name || user.email?.split('@')[0] || ''
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
@@ -136,6 +144,21 @@ export default async function CuentaPage({
             </span>
           )}
         </Link>
+        <Link
+          href="/cuenta?tab=coins"
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            tab === 'coins'
+              ? 'border-yellow-500 text-yellow-500'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🪙 Coins
+          {saldoCoins > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
+              {saldoCoins}
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* ── TAB PERFIL ── */}
@@ -155,6 +178,11 @@ export default async function CuentaPage({
           ventasHistoricas={ventasHistoricas as VentaFilamento[]}
           userId={user.id}
         />
+      )}
+
+      {/* ── TAB COINS ── */}
+      {tab === 'coins' && (
+        <DDDCoinsTab saldo={saldoCoins} historial={historialCoins as { id: string; puntos: number; motivo: string; created_at: string }[]} racha={racha} />
       )}
 
       {/* ── TAB MEMBRESÍA ── */}

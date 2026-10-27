@@ -39,6 +39,7 @@ export async function crearPedidoFilamento(data: {
   cliente_nombre: string
   cliente_telefono?: string
   items: FilamentoPedidoItem[]
+  puntosACanjear?: number
 }): Promise<{ numero?: number; id?: string; error?: string }> {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (data.cliente_nombre.trim().length > 100) return { error: 'El nombre es demasiado largo' }
@@ -81,7 +82,18 @@ export async function crearPedidoFilamento(data: {
     }))
   if (!itemsValidados.length) return { error: 'Ningún filamento del pedido es válido' }
   const total_rollos = itemsValidados.reduce((s, i) => s + i.rollos, 0)
-  const total = itemsValidados.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
+
+  // Descuento DDD Coins
+  let descuento_coins = 0
+  if (data.puntosACanjear && data.puntosACanjear > 0) {
+    const { calcularDescuentoCoins, getSaldoCoins } = await import('./ddd-coins')
+    const saldo = await getSaldoCoins(user.id)
+    if (saldo >= data.puntosACanjear) {
+      descuento_coins = calcularDescuentoCoins(data.puntosACanjear)
+    }
+  }
+
+  const total = Math.max(0, itemsValidados.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0) - descuento_coins)
 
   const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
 
@@ -93,6 +105,7 @@ export async function crearPedidoFilamento(data: {
       items: itemsValidados,
       total_rollos,
       descuento_por_rollo,
+      descuento_coins,
       total,
       estado: 'pendiente',
       reservado_hasta: reservadoHasta,
@@ -117,6 +130,13 @@ export async function crearPedidoFilamento(data: {
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
+
+  // Sumar puntos por compra y canjear coins si corresponde
+  const { sumarPuntosPorCompra, canjearCoinsEnPedido } = await import('./ddd-coins')
+  void sumarPuntosPorCompra(user.id, total_rollos, row.id)
+  if (data.puntosACanjear && data.puntosACanjear > 0 && descuento_coins > 0) {
+    void canjearCoinsEnPedido(user.id, data.puntosACanjear, row.id)
+  }
 
   // Emails — fire and forget, no bloqueamos la respuesta
   const emailData = {

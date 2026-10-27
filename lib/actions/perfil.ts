@@ -48,6 +48,14 @@ export async function saveMyProfile(profile: UserProfile): Promise<{ error?: str
 
   if (error) return { error: error.message }
   revalidatePath('/cuenta')
+
+  // Sumar puntos si el perfil tiene al menos un dato completado
+  const tienesDatos = profile.telefono || profile.dni || profile.apodo
+  if (tienesDatos) {
+    const { sumarPuntosPerfilCompleto } = await import('./ddd-coins')
+    void sumarPuntosPerfilCompleto(user.id)
+  }
+
   return {}
 }
 

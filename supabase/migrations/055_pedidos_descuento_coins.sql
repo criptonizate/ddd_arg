@@ -1,0 +1,1 @@
+ALTER TABLE filamento_pedidos ADD COLUMN IF NOT EXISTS descuento_coins INTEGER NOT NULL DEFAULT 0;
