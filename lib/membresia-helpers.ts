@@ -1,13 +1,13 @@
-// Helpers de membresía mayorista — sin 'use server', importable desde cliente y servidor
+// Helpers de membresía — sin 'use server', importable desde cliente y servidor
 
 export const DIAS_PERIODO = 30
 export const DIAS_EXTENSION = 15
 
 // Costo de extensión según nivel activo
 export const COSTO_EXTENSION_POR_NIVEL: Record<string, number> = {
-  Mayorista: 2000,
-  Plus:      4000,
-  Elite:     10000,
+  Plata:    2000,
+  Oro:      4000,
+  Platino:  10000,
 }
 
 export function costoExtension(nivel: string | null): number {
@@ -77,12 +77,12 @@ export function calcularPeriodo(
 
 // Los tiers expresan DESCUENTO sobre el precio base del filamento
 export const TIERS_MEMBRESIA = [
-  { min: 15, descuento: 4000, label: 'Elite',     emoji: '💎', color: 'violet' as const },
-  { min: 10, descuento: 3000, label: 'Plus',      emoji: '⭐', color: 'blue'   as const },
-  { min:  5, descuento: 2000, label: 'Mayorista', emoji: '🏆', color: 'amber'  as const },
+  { min: 15, descuento: 3000, label: 'Platino', emoji: '💎', color: 'violet' as const },
+  { min: 10, descuento: 2000, label: 'Oro',     emoji: '⭐', color: 'blue'   as const },
+  { min:  5, descuento: 1000, label: 'Plata',   emoji: '🥈', color: 'amber'  as const },
 ] as const
 
-export type NivelMembresia = 'Elite' | 'Plus' | 'Mayorista' | null
+export type NivelMembresia = 'Platino' | 'Oro' | 'Plata' | null
 
 export interface MembresiaStatus {
   kgPeriodo: number

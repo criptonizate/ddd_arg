@@ -1049,7 +1049,7 @@ export default function FilamentosShop({
               <span>🏆</span>
               <span>
                 {membresia?.nivel
-                  ? `Mayorista ${membresia.nivel !== 'Mayorista' ? membresia.nivel : ''} activo`
+                  ? `${membresia.nivel} activo`
                   : 'Membresía activa'}
                 {' · '}
                 {kgAcumulados.toFixed(1)} kg acumulados este período

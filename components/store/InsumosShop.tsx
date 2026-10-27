@@ -250,9 +250,9 @@ export default function InsumosShop({
               )}
               <div className="space-y-1.5">
                 {[
-                  { min: 5,  pct: 5,  label: 'Mayorista' },
-                  { min: 10, pct: 10, label: 'Plus' },
-                  { min: 15, pct: 15, label: 'Elite' },
+                  { min: 5,  pct: 5,  label: 'Plata' },
+                  { min: 10, pct: 10, label: 'Oro' },
+                  { min: 15, pct: 15, label: 'Platino' },
                 ].map(t => {
                   const activo = kgPeriodo >= t.min
                   return (

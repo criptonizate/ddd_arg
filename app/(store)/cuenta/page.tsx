@@ -26,9 +26,9 @@ const KG_ACTIVACION = 5   // kg mínimos para activar membresía
 const TIER_MAX = TIERS_MEMBRESIA[0].min   // 15 kg
 
 const NIVEL_STYLES = {
-  Elite:     { cardBg: '#1e1330', cardBorder: '#7c3aed', bar: '#7c3aed', barBg: '#2d1b4e', badge: 'bg-violet-900/60 text-violet-300 border-violet-700', divider: '#3b1f6a' },
-  Plus:      { cardBg: '#0e1e35', cardBorder: '#2563eb', bar: '#2563eb', barBg: '#1a2f50', badge: 'bg-blue-900/60 text-blue-300 border-blue-700',       divider: '#1a3a6e' },
-  Mayorista: { cardBg: '#1a1500', cardBorder: '#d97706', bar: '#d97706', barBg: '#2e2300', badge: 'bg-amber-900/60 text-amber-300 border-amber-700',    divider: '#3d2e00' },
+  Platino: { cardBg: '#1e1330', cardBorder: '#7c3aed', bar: '#7c3aed', barBg: '#2d1b4e', badge: 'bg-violet-900/60 text-violet-300 border-violet-700', divider: '#3b1f6a' },
+  Oro:     { cardBg: '#0e1e35', cardBorder: '#2563eb', bar: '#2563eb', barBg: '#1a2f50', badge: 'bg-blue-900/60 text-blue-300 border-blue-700',       divider: '#1a3a6e' },
+  Plata:   { cardBg: '#1a1500', cardBorder: '#d97706', bar: '#d97706', barBg: '#2e2300', badge: 'bg-amber-900/60 text-amber-300 border-amber-700',    divider: '#3d2e00' },
 }
 
 export default async function CuentaPage({
@@ -78,7 +78,7 @@ export default async function CuentaPage({
               {membresia?.nivel && styles && (
                 <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
                   <Crown size={11} />
-                  {membresia.nivel === 'Mayorista' ? 'Mayorista' : `Mayorista ${membresia.nivel}`}
+                  {membresia.nivel}
                   {membresia.esTrial && ' · Prueba'}
                 </span>
               )}
@@ -178,7 +178,7 @@ export default async function CuentaPage({
                   <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#86efac' }}>Tu membresía</p>
                   <p className="font-black text-2xl leading-none" style={{ color: '#f0fdf4' }}>
                     {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}
-                    Mayorista{membresia.nivel !== 'Mayorista' && ` ${membresia.nivel}`}
+                    {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji}{' '}{membresia.nivel}
                   </p>
                   <p className="text-xs mt-1.5" style={{ color: '#86efac' }}>
                     Descuento: <strong style={{ color: '#f0fdf4' }}>−{fmtARS(membresia.descuento)}/kg</strong>
@@ -220,11 +220,11 @@ export default async function CuentaPage({
               {membresia && membresia.kgPeriodo > 0 ? (
                 <p className="text-sm text-muted-foreground mb-3">
                   Tenés <strong className="text-foreground">{membresia.kgPeriodo.toFixed(1)} kg</strong> acumulados.
-                  Te faltan <strong className="text-foreground">{(KG_ACTIVACION - membresia.kgPeriodo).toFixed(1)} kg</strong> para activar el descuento mayorista.
+                  Te faltan <strong className="text-foreground">{(KG_ACTIVACION - membresia.kgPeriodo).toFixed(1)} kg</strong> para activar el descuento.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground mb-3">
-                  Con tu primer pedido de <strong className="text-foreground">5 kg o más</strong>, tu membresía mayorista se activa automáticamente.
+                  Con tu primer pedido de <strong className="text-foreground">5 kg o más</strong>, tu membresía se activa automáticamente.
                 </p>
               )}
               <div className="h-2 bg-secondary rounded-full mb-1 overflow-hidden">
@@ -251,7 +251,7 @@ export default async function CuentaPage({
                     <span>{t.emoji}</span>
                     <div>
                       <p className="text-sm font-semibold leading-none">
-                        Mayorista{t.label !== 'Mayorista' && ` ${t.label}`}
+                        {t.emoji} {t.label}
                         {activo && <span className="ml-2 text-[10px] text-amber-500">✓ activo</span>}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{t.min} kg en 30 días</p>

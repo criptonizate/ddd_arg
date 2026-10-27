@@ -393,13 +393,13 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     if (trial?.trial_fin && new Date(trial.trial_fin).getTime() > nowMs) {
       const trialFin = new Date(trial.trial_fin)
       const diasRestantes = Math.max(0, Math.ceil((trialFin.getTime() - nowMs) / (24 * 60 * 60 * 1000)))
-      const mayoristaTier = TIERS_MEMBRESIA.find(t => t.label === 'Mayorista')!
+      const mayoristaTier = TIERS_MEMBRESIA.find(t => t.label === 'Plata')!
       return {
         kgPeriodo: 0,
         periodoInicio: new Date(trial.trial_fin as string).toISOString(), // se reemplaza al primer pedido
         periodoFin: trialFin.toISOString(),
         diasRestantes,
-        nivel: 'Mayorista',
+        nivel: 'Plata',
         descuento: mayoristaTier.descuento,
         totalHistorico: 0,
         extensionPendiente: false,
@@ -469,7 +469,7 @@ export async function solicitarExtensionMembresia(): Promise<void> {
     // Calcular costo según nivel actual y registrar solicitud
     const membresiaActual = await getMembresiaCliente(userId)
     const costo = costoExtension(membresiaActual?.nivel ?? null)
-    const nivel = membresiaActual?.nivel ?? 'Mayorista'
+    const nivel = membresiaActual?.nivel ?? 'Plata'
     await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
 
     // Obtener datos del usuario para el email

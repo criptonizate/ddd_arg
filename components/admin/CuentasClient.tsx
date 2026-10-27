@@ -915,8 +915,8 @@ export default function CuentasClient({
                         <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">{m.nombre}</span>
                       )}
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                        m.nivel === 'Elite' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
-                        : m.nivel === 'Plus' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        m.nivel === 'Platino' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                        : m.nivel === 'Oro' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                         : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
                       }`}>
                         {tier?.emoji} {m.nivel}

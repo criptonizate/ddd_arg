@@ -7,16 +7,16 @@ import type { NivelMembresia } from '@/lib/membresia-helpers'
 import { DIAS_EXTENSION } from '@/lib/membresia-helpers'
 
 const COSTO_POR_NIVEL: Record<string, number> = {
-  Mayorista: 2000,
-  Plus: 4000,
-  Elite: 10000,
+  Plata:   2000,
+  Oro:     4000,
+  Platino: 10000,
 }
 
 export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: NivelMembresia; diasRestantes?: number }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const costo = COSTO_POR_NIVEL[nivel ?? 'Mayorista'] ?? 2000
+  const costo = COSTO_POR_NIVEL[nivel ?? 'Plata'] ?? 2000
   const urgente = diasRestantes <= 2
 
   function handleSolicitar() {
