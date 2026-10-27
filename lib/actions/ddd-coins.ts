@@ -72,6 +72,9 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     puntosTransacciones.map(t => ({ user_id: user.id, ...t }))
   )
 
+  // Bienvenida (100 pts, una sola vez para todos los usuarios)
+  await sumarPuntosBienvenida(user.id)
+
   const ganados = puntosTransacciones.reduce((s, t) => s + t.puntos, 0)
   return { ganados, racha }
 }
@@ -99,6 +102,17 @@ export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> 
     .gte('created_at', inicioMes.toISOString())
   if ((count ?? 0) > 0) return
   await db.from('ddd_coins').insert({ user_id: userId, puntos: 50, motivo: 'membresia_mensual' })
+}
+
+export async function sumarPuntosBienvenida(userId: string): Promise<void> {
+  const db = createServiceClient()
+  const { count } = await db
+    .from('ddd_coins')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('motivo', 'bienvenida')
+  if ((count ?? 0) > 0) return
+  await db.from('ddd_coins').insert({ user_id: userId, puntos: 100, motivo: 'bienvenida' })
 }
 
 export async function sumarPuntosPerfilCompleto(userId: string): Promise<void> {

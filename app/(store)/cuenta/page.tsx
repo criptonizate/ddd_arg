@@ -90,6 +90,15 @@ export default async function CuentaPage({
                   {membresia.esTrial && ' · Prueba'}
                 </span>
               )}
+              {saldoCoins > 0 && (
+                <Link
+                  href="/cuenta?tab=coins"
+                  className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full border transition-all hover:scale-105 active:scale-95"
+                  style={{ background: 'oklch(0.22 0.04 60)', borderColor: '#d97706', color: '#f59e0b' }}
+                >
+                  🪙 {saldoCoins.toLocaleString('es-AR')} pts
+                </Link>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>

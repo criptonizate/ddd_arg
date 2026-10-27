@@ -28,6 +28,7 @@ const MOTIVO_LABEL: Record<string, { label: string; icon: React.ReactNode }> = {
   membresia_mensual: { label: 'Membresía activa',      icon: <Crown size={13} /> },
   completar_perfil:  { label: 'Perfil completado',     icon: <User size={13} /> },
   canje_pedido:      { label: 'Canje en pedido',       icon: <Coins size={13} /> },
+  bienvenida:        { label: '🎁 Regalo de bienvenida', icon: <Star size={13} /> },
 }
 
 function addMonths(date: Date, months: number): Date {
@@ -179,8 +180,8 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
             <p>✅ <strong className="text-foreground">Perfil completo</strong> — 20 pts al completar tus datos</p>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            ⏳ Los puntos <strong className="text-foreground">vencen a los 12 meses</strong> de ser ganados.
-            Usándolos o ganando nuevos puntos mantenés activo tu saldo.
+            ⏳ Los puntos <strong className="text-foreground">vencen a los 12 meses</strong> de ser ganados,
+            contados desde el día en que los recibiste. Cada lote vence de forma independiente.
           </p>
         </div>
       </div>
