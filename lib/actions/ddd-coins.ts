@@ -2,9 +2,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
-
-export const PUNTOS_POR_CANJE = 150
-export const PESOS_POR_CANJE = 1000
+import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
 
 export async function getSaldoCoins(userId: string): Promise<number> {
   const db = createServiceClient()
@@ -111,11 +109,6 @@ export async function sumarPuntosPerfilCompleto(userId: string): Promise<void> {
     .eq('motivo', 'completar_perfil')
   if ((count ?? 0) > 0) return
   await db.from('ddd_coins').insert({ user_id: userId, puntos: 20, motivo: 'completar_perfil' })
-}
-
-export function calcularDescuentoCoins(puntosACanjear: number): number {
-  const bloques = Math.floor(puntosACanjear / PUNTOS_POR_CANJE)
-  return bloques * PESOS_POR_CANJE
 }
 
 export async function canjearCoinsEnPedido(

@@ -86,7 +86,8 @@ export async function crearPedidoFilamento(data: {
   // Descuento DDD Coins
   let descuento_coins = 0
   if (data.puntosACanjear && data.puntosACanjear > 0) {
-    const { calcularDescuentoCoins, getSaldoCoins } = await import('./ddd-coins')
+    const { calcularDescuentoCoins } = await import('../ddd-coins-helpers')
+    const { getSaldoCoins } = await import('./ddd-coins')
     const saldo = await getSaldoCoins(user.id)
     if (saldo >= data.puntosACanjear) {
       descuento_coins = calcularDescuentoCoins(data.puntosACanjear)
