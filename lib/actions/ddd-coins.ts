@@ -40,7 +40,9 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
   if (!user) return { ganados: 0, racha: 0 }
 
   const db = createServiceClient()
-  const hoy = new Date().toISOString().split('T')[0]
+  // Usar hora Argentina (UTC-3) para evitar bugs de racha a medianoche
+  const ahoraAR = new Date(Date.now() - 3 * 60 * 60 * 1000)
+  const hoy = ahoraAR.toISOString().split('T')[0]
 
   const { data: loginRow } = await db
     .from('ddd_coins_login')
@@ -50,7 +52,8 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
 
   if (loginRow?.last_login_date === hoy) return { ganados: 0, racha: loginRow.racha_dias }
 
-  const ayer = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  const ayerAR = new Date(Date.now() - 3 * 60 * 60 * 1000 - 86400000)
+  const ayer = ayerAR.toISOString().split('T')[0]
   const racha = loginRow?.last_login_date === ayer ? (loginRow.racha_dias + 1) : 1
 
   await db.from('ddd_coins_login').upsert({

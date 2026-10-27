@@ -380,7 +380,7 @@ function UserDetail({
     Promise.all([
       getPedidosByUser(usuario.id),
       getVentasDeUsuario(usuario.id),
-      getSaldoCoins(usuario.id),
+      getSaldoCoins(usuario.id).catch(() => 0),
     ]).then(([p, v, coins]) => {
       setPedidos(p)
       setVentas(v)

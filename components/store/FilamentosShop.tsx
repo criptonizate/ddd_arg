@@ -768,7 +768,7 @@ export default function FilamentosShop({
       const mem = await getMembresiaCliente(user.id).catch(() => null)
       setMembresia(mem)
     }
-    setShowCheckout(true); setCheckoutStep('form'); setCheckoutError(''); setPedidoNumero(null)
+    setShowCheckout(true); setCheckoutStep('form'); setCheckoutError(''); setPedidoNumero(null); setPuntosACanjear(0)
   }
 
   function abrirWhatsApp(numero: number) {

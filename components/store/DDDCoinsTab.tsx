@@ -55,8 +55,9 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
   const porMes: Record<string, number> = {}
   for (const row of historial) {
     if (row.puntos <= 0) continue
-    const fecha = new Date(row.created_at)
-    const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+    // Usar fecha en hora Argentina (UTC-3) para agrupar correctamente
+    const fechaAR = new Date(new Date(row.created_at).getTime() - 3 * 60 * 60 * 1000)
+    const clave = `${fechaAR.getUTCFullYear()}-${String(fechaAR.getUTCMonth() + 1).padStart(2, '0')}`
     porMes[clave] = (porMes[clave] ?? 0) + row.puntos
   }
   for (const [clave, pts] of Object.entries(porMes).sort()) {

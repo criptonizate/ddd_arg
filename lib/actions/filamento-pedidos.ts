@@ -132,12 +132,14 @@ export async function crearPedidoFilamento(data: {
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
 
-  // Sumar puntos por compra y canjear coins si corresponde
+  // Sumar puntos por compra y canjear coins si corresponde (awaited para consistencia)
   const { sumarPuntosPorCompra, canjearCoinsEnPedido } = await import('./ddd-coins')
-  void sumarPuntosPorCompra(user.id, total_rollos, row.id)
-  if (data.puntosACanjear && data.puntosACanjear > 0 && descuento_coins > 0) {
-    void canjearCoinsEnPedido(user.id, data.puntosACanjear, row.id)
-  }
+  await Promise.allSettled([
+    sumarPuntosPorCompra(user.id, total_rollos, row.id),
+    data.puntosACanjear && data.puntosACanjear > 0 && descuento_coins > 0
+      ? canjearCoinsEnPedido(user.id, data.puntosACanjear, row.id)
+      : Promise.resolve(),
+  ])
 
   // Emails — fire and forget, no bloqueamos la respuesta
   const emailData = {
