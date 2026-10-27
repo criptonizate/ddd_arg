@@ -167,6 +167,91 @@ export async function sendPedidoConfirmadoCliente(data: PedidoEmailData & { clie
   if (error) console.error('[email] sendPedidoConfirmadoCliente error:', error)
 }
 
+export async function sendCarritoAbandonado({
+  to,
+  nombre,
+  items,
+  siteUrl,
+}: {
+  to: string
+  nombre: string
+  items: { nombre: string; kg: number; precioUnitario: number }[]
+  siteUrl: string
+}): Promise<void> {
+  const totalKg = items.reduce((s, i) => s + i.kg, 0)
+  const itemsHtml = items.map(i => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#f0fdf4">${i.nombre}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;text-align:center;color:#86efac">${i.kg} kg</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;text-align:right;color:#fcd34d">${fmtARS(i.precioUnitario * i.kg)}</td>
+    </tr>
+  `).join('')
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `🧵 ${nombre !== 'amigo' ? `${nombre}, ¡t` : '¡T'}u carrito te está esperando — DDD ARG`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#f0fdf4;padding:0;border-radius:12px;overflow:hidden">
+
+        <div style="background:#111;padding:20px 24px;border-bottom:1px solid #1a1a1a">
+          <span style="color:#f97316;font-weight:900;font-size:18px;letter-spacing:-0.5px">DDD ARG</span>
+          <span style="color:#6b7280;font-size:13px;margin-left:8px">Filamentos para impresión 3D</span>
+        </div>
+
+        <div style="padding:28px 24px">
+          <h2 style="color:#f0fdf4;margin:0 0 8px;font-size:22px">Hola ${nombre} 👋</h2>
+          <p style="color:#9ca3af;margin:0 0 24px;font-size:15px;line-height:1.6">
+            Te escribimos porque dejaste algunos filamentos en tu carrito y todavía no finalizaste la compra.
+            Acá tenés un resumen de lo que elegiste:
+          </p>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#111;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#1a1a1a">
+                <th style="padding:10px 12px;text-align:left;color:#9ca3af;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Filamento</th>
+                <th style="padding:10px 12px;text-align:center;color:#9ca3af;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Cantidad</th>
+                <th style="padding:10px 12px;text-align:right;color:#9ca3af;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr style="background:#1a1a1a">
+                <td style="padding:10px 12px;font-weight:bold;color:#f0fdf4" colspan="1">Total</td>
+                <td style="padding:10px 12px;text-align:center;color:#86efac;font-weight:bold">${totalKg} kg</td>
+                <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-weight:900;font-size:16px">${fmtARS(items.reduce((s, i) => s + i.precioUnitario * i.kg, 0))}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="background:#1a0e00;border:1px solid #92400e;border-radius:8px;padding:14px 16px;margin-bottom:24px">
+            <p style="color:#fcd34d;margin:0;font-size:14px;line-height:1.5">
+              🚨 <strong style="color:#f0fdf4">Stock limitado</strong> — algunos de estos filamentos tienen pocas unidades disponibles y pueden agotarse antes de que vuelvan a reponer. No te quedés sin el tuyo.
+            </p>
+          </div>
+
+          <a href="${siteUrl}/filamentos" style="display:inline-block;background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;letter-spacing:-0.2px">
+            Completar mi compra →
+          </a>
+
+          <p style="color:#6b7280;margin:24px 0 0;font-size:13px;line-height:1.6">
+            Si ya no te interesa, no te preocupes — podés ignorar este mail 😊<br>
+            No te vamos a volver a escribir por este carrito.
+          </p>
+        </div>
+
+        <div style="background:#111;padding:16px 24px;border-top:1px solid #1a1a1a">
+          <p style="color:#6b7280;margin:0;font-size:12px">
+            El equipo de <strong style="color:#f97316">DDD ARG</strong> · Capital, La Rioja, Argentina<br>
+            <a href="${siteUrl}/privacidad" style="color:#6b7280">Política de privacidad</a>
+          </p>
+        </div>
+      </div>
+    `,
+  })
+  if (error) console.error('[email] sendCarritoAbandonado error:', error)
+}
+
 export async function sendMembresiaPorVencerCliente(data: {
   clienteEmail: string
   clienteNombre: string
