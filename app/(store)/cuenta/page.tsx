@@ -13,6 +13,8 @@ import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import PerfilTab from '@/components/store/PerfilTab'
 import ExtensionModal from '@/components/store/ExtensionModal'
 import DDDCoinsTab from '@/components/store/DDDCoinsTab'
+import MembresiaProgressBar from '@/components/store/MembresiaProgressBar'
+import CoinsToast from '@/components/store/CoinsToast'
 import Link from 'next/link'
 import { Package, Crown, User } from 'lucide-react'
 
@@ -228,9 +230,7 @@ export default async function CuentaPage({
                     : <span style={{ color: '#fcd34d' }}>🏆 Nivel máximo</span>
                   }
                 </div>
-                <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: styles.barBg }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (membresia.kgPeriodo / TIER_MAX) * 100)}%`, backgroundColor: styles.bar }} />
-                </div>
+                <MembresiaProgressBar pct={Math.min(100, (membresia.kgPeriodo / TIER_MAX) * 100)} color={styles.bar} barBg={styles.barBg} />
                 <div className="flex justify-between text-[10px] mt-1" style={{ color: '#86efac' }}>
                   {TIERS_MEMBRESIA.slice().reverse().map(t => (
                     <span key={t.min}>{t.emoji} {t.min} kg</span>
@@ -253,9 +253,7 @@ export default async function CuentaPage({
                   Con tu primer pedido de <strong className="text-foreground">5 kg o más</strong>, tu membresía se activa automáticamente.
                 </p>
               )}
-              <div className="h-2 bg-secondary rounded-full mb-1 overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, ((membresia?.kgPeriodo ?? 0) / KG_ACTIVACION) * 100)}%` }} />
-              </div>
+              <MembresiaProgressBar pct={Math.min(100, ((membresia?.kgPeriodo ?? 0) / KG_ACTIVACION) * 100)} color="#f59e0b" barBg="oklch(0.25 0.01 60)" />
               <div className="flex justify-between text-[10px] text-muted-foreground mb-4">
                 <span>{(membresia?.kgPeriodo ?? 0).toFixed(1)} kg</span>
                 <span>5 kg para activar</span>
@@ -329,6 +327,7 @@ export default async function CuentaPage({
         </div>
       )}
 
+      <CoinsToast ganados={loginResult.ganados} racha={loginResult.racha} />
     </div>
   )
 }

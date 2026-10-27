@@ -61,6 +61,15 @@ export default function StoreHeader() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [ready, setReady] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [popping, setPopping] = useState(false)
+  const totalCount = count + filamentCount
+
+  useEffect(() => {
+    if (totalCount === 0) return
+    setPopping(true)
+    const t = setTimeout(() => setPopping(false), 300)
+    return () => clearTimeout(t)
+  }, [totalCount])
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -243,9 +252,15 @@ export default function StoreHeader() {
               style={{ color: 'oklch(0.55 0.005 264)' }}
             >
               <ShoppingBag size={19} />
-              {(count + filamentCount) > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#16a34a] text-white text-[9px] font-black">
-                  {(count + filamentCount) > 9 ? '9+' : (count + filamentCount)}
+              {totalCount > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#16a34a] text-white text-[9px] font-black"
+                  style={{
+                    transform: popping ? 'scale(1.45)' : 'scale(1)',
+                    transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  }}
+                >
+                  {totalCount > 9 ? '9+' : totalCount}
                 </span>
               )}
             </Link>
