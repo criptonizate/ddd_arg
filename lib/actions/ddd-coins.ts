@@ -72,16 +72,18 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
 
   // Sumar 50 pts de membresía activa (una vez por mes, idempotente)
   // Verificación barata: si compró 5+ kg en los últimos 30 días tiene membresía
-  db.from('filamento_pedidos')
-    .select('total_rollos')
-    .eq('user_id', user.id)
-    .in('estado', ['confirmado', 'entregado'])
-    .gte('updated_at', new Date(now - 30 * 86400000).toISOString())
-    .then(({ data: pedidosRecientes }) => {
-      const kgRecientes = (pedidosRecientes ?? []).reduce((s: number, p: { total_rollos: number }) => s + p.total_rollos, 0)
-      if (kgRecientes >= 5) sumarPuntosMembresiaActiva(user.id).catch(() => {})
-    })
-    .catch(() => {})
+  try {
+    const { data: pedidosRecientes } = await db
+      .from('filamento_pedidos')
+      .select('total_rollos')
+      .eq('user_id', user.id)
+      .in('estado', ['confirmado', 'entregado'])
+      .gte('updated_at', new Date(now - 30 * 86400000).toISOString())
+    const kgRecientes = (pedidosRecientes ?? []).reduce(
+      (s: number, p: { total_rollos: number }) => s + p.total_rollos, 0
+    )
+    if (kgRecientes >= 5) await sumarPuntosMembresiaActiva(user.id)
+  } catch {}
 
   return { ganados, racha }
 }
