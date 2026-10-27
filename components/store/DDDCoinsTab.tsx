@@ -52,24 +52,41 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
 
   // Agrupar ganancias por mes para la línea de vencimiento
   const vencimientos: { mes: string; puntos: number; venceEl: Date; diasQuedan: number }[] = []
-  const porMes: Record<string, number> = {}
+  // Agrupar por DÍA exacto (no mes) para precisión de vencimiento
+  const porDia: Record<string, number> = {}
   for (const row of historial) {
     if (row.puntos <= 0) continue
-    // Usar fecha en hora Argentina (UTC-3) para agrupar correctamente
     const fechaAR = new Date(new Date(row.created_at).getTime() - 3 * 60 * 60 * 1000)
-    const clave = `${fechaAR.getUTCFullYear()}-${String(fechaAR.getUTCMonth() + 1).padStart(2, '0')}`
-    porMes[clave] = (porMes[clave] ?? 0) + row.puntos
+    const clave = `${fechaAR.getUTCFullYear()}-${String(fechaAR.getUTCMonth() + 1).padStart(2, '0')}-${String(fechaAR.getUTCDate()).padStart(2, '0')}`
+    porDia[clave] = (porDia[clave] ?? 0) + row.puntos
   }
-  for (const [clave, pts] of Object.entries(porMes).sort()) {
+  // Agrupar por mes para mostrar en la línea de tiempo (UX más limpia)
+  const porMes: Record<string, { puntos: number; venceEl: Date }> = {}
+  for (const [clave, pts] of Object.entries(porDia)) {
+    const [y, m, d] = clave.split('-').map(Number)
+    const diaExacto = new Date(y, m - 1, d)
+    const venceEl = addMonths(diaExacto, MESES_VENCIMIENTO)
+    const dias = diasRestantes(venceEl)
+    if (dias <= 0) continue
+    const mesClave = `${y}-${String(m).padStart(2, '0')}`
+    if (!porMes[mesClave] || venceEl < porMes[mesClave].venceEl) {
+      // Guardar la fecha de vencimiento más temprana del mes
+      porMes[mesClave] = { puntos: (porMes[mesClave]?.puntos ?? 0) + pts, venceEl }
+    } else {
+      porMes[mesClave].puntos += pts
+    }
+  }
+  for (const [clave, { puntos: pts, venceEl }] of Object.entries(porMes).sort()) {
     const [y, m] = clave.split('-').map(Number)
-    const primerDiaMes = new Date(y, m - 1, 1)
-    const venceEl = addMonths(primerDiaMes, MESES_VENCIMIENTO)
     const dias = diasRestantes(venceEl)
     if (dias > 0) {
-      const label = primerDiaMes.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      const label = new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
       vencimientos.push({ mes: label, puntos: pts, venceEl, diasQuedan: dias })
     }
   }
+
+  // Aviso próximo vencimiento (< 90 días)
+  const proximoVencimiento = vencimientos.find(v => v.diasQuedan <= 90)
 
   return (
     <div className="space-y-5">
@@ -107,6 +124,21 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Aviso de vencimiento próximo */}
+      {proximoVencimiento && (
+        <div className="rounded-xl px-4 py-3 flex items-center gap-2.5 border" style={{ background: 'oklch(0.18 0.02 30)', borderColor: proximoVencimiento.diasQuedan <= 30 ? '#ef4444' : '#d97706' }}>
+          <span style={{ fontSize: '15px' }}>{proximoVencimiento.diasQuedan <= 30 ? '⚠️' : '🕐'}</span>
+          <p className="text-xs leading-relaxed">
+            <strong style={{ color: proximoVencimiento.diasQuedan <= 30 ? '#ef4444' : '#f59e0b' }}>
+              {proximoVencimiento.puntos} pts
+            </strong>
+            <span className="text-muted-foreground"> vencen el </span>
+            <strong className="text-foreground">{fmtFecha(proximoVencimiento.venceEl)}</strong>
+            <span className="text-muted-foreground"> — usálos antes de que expiren</span>
+          </p>
+        </div>
+      )}
 
       {/* Racha */}
       {racha > 0 && (
