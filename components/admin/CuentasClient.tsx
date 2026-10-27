@@ -6,6 +6,7 @@ import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuar
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, type FilamentoPedido, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
 import { getAdminUserNotes, saveAdminUserNotes, getAdminApodoMap, type AdminUserNotes } from '@/lib/actions/perfil'
+import { getSaldoCoins } from '@/lib/actions/ddd-coins'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -359,6 +360,7 @@ function UserDetail({
   const [showVincular, setShowVincular] = useState(false)
   const [editarVenta, setEditarVenta] = useState<VentaFilamento | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saldoCoins, setSaldoCoins] = useState<number | null>(null)
   const [notas, setNotas] = useState<AdminUserNotes | null>(null)
   const [editNotas, setEditNotas] = useState(false)
   const [editTel, setEditTel] = useState('')
@@ -378,9 +380,11 @@ function UserDetail({
     Promise.all([
       getPedidosByUser(usuario.id),
       getVentasDeUsuario(usuario.id),
-    ]).then(([p, v]) => {
+      getSaldoCoins(usuario.id),
+    ]).then(([p, v, coins]) => {
       setPedidos(p)
       setVentas(v)
+      setSaldoCoins(coins)
       setLoading(false)
     })
   }, [usuario.id])
@@ -496,7 +500,7 @@ function UserDetail({
 
       {/* Stats */}
       {!loading && pedidos !== null && (
-        <div className="grid grid-cols-3 gap-2 px-5 py-3 border-b border-border">
+        <div className="grid grid-cols-4 gap-2 px-5 py-3 border-b border-border">
           <div className="text-center">
             <p className="text-lg font-bold">{pedidos.length}</p>
             <p className="text-[10px] text-muted-foreground">pedidos</p>
@@ -508,6 +512,12 @@ function UserDetail({
           <div className="text-center">
             <p className="text-lg font-bold text-green-600">{fmtARS(totalGastado)}</p>
             <p className="text-[10px] text-muted-foreground">gastado</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold" style={{ color: '#f59e0b' }}>
+              {saldoCoins ?? '—'} 🪙
+            </p>
+            <p className="text-[10px] text-muted-foreground">DDD Coins</p>
           </div>
         </div>
       )}
