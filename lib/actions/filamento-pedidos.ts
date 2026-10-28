@@ -253,9 +253,13 @@ export async function confirmarPedidoYDescontarStock(
     (costosData ?? []).map((f: { id: string; costo_kg: number | null }) => [f.id, f.costo_kg ?? 0])
   )
 
+  // Precio real pagado por kg = precio de catálogo - descuento por membresía
+  const descuentoPorRollo = pedido.descuento_por_rollo ?? 0
+
   // Procesar items en paralelo (cada RPC es atómico internamente)
   const results = await Promise.all(items.map(async (item) => {
     const gramos = Math.round(item.rollos * 1000)
+    const precioRealPorKg = Math.max(0, item.precio_unitario - descuentoPorRollo)
 
     const { data: rpcResult, error: rpcError } = await supabase
       .rpc('descontar_stock_filamento', {
@@ -274,10 +278,12 @@ export async function confirmarPedidoYDescontarStock(
       .insert({
         filamento_id: item.filamento_id,
         gramos,
-        precio_kg: item.precio_unitario,
+        precio_kg: precioRealPorKg,
         costo_kg: costoById.get(item.filamento_id) ?? 0,
         cliente: pedido.cliente_nombre,
-        nota: `Pedido web N°${pedido.numero}`,
+        nota: descuentoPorRollo > 0
+          ? `Pedido web N°${pedido.numero} — descuento membresía: -$${descuentoPorRollo.toLocaleString('es-AR')}/kg`
+          : `Pedido web N°${pedido.numero}`,
         fecha,
         user_id: pedido.user_id ?? null,
         pedido_id: pedidoId,
