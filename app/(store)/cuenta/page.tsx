@@ -15,6 +15,7 @@ import ExtensionModal from '@/components/store/ExtensionModal'
 import DDDCoinsTab from '@/components/store/DDDCoinsTab'
 import MembresiaProgressBar from '@/components/store/MembresiaProgressBar'
 import CoinsToast from '@/components/store/CoinsToast'
+import InstallPWA from '@/components/store/InstallPWA'
 import Link from 'next/link'
 import { Package, Crown, User } from 'lucide-react'
 
@@ -336,6 +337,7 @@ export default async function CuentaPage({
       )}
 
       <CoinsToast ganados={loginResult.ganados} racha={loginResult.racha} />
+      <InstallPWA />
     </div>
   )
 }

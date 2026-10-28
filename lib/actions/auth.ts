@@ -22,7 +22,7 @@ export async function signInWithGoogleCliente() {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${siteUrl}/api/auth/callback?next=/cuenta` },
+    options: { redirectTo: `${siteUrl}/api/auth/callback?next=/filamentos` },
   })
 
   if (error) redirect('/?error=auth_error')
