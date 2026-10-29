@@ -707,7 +707,7 @@ export async function toggleOcultoFilamento(id: string, oculto: boolean): Promis
 
 // ── Sugerencias de filamentos (clientes) ─────────────────────────────────────
 
-export async function enviarSugerenciaFilamento(mensaje: string): Promise<{ error?: string }> {
+export async function enviarSugerenciaFilamento(mensaje: string, color?: string): Promise<{ error?: string }> {
   if (!mensaje.trim()) return { error: 'El mensaje no puede estar vacío' }
   if (mensaje.trim().length > 2000) return { error: 'El mensaje es demasiado largo (máx. 2000 caracteres)' }
   const { createClient } = await import('@/lib/supabase/server')
@@ -721,8 +721,10 @@ export async function enviarSugerenciaFilamento(mensaje: string): Promise<{ erro
     user_id: user.id,
     nombre_usuario: nombre,
     mensaje: mensaje.trim(),
+    color: color?.trim() || null,
   })
   if (error) return { error: 'Error al enviar la sugerencia' }
+  revalidatePath('/cuenta')
   return {}
 }
 
@@ -731,6 +733,10 @@ export interface FilamentoSugerencia {
   user_id: string | null
   nombre_usuario: string
   mensaje: string
+  color: string | null
+  estado: 'pendiente' | 'notificado' | 'descartado'
+  respondido_at: string | null
+  visto_por_cliente: boolean
   created_at: string
   leido: boolean
 }
@@ -749,4 +755,89 @@ export async function marcarSugerenciaLeida(id: string): Promise<void> {
   await getAdminUser()
   const supabase = createServiceClient()
   await supabase.from('filamento_sugerencias').update({ leido: true }).eq('id', id)
+}
+
+// Cliente envía un "pedí este color" — formulario más estructurado del /cuenta
+export async function pedirColor(data: { color: string; nota?: string }): Promise<{ error?: string }> {
+  const color = data.color?.trim()
+  if (!color) return { error: 'Indicá qué color te hace falta' }
+  if (color.length > 120) return { error: 'El color es demasiado largo' }
+  const nota = (data.nota ?? '').trim().slice(0, 500)
+  const mensaje = nota ? `Pedido de color: ${color}. ${nota}` : `Pedido de color: ${color}`
+  return enviarSugerenciaFilamento(mensaje, color)
+}
+
+// Historial de sugerencias del cliente logueado
+export async function getMisSugerencias(): Promise<FilamentoSugerencia[]> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const sb = createServiceClient()
+  const { data } = await sb
+    .from('filamento_sugerencias')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  return (data ?? []) as FilamentoSugerencia[]
+}
+
+// Cliente borra uno de sus pedidos de color (solo si todavía está pendiente)
+export async function borrarMiSugerencia(id: string): Promise<{ error?: string }> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+  const sb = createServiceClient()
+  const { error } = await sb
+    .from('filamento_sugerencias')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+  if (error) return { error: 'No se pudo borrar' }
+  revalidatePath('/cuenta')
+  return {}
+}
+
+// Cliente marca como visto el aviso de "ya hay stock" para no mostrar el badge
+export async function marcarSugerenciasVistas(): Promise<void> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const sb = createServiceClient()
+  await sb
+    .from('filamento_sugerencias')
+    .update({ visto_por_cliente: true })
+    .eq('user_id', user.id)
+    .eq('estado', 'notificado')
+    .eq('visto_por_cliente', false)
+}
+
+// Admin notifica al cliente que su color ya está en stock
+export async function notificarSugerenciaDisponible(id: string): Promise<{ error?: string }> {
+  await getAdminUser()
+  const sb = createServiceClient()
+  const { error } = await sb
+    .from('filamento_sugerencias')
+    .update({ estado: 'notificado', respondido_at: new Date().toISOString(), leido: true })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/filamentos')
+  revalidatePath('/cuenta')
+  return {}
+}
+
+export async function descartarSugerencia(id: string): Promise<{ error?: string }> {
+  await getAdminUser()
+  const sb = createServiceClient()
+  const { error } = await sb
+    .from('filamento_sugerencias')
+    .update({ estado: 'descartado', respondido_at: new Date().toISOString(), leido: true })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/filamentos')
+  revalidatePath('/cuenta')
+  return {}
 }

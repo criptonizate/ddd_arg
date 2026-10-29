@@ -21,6 +21,8 @@ import {
   toggleOcultoFilamento,
   getSugerenciasAdmin,
   marcarSugerenciaLeida,
+  notificarSugerenciaDisponible,
+  descartarSugerencia,
   type UsuarioRegistrado,
   type FilamentoSugerencia,
 } from '@/lib/actions/filamentos'
@@ -2699,25 +2701,80 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
       {tab === 'demanda' && <DemandaTab />}
       {tab === 'sugerencias' && (
         <div className="space-y-3">
-          <h2 className="font-semibold text-base flex items-center gap-2"><MessageSquare size={16} /> Sugerencias de clientes</h2>
+          <h2 className="font-semibold text-base flex items-center gap-2"><MessageSquare size={16} /> Sugerencias y pedidos de color</h2>
           {loadingSugs && <p className="text-sm text-muted-foreground">Cargando...</p>}
           {sugerencias && sugerencias.length === 0 && <p className="text-sm text-muted-foreground">No hay sugerencias todavía.</p>}
-          {sugerencias && sugerencias.map(s => (
-            <div key={s.id} className={`rounded-xl border p-4 space-y-1 ${s.leido ? 'border-border opacity-60' : 'border-violet-300 dark:border-violet-700 bg-violet-50/40 dark:bg-violet-900/10'}`}>
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm">{s.mensaje}</p>
-                {!s.leido && (
-                  <button onClick={async () => {
-                    await marcarSugerenciaLeida(s.id)
-                    setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, leido: true } : x) : prev)
-                  }} className="shrink-0 text-xs text-violet-600 dark:text-violet-400 hover:underline">
-                    Marcar leída
-                  </button>
+          {sugerencias && sugerencias.map(s => {
+            const esPedidoColor = !!s.color
+            const notificado = s.estado === 'notificado'
+            const descartado = s.estado === 'descartado'
+            const pendiente = !notificado && !descartado
+            return (
+              <div
+                key={s.id}
+                className={`rounded-xl border p-4 space-y-2 ${
+                  notificado ? 'border-green-500/50 bg-green-500/5'
+                  : descartado ? 'border-border opacity-50'
+                  : esPedidoColor ? 'border-violet-400 dark:border-violet-600 bg-violet-50/60 dark:bg-violet-900/15'
+                  : s.leido ? 'border-border opacity-60'
+                  : 'border-violet-300 dark:border-violet-700 bg-violet-50/40 dark:bg-violet-900/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    {esPedidoColor && (
+                      <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: '#c084fc' }}>
+                        🎨 Pedido de color: {s.color}
+                      </p>
+                    )}
+                    <p className="text-sm whitespace-pre-wrap break-words">{s.mensaje}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {s.nombre_usuario || 'Anónimo'} · {new Date(s.created_at).toLocaleDateString('es-AR')}
+                      {notificado && s.respondido_at && ` · avisado el ${new Date(s.respondido_at).toLocaleDateString('es-AR')}`}
+                      {descartado && ' · descartado'}
+                    </p>
+                  </div>
+                </div>
+                {pendiente && (
+                  <div className="flex gap-2 pt-1 flex-wrap">
+                    {esPedidoColor && (
+                      <button
+                        onClick={async () => {
+                          const res = await notificarSugerenciaDisponible(s.id)
+                          if (res.error) { alert(res.error); return }
+                          setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, estado: 'notificado', respondido_at: new Date().toISOString(), leido: true } : x) : prev)
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
+                      >
+                        ✅ Avisar que ya hay stock
+                      </button>
+                    )}
+                    {!s.leido && (
+                      <button onClick={async () => {
+                        await marcarSugerenciaLeida(s.id)
+                        setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, leido: true } : x) : prev)
+                      }} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
+                        Marcar leída
+                      </button>
+                    )}
+                    {esPedidoColor && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('¿Descartar este pedido de color? El cliente lo verá como "No disponible".')) return
+                          const res = await descartarSugerencia(s.id)
+                          if (res.error) { alert(res.error); return }
+                          setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, estado: 'descartado', respondido_at: new Date().toISOString(), leido: true } : x) : prev)
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-500 hover:border-red-500/50 transition-colors ml-auto"
+                      >
+                        Descartar
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">{s.nombre_usuario || 'Anónimo'} · {new Date(s.created_at).toLocaleDateString('es-AR')}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
-import { getVentasDeUsuario } from '@/lib/actions/filamentos'
+import { getVentasDeUsuario, getMisSugerencias } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION } from '@/lib/membresia-helpers'
 import { getMyProfile } from '@/lib/actions/perfil'
@@ -13,11 +13,12 @@ import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
 import PerfilTab from '@/components/store/PerfilTab'
 import ExtensionModal from '@/components/store/ExtensionModal'
 import DDDCoinsTab from '@/components/store/DDDCoinsTab'
+import PedirColorTab from '@/components/store/PedirColorTab'
 import MembresiaProgressBar from '@/components/store/MembresiaProgressBar'
 import CoinsToast from '@/components/store/CoinsToast'
 import InstallPWA from '@/components/store/InstallPWA'
 import Link from 'next/link'
-import { Package, Crown, User } from 'lucide-react'
+import { Package, Crown, User, Palette } from 'lucide-react'
 
 export const metadata = { title: 'Mi cuenta — DDD ARG' }
 export const dynamic = 'force-dynamic'
@@ -47,7 +48,7 @@ export default async function CuentaPage({
 
   const db = createServiceClient()
   // registrarLoginDiario corre en paralelo con el resto para no serializar latencia
-  const [loginResult, pedidosResult, membresia, ventasHistoricas, profile, saldoCoins, historialCoins] = await Promise.all([
+  const [loginResult, pedidosResult, membresia, ventasHistoricas, profile, saldoCoins, historialCoins, sugerencias] = await Promise.all([
     registrarLoginDiario().catch(() => ({ ganados: 0, racha: 0 })),
     db.from('filamento_pedidos')
       .select('*')
@@ -58,11 +59,17 @@ export default async function CuentaPage({
     getMyProfile().catch(() => null),
     getSaldoCoins(user.id).catch(() => 0),
     getHistorialCoins(user.id).catch(() => []),
+    getMisSugerencias().catch(() => []),
   ])
   const pedidos = pedidosResult.data
+  const sugerenciasNuevas = sugerencias.filter(s => s.estado === 'notificado' && !s.visto_por_cliente).length
 
   const { tab: tabParam } = await searchParams
-  const tab = tabParam === 'pedidos' ? 'pedidos' : tabParam === 'membresia' ? 'membresia' : tabParam === 'coins' ? 'coins' : 'perfil'
+  const tab = tabParam === 'pedidos' ? 'pedidos'
+    : tabParam === 'membresia' ? 'membresia'
+    : tabParam === 'coins' ? 'coins'
+    : tabParam === 'colores' ? 'colores'
+    : 'perfil'
 
   const displayName = profile?.apodo || user.user_metadata?.full_name || user.email?.split('@')[0] || ''
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
@@ -169,6 +176,22 @@ export default async function CuentaPage({
             </span>
           )}
         </Link>
+        <Link
+          href="/cuenta?tab=colores"
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+            tab === 'colores'
+              ? 'border-violet-500 text-violet-500'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Palette size={13} />
+          Pedir color
+          {sugerenciasNuevas > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/40">
+              {sugerenciasNuevas}
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* ── TAB PERFIL ── */}
@@ -193,6 +216,11 @@ export default async function CuentaPage({
       {/* ── TAB COINS ── */}
       {tab === 'coins' && (
         <DDDCoinsTab saldo={saldoCoins} historial={historialCoins as { id: string; puntos: number; motivo: string; created_at: string }[]} racha={loginResult.racha} />
+      )}
+
+      {/* ── TAB PEDIR COLOR ── */}
+      {tab === 'colores' && (
+        <PedirColorTab sugerencias={sugerencias} />
       )}
 
       {/* ── TAB MEMBRESÍA ── */}
