@@ -397,20 +397,44 @@ export interface UsuarioRegistrado {
   nombre: string
   avatar_url: string | null
   created_at: string
+  // Datos del perfil (user_profiles) para buscar y mostrar en admin
+  dni: string | null
+  telefono: string | null
+  numero_cliente: number | null
+  apodo: string | null
 }
 
 export async function getUsuariosRegistrados(): Promise<UsuarioRegistrado[]> {
   await getAdminUser()
   const supabase = createServiceClient()
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 200 })
-  if (error) return []
-  return data.users.map((u: { id: string; email?: string; user_metadata?: Record<string, unknown>; created_at: string }) => ({
-    id: u.id,
-    email: u.email ?? '',
-    nombre: (u.user_metadata?.full_name as string) ?? u.email ?? u.id,
-    avatar_url: (u.user_metadata?.avatar_url as string) ?? null,
-    created_at: u.created_at,
-  }))
+
+  const [usersRes, perfilesRes] = await Promise.all([
+    supabase.auth.admin.listUsers({ perPage: 200 }),
+    supabase.from('user_profiles').select('user_id, dni, telefono, numero_cliente, apodo'),
+  ])
+  if (usersRes.error) return []
+
+  // Index de perfiles por user_id
+  type PerfilRow = { user_id: string; dni: string | null; telefono: string | null; numero_cliente: number | null; apodo: string | null }
+  const perfiles = new Map<string, PerfilRow>()
+  for (const p of (perfilesRes.data ?? []) as PerfilRow[]) {
+    perfiles.set(p.user_id, p)
+  }
+
+  return usersRes.data.users.map((u: { id: string; email?: string; user_metadata?: Record<string, unknown>; created_at: string }) => {
+    const p = perfiles.get(u.id)
+    return {
+      id: u.id,
+      email: u.email ?? '',
+      nombre: (u.user_metadata?.full_name as string) ?? u.email ?? u.id,
+      avatar_url: (u.user_metadata?.avatar_url as string) ?? null,
+      created_at: u.created_at,
+      dni: p?.dni ?? null,
+      telefono: p?.telefono ?? null,
+      numero_cliente: p?.numero_cliente ?? null,
+      apodo: p?.apodo ?? null,
+    }
+  })
 }
 
 export async function asignarUserAVentas(

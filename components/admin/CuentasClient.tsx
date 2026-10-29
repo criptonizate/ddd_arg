@@ -414,8 +414,35 @@ function UserDetail({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">{usuario.nombre}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold truncate">{usuario.nombre}</p>
+              {usuario.numero_cliente && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: 'oklch(0.25 0.02 145)', color: '#4ade80' }}>
+                  Cliente N° {usuario.numero_cliente}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+            {/* Datos del propio perfil del cliente — útiles para identificarlo en el local */}
+            {(usuario.dni || usuario.telefono) && (
+              <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                {usuario.dni && (
+                  <span className="font-mono">
+                    <strong className="text-foreground">DNI</strong> {usuario.dni}
+                  </span>
+                )}
+                {usuario.telefono && (
+                  <a
+                    href={`https://wa.me/${usuario.telefono.replace(/[^\d]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    📱 {usuario.telefono}
+                  </a>
+                )}
+              </div>
+            )}
             <p className="text-[10px] text-muted-foreground mt-0.5">Registrado el {fmtDate(usuario.created_at)}</p>
             {notas && (notas.admin_apodo || notas.admin_telefono) && !editNotas && (
               <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -742,10 +769,22 @@ export default function CuentasClient({
 
   const filtrados = usuarios.filter(u => {
     if (!busqueda) return true
-    const q = busqueda.toLowerCase()
+    const q = busqueda.toLowerCase().trim()
+    // Para DNI/teléfono/N° cliente, también comparar números sin espacios ni puntos
+    const qSoloNumeros = q.replace(/[^\d]/g, '')
+    const dni = (u.dni ?? '').replace(/[^\d]/g, '')
+    const telefono = (u.telefono ?? '').replace(/[^\d]/g, '')
+    const numeroCliente = String(u.numero_cliente ?? '')
     return u.nombre.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
-      (apodoMap[u.id] ?? '').toLowerCase().includes(q)
+      (apodoMap[u.id] ?? '').toLowerCase().includes(q) ||
+      (u.apodo ?? '').toLowerCase().includes(q) ||
+      (qSoloNumeros !== '' && (
+        dni.includes(qSoloNumeros) ||
+        telefono.includes(qSoloNumeros) ||
+        numeroCliente === qSoloNumeros ||
+        numeroCliente.includes(qSoloNumeros)
+      ))
   })
 
   const selUsuario = usuarios.find(u => u.id === selId) ?? null
@@ -776,8 +815,9 @@ export default function CuentasClient({
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre, email o apodo..."
+                placeholder="Nombre, email, DNI, N° cliente, teléfono..."
                 className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                autoFocus
               />
             </div>
           </div>
@@ -803,11 +843,25 @@ export default function CuentasClient({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{u.nombre}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium truncate">{u.nombre}</p>
+                      {u.numero_cliente && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: 'oklch(0.25 0.02 145)', color: '#4ade80' }}>
+                          N° {u.numero_cliente}
+                        </span>
+                      )}
+                    </div>
                     {apodoMap[u.id] && (
                       <p className="text-[10px] font-semibold truncate" style={{ color: '#f59e0b' }}>🏷️ {apodoMap[u.id]}</p>
                     )}
                     <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                    {(u.dni || u.telefono) && (
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {u.dni && <span>DNI {u.dni}</span>}
+                        {u.dni && u.telefono && <span> · </span>}
+                        {u.telefono && <span>📱 {u.telefono}</span>}
+                      </p>
+                    )}
                   </div>
                 </button>
               ))
