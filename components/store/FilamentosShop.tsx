@@ -9,6 +9,7 @@ import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { getFilamentosDisponibles, enviarSugerenciaFilamento } from '@/lib/actions/filamentos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
+import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 import { useCart } from '@/components/store/CartProvider'
@@ -16,12 +17,11 @@ import { useCart } from '@/components/store/CartProvider'
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const PRECIO_BASE_DEFAULT = 22000
 
-const DESCUENTOS = [
-  { min: 15, descuento: 4000, label: '15+ kg' },
-  { min: 10, descuento: 3000, label: '10+ kg' },
-  { min:  5, descuento: 2000, label:  '5+ kg' },
-  { min:  0, descuento:    0, label:      '' },
-] as const
+const DESCUENTOS = TIERS_MEMBRESIA.map(t => ({
+  min: t.min,
+  descuento: t.descuento,
+  label: `${t.min}+ kg`,
+}))
 
 function getDescuento(total: number) {
   return DESCUENTOS.find(t => total >= t.min) ?? { descuento: 0, label: '' }

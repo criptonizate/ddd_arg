@@ -75,11 +75,11 @@ export function calcularPeriodo(
   return { periodoInicio, periodoFin, kgPeriodo }
 }
 
-// Los tiers expresan DESCUENTO sobre el precio base del filamento
+// Los tiers expresan DESCUENTO sobre el precio base del filamento (ARS por kg)
 export const TIERS_MEMBRESIA = [
-  { min: 15, descuento: 3000, label: 'Platino', emoji: '💎', color: 'violet' as const },
-  { min: 10, descuento: 2000, label: 'Oro',     emoji: '⭐', color: 'blue'   as const },
-  { min:  5, descuento: 1000, label: 'Plata',   emoji: '🥈', color: 'amber'  as const },
+  { min: 15, descuento: 4000, label: 'Platino', emoji: '💎', color: 'violet' as const },
+  { min: 10, descuento: 3000, label: 'Oro',     emoji: '⭐', color: 'blue'   as const },
+  { min:  5, descuento: 2000, label: 'Plata',   emoji: '🥈', color: 'amber'  as const },
 ] as const
 
 export type NivelMembresia = 'Platino' | 'Oro' | 'Plata' | null
