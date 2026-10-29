@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isAnyAdmin } from '@/lib/admin-roles'
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
@@ -63,9 +64,7 @@ export async function getAdminUser() {
   } = await supabase.auth.getUser()
 
   if (!user) throw new Error('No autenticado')
-
-  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
-  if (!adminEmails.length || !adminEmails.includes(user.email ?? '')) throw new Error('Acceso denegado')
+  if (!isAnyAdmin(user.email)) throw new Error('Acceso denegado')
 
   return user
 }
@@ -75,9 +74,7 @@ export async function checkIsAdmin(): Promise<boolean> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return false
-    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
-    return adminEmails.length > 0 && adminEmails.includes(user.email ?? '')
+    return isAnyAdmin(user?.email)
   } catch {
     return false
   }

@@ -35,12 +35,14 @@ export default function AdminSidebar({
   filamentoPendingCount = 0,
   extensionPendingCount = 0,
   calculadoraConfig,
+  allowedRoutes = 'all',
 }: {
   userEmail: string
   pendingCount?: number
   filamentoPendingCount?: number
   extensionPendingCount?: number
   calculadoraConfig?: CalculadoraConfig
+  allowedRoutes?: 'all' | string[]
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -48,6 +50,10 @@ export default function AdminSidebar({
   const [showQuick, setShowQuick] = useState(false)
   const [quickHrs, setQuickHrs] = useState(0)
   const [quickGramos, setQuickGramos] = useState(0)
+
+  const visibleItems = allowedRoutes === 'all'
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => allowedRoutes.some((r) => item.href === r || item.href.startsWith(r + '/')))
 
   function calcQuick(): number {
     if (!calculadoraConfig) return 0
@@ -95,7 +101,7 @@ export default function AdminSidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const active = pathname.startsWith(item.href)
             return (
               <Link
@@ -126,7 +132,8 @@ export default function AdminSidebar({
           })}
         </nav>
 
-        {/* Cotización rápida */}
+        {/* Cotización rápida — solo full admin */}
+        {allowedRoutes === 'all' && (
         <div className="border-t border-border p-3">
           <button
             onClick={() => setShowQuick((v) => !v)}
@@ -176,6 +183,7 @@ export default function AdminSidebar({
             </div>
           )}
         </div>
+        )}
 
         {/* Footer */}
         <div className="p-3 border-t border-border space-y-1">

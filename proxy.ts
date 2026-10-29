@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { isAnyAdmin, canAccessAdminRoute, defaultAdminRoute } from '@/lib/admin-roles'
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -44,22 +45,22 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
-    // Con sesión pero email no autorizado → redirect a login con error
-    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
-    if (adminEmails.length > 0 && !adminEmails.includes(user.email ?? '')) {
+    // Con sesión pero no es admin (ni full ni limited) → logout y redirect
+    if (!isAnyAdmin(user.email)) {
       await supabase.auth.signOut()
       return NextResponse.redirect(
         new URL('/auth/login?error=unauthorized', request.url)
       )
     }
+    // Admin limitado intentando entrar a una ruta no permitida → redirect a la primera que puede
+    if (!canAccessAdminRoute(user.email, pathname)) {
+      return NextResponse.redirect(new URL(defaultAdminRoute(user.email), request.url))
+    }
   }
 
-  // Si ya está autenticado como admin y visita login → redirect al dashboard
-  if (isAuthRoute && user) {
-    const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean)
-    if (adminEmails.length === 0 || adminEmails.includes(user.email ?? '')) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-    }
+  // Si ya está autenticado como admin y visita login → redirect a su ruta por defecto
+  if (isAuthRoute && user && isAnyAdmin(user.email)) {
+    return NextResponse.redirect(new URL(defaultAdminRoute(user.email), request.url))
   }
 
   return supabaseResponse

@@ -3,6 +3,7 @@ import { getAdminUser } from '@/lib/actions/auth'
 import { getPendingOrdersCount } from '@/lib/actions/orders'
 import { getCalculadoraConfig } from '@/lib/actions/calculadora'
 import { getFilamentoPedidosPendientesCount, getExtensionPendientesCount } from '@/lib/actions/filamento-pedidos'
+import { getAllowedAdminRoutes } from '@/lib/admin-roles'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminThemeWrapper from '@/components/admin/AdminThemeWrapper'
 
@@ -18,6 +19,8 @@ export default async function AdminLayout({
     redirect('/auth/login')
   }
 
+  const allowedRoutes = getAllowedAdminRoutes(user.email)
+
   const [pendingCount, filamentoPendingCount, extensionPendingCount, calculadoraConfig] = await Promise.all([
     getPendingOrdersCount().catch(() => 0),
     getFilamentoPedidosPendientesCount().catch(() => 0),
@@ -27,7 +30,14 @@ export default async function AdminLayout({
 
   return (
     <AdminThemeWrapper>
-      <AdminSidebar userEmail={user.email ?? ''} pendingCount={pendingCount} filamentoPendingCount={filamentoPendingCount} extensionPendingCount={extensionPendingCount} calculadoraConfig={calculadoraConfig} />
+      <AdminSidebar
+        userEmail={user.email ?? ''}
+        pendingCount={pendingCount}
+        filamentoPendingCount={filamentoPendingCount}
+        extensionPendingCount={extensionPendingCount}
+        calculadoraConfig={calculadoraConfig}
+        allowedRoutes={allowedRoutes}
+      />
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 md:p-6 max-w-7xl mx-auto">{children}</div>
       </main>
