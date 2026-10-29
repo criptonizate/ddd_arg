@@ -441,6 +441,9 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
         totalHistorico: 0,
         extensionPendiente: false,
         esTrial: true,
+        ultimoNivel: null,
+        kgUltimoPeriodo: 0,
+        diasDesdeVencimiento: 0,
       }
     }
     return null
@@ -466,9 +469,14 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
 
   const activo = periodoFin.getTime() > nowMs
   const diasRestantes = activo ? Math.max(0, Math.ceil((periodoFin.getTime() - nowMs) / (24 * 60 * 60 * 1000))) : 0
+  const diasDesdeVencimiento = activo ? 0 : Math.ceil((nowMs - periodoFin.getTime()) / (24 * 60 * 60 * 1000))
 
   const tierActivo = activo ? TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min) : undefined
   const nivel: NivelMembresia = tierActivo?.label ?? null
+
+  // Nivel del último período (incluso si ya venció) — para mostrar "venció tu Plata" etc.
+  const tierUltimo = TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min)
+  const ultimoNivel: NivelMembresia = tierUltimo?.label ?? null
 
   return {
     kgPeriodo: activo ? kgPeriodo : 0,
@@ -480,17 +488,21 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     totalHistorico,
     extensionPendiente,
     esTrial: false,
+    ultimoNivel,
+    kgUltimoPeriodo: kgPeriodo,
+    diasDesdeVencimiento,
   }
 }
 
-// Cliente solicita extensión — registra como pendiente y redirige a WhatsApp
-export async function solicitarExtensionMembresia(): Promise<void> {
+// Cliente solicita extensión — registra como pendiente y notifica admin.
+// Ya no redirige a WhatsApp automáticamente: el modal controla el flow y
+// muestra feedback de éxito con el botón de WhatsApp al cliente.
+export async function solicitarExtensionMembresia(): Promise<{ error?: string; yaExiste?: boolean }> {
   const { createClient } = await import('@/lib/supabase/server')
-  const { redirect } = await import('next/navigation')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/cuenta?tab=membresia')
-  const userId = user!.id
+  if (!user) return { error: 'No autenticado' }
+  const userId = user.id
 
   const sb = createServiceClient()
 
@@ -502,14 +514,18 @@ export async function solicitarExtensionMembresia(): Promise<void> {
     .eq('estado', 'pendiente')
     .maybeSingle()
 
-  if (!existente) {
-    // Calcular costo según nivel actual y registrar solicitud
-    const membresiaActual = await getMembresiaCliente(userId)
-    const costo = costoExtension(membresiaActual?.nivel ?? null)
-    const nivel = membresiaActual?.nivel ?? 'Plata'
-    await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
+  if (existente) {
+    return { yaExiste: true }
+  }
 
-    // Obtener datos del usuario para el email
+  // Calcular costo según nivel actual y registrar solicitud
+  const membresiaActual = await getMembresiaCliente(userId)
+  const costo = costoExtension(membresiaActual?.nivel ?? null)
+  const nivel = membresiaActual?.nivel ?? 'Plata'
+  await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
+
+  // Email al admin en background
+  try {
     const { data: authUser } = await sb.auth.admin.getUserById(userId)
     const { data: perfil } = await sb.from('user_profiles').select('numero_cliente').eq('user_id', userId).maybeSingle()
     const clienteNombre = authUser?.user?.user_metadata?.full_name ?? authUser?.user?.email?.split('@')[0] ?? 'Cliente'
@@ -523,12 +539,13 @@ export async function solicitarExtensionMembresia(): Promise<void> {
       dias: DIAS_EXTENSION,
       numeroCliente: perfil?.numero_cliente ?? null,
     })
-
-    const msg = encodeURIComponent(`Hola! Quiero extender mi membresía ${nivel} por ${DIAS_EXTENSION} días. Transferí $${costo.toLocaleString('es-AR')} al alias juan3d.nx. Te mando el comprobante 👇`)
-    redirect(`https://wa.me/543804559909?text=${msg}`)
+  } catch (err) {
+    console.error('Error enviando email de extensión:', err)
   }
 
-  redirect('/cuenta?tab=membresia')
+  const { revalidatePath } = await import('next/cache')
+  revalidatePath('/cuenta')
+  return {}
 }
 
 // Cuenta de extensiones pendientes para badge en admin

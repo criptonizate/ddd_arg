@@ -734,6 +734,7 @@ export interface FilamentoSugerencia {
   nombre_usuario: string
   mensaje: string
   color: string | null
+  nota: string | null
   estado: 'pendiente' | 'notificado' | 'descartado'
   respondido_at: string | null
   visto_por_cliente: boolean
@@ -757,14 +758,44 @@ export async function marcarSugerenciaLeida(id: string): Promise<void> {
   await supabase.from('filamento_sugerencias').update({ leido: true }).eq('id', id)
 }
 
-// Cliente envía un "pedí este color" — formulario más estructurado del /cuenta
+// Cliente envía un "pedí este color" — formulario estructurado del /cuenta.
+// Guarda color y nota en columnas separadas (no parsea mensaje).
 export async function pedirColor(data: { color: string; nota?: string }): Promise<{ error?: string }> {
   const color = data.color?.trim()
   if (!color) return { error: 'Indicá qué color te hace falta' }
   if (color.length > 120) return { error: 'El color es demasiado largo' }
-  const nota = (data.nota ?? '').trim().slice(0, 500)
+  const nota = (data.nota ?? '').trim().slice(0, 500) || null
+
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Necesitás iniciar sesión para pedir un color' }
+
+  const sb = createServiceClient()
+
+  // Evitar duplicados: mismo user, mismo color (case-insensitive), pendiente
+  const { data: dup } = await sb
+    .from('filamento_sugerencias')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('estado', 'pendiente')
+    .ilike('color', color)
+    .maybeSingle()
+  if (dup) return { error: 'Ya pediste este color — lo tengo anotado' }
+
+  const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
   const mensaje = nota ? `Pedido de color: ${color}. ${nota}` : `Pedido de color: ${color}`
-  return enviarSugerenciaFilamento(mensaje, color)
+  const { error } = await sb.from('filamento_sugerencias').insert({
+    user_id: user.id,
+    nombre_usuario: nombre,
+    mensaje,
+    color,
+    nota,
+  })
+  if (error) return { error: 'No se pudo enviar el pedido' }
+  revalidatePath('/cuenta')
+  revalidatePath('/admin/filamentos')
+  return {}
 }
 
 // Historial de sugerencias del cliente logueado

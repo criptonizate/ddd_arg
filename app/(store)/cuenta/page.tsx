@@ -1,12 +1,11 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOutCliente } from '@/lib/actions/auth'
 import type { FilamentoPedido } from '@/lib/actions/filamento-pedidos'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 import { getVentasDeUsuario, getMisSugerencias } from '@/lib/actions/filamentos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
-import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION } from '@/lib/membresia-helpers'
+import { TIERS_MEMBRESIA, costoExtension, DIAS_EXTENSION, KG_ACTIVACION_MEMBRESIA, siguienteTier as siguienteTierFn } from '@/lib/membresia-helpers'
 import { getMyProfile } from '@/lib/actions/perfil'
 import { getSaldoCoins, getHistorialCoins, registrarLoginDiario } from '@/lib/actions/ddd-coins'
 import CuentaPedidosTab from '@/components/store/CuentaPedidosTab'
@@ -28,8 +27,8 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const KG_ACTIVACION = 5   // kg mínimos para activar membresía
-const TIER_MAX = TIERS_MEMBRESIA[0].min   // 15 kg
+const KG_ACTIVACION = KG_ACTIVACION_MEMBRESIA   // kg mínimos para activar membresía
+const TIER_MAX = Math.max(...TIERS_MEMBRESIA.map(t => t.min))   // 15 kg
 
 const NIVEL_STYLES = {
   Platino: { cardBg: '#1e1330', cardBorder: '#7c3aed', bar: '#7c3aed', barBg: '#2d1b4e', badge: 'bg-violet-900/60 text-violet-300 border-violet-700', divider: '#3b1f6a' },
@@ -74,52 +73,82 @@ export default async function CuentaPage({
   const displayName = profile?.apodo || user.user_metadata?.full_name || user.email?.split('@')[0] || ''
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
 
-  const siguienteTier = membresia?.nivel
-    ? TIERS_MEMBRESIA[TIERS_MEMBRESIA.findIndex(t => t.label === membresia.nivel) - 1]
-    : TIERS_MEMBRESIA[TIERS_MEMBRESIA.length - 1]
+  // Próximo tier: el de mínimo kg más alto que el actual (independiente del orden del array)
+  const siguienteTier = siguienteTierFn(membresia?.nivel ?? null)
+
+  // Aviso: muestra si está por vencer (<=10 días) O si venció hace poco (<=30 días)
+  const mostrarAvisoMembresia = !!membresia && (
+    (membresia.nivel && membresia.diasRestantes <= 10) ||
+    (!membresia.nivel && membresia.ultimoNivel && membresia.diasDesdeVencimiento > 0 && membresia.diasDesdeVencimiento <= 30)
+  )
+  const kgParaRenovar = Math.max(0, KG_ACTIVACION - (membresia?.kgPeriodo ?? 0))
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          {user.user_metadata?.avatar_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.user_metadata.avatar_url} alt="" className="w-12 h-12 rounded-full border border-border" />
-          )}
-          <div style={{ minWidth: 0 }}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold">{displayName}</h1>
-              {membresia?.nivel && styles && (
-                <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
-                  <Crown size={11} />
-                  {membresia.nivel}
-                  {membresia.esTrial && ' · Prueba'}
-                </span>
-              )}
-              {saldoCoins > 0 && (
-                <Link
-                  href="/cuenta?tab=coins"
-                  className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full border transition-all hover:scale-105 active:scale-95"
-                  style={{ background: 'oklch(0.22 0.04 60)', borderColor: '#d97706', color: '#f59e0b' }}
-                >
-                  🪙 {saldoCoins.toLocaleString('es-AR')} pts
-                </Link>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground truncate" style={{ maxWidth: '220px' }}>{user.email}</p>
+      <div className="flex items-center gap-3 mb-6">
+        {user.user_metadata?.avatar_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.user_metadata.avatar_url} alt="" className="w-12 h-12 rounded-full border border-border shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold truncate max-w-full">{displayName}</h1>
+            {membresia?.nivel && styles && (
+              <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ${styles.badge}`}>
+                <Crown size={11} />
+                {membresia.nivel}
+                {membresia.esTrial && ' · Prueba'}
+              </span>
+            )}
+            {saldoCoins > 0 && tab !== 'coins' && (
+              <Link
+                href="/cuenta?tab=coins"
+                className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full border transition-all hover:scale-105 active:scale-95 shrink-0"
+                style={{ background: 'oklch(0.22 0.04 60)', borderColor: '#d97706', color: '#f59e0b' }}
+              >
+                🪙 {saldoCoins.toLocaleString('es-AR')} pts
+              </Link>
+            )}
           </div>
         </div>
-        <form action={signOutCliente}>
-          <button type="submit" className="text-xs text-muted-foreground hover:text-foreground underline">
-            Cerrar sesión
-          </button>
-        </form>
       </div>
 
-      {/* Tabs — overflow-x-auto para que no desborden en mobile */}
-      <div className="flex gap-0.5 border-b border-border mb-8 overflow-x-auto scrollbar-hide">
+      {/* Banner sticky de vencimiento — se muestra ARRIBA si queda poco */}
+      {mostrarAvisoMembresia && (
+        <div className="mb-6 rounded-2xl border p-4 flex items-start gap-3" style={{
+          backgroundColor: membresia!.diasRestantes <= 2 || membresia!.diasDesdeVencimiento > 0 ? 'rgba(220,38,38,0.1)' : 'rgba(217,119,6,0.1)',
+          borderColor: membresia!.diasRestantes <= 2 || membresia!.diasDesdeVencimiento > 0 ? '#dc2626' : '#d97706'
+        }}>
+          <div className="text-2xl shrink-0">{membresia!.diasDesdeVencimiento > 0 ? '⏰' : '⚠️'}</div>
+          <div className="flex-1 min-w-0">
+            {membresia!.diasDesdeVencimiento > 0 ? (
+              <>
+                <p className="font-bold text-sm">Tu membresía {membresia!.ultimoNivel} venció hace {membresia!.diasDesdeVencimiento} {membresia!.diasDesdeVencimiento === 1 ? 'día' : 'días'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Comprá <strong className="text-foreground">{KG_ACTIVACION} kg</strong> para activar un período nuevo con descuento.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-sm">Tu membresía {membresia!.nivel} vence en {membresia!.diasRestantes} {membresia!.diasRestantes === 1 ? 'día' : 'días'}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {kgParaRenovar > 0
+                    ? <>Llevás <strong className="text-foreground">{(membresia!.kgPeriodo).toFixed(1)} kg</strong> este período · te faltan <strong className="text-foreground">{kgParaRenovar.toFixed(1)} kg</strong> para renovar automáticamente.</>
+                    : <>Ya alcanzaste los {KG_ACTIVACION} kg mínimos para renovar.</>
+                  }
+                </p>
+              </>
+            )}
+            <Link href="/filamentos" className="inline-flex items-center gap-1 text-xs font-bold mt-2 py-1 text-foreground hover:underline">
+              Ver filamentos →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs — overflow-x-auto con fade indicando scroll */}
+      <div className="relative mb-8">
+        <div className="flex gap-0.5 border-b border-border overflow-x-auto scrollbar-hide">
         <Link
           href="/cuenta"
           className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
@@ -192,6 +221,9 @@ export default async function CuentaPage({
             </span>
           )}
         </Link>
+        </div>
+        {/* Fade a la derecha indicando que hay más tabs */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
       </div>
 
       {/* ── TAB PERFIL ── */}
@@ -268,10 +300,20 @@ export default async function CuentaPage({
                   }
                 </div>
                 <MembresiaProgressBar pct={Math.min(100, (membresia.kgPeriodo / TIER_MAX) * 100)} color={styles.bar} barBg={styles.barBg} />
-                <div className="flex justify-between text-[10px] mt-1" style={{ color: '#86efac' }}>
-                  {TIERS_MEMBRESIA.slice().reverse().map(t => (
-                    <span key={t.min}>{t.emoji} {t.min} kg</span>
-                  ))}
+                {/* Ticks posicionados proporcionalmente, no equidistantes */}
+                <div className="relative h-4 mt-1">
+                  {TIERS_MEMBRESIA.slice().sort((a, b) => a.min - b.min).map(t => {
+                    const pos = (t.min / TIER_MAX) * 100
+                    return (
+                      <span
+                        key={t.min}
+                        className="absolute text-[10px] -translate-x-1/2 whitespace-nowrap"
+                        style={{ left: `${pos}%`, color: '#86efac' }}
+                      >
+                        {t.emoji} {t.min}
+                      </span>
+                    )
+                  })}
                 </div>
               </div>
 

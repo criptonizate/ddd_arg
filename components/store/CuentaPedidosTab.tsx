@@ -99,12 +99,17 @@ export default function CuentaPedidosTab({
   return (
     <>
       {!initialPedidos?.length ? (
-        <div className="text-center py-16 bg-secondary/20 rounded-2xl border border-border">
+        <div className="text-center py-16 bg-secondary/20 rounded-2xl border border-border px-4">
           <p className="text-4xl mb-3">🎨</p>
           <p className="font-medium text-muted-foreground">Todavía no hiciste ningún pedido</p>
-          <Link href="/filamentos" className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium bg-foreground text-background rounded-xl px-5 py-2.5 hover:opacity-90 transition-opacity">
-            Ver filamentos disponibles →
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-5">
+            <Link href="/filamentos" className="inline-flex items-center gap-1.5 text-sm font-medium bg-foreground text-background rounded-xl px-5 py-2.5 hover:opacity-90 transition-opacity min-h-[44px]">
+              Ver filamentos disponibles →
+            </Link>
+            <Link href="/cuenta?tab=colores" className="inline-flex items-center gap-1.5 text-sm font-medium border border-border text-foreground rounded-xl px-5 py-2.5 hover:bg-secondary transition-colors min-h-[44px]">
+              ¿No encontrás tu color? Pedilo
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -134,8 +139,8 @@ export default function CuentaPedidosTab({
 
                 <div className="px-5 py-3 space-y-3">
                   {p.items.map((item: FilamentoPedidoItem, i: number) => {
-                    const precioBase = item.precio_unitario + p.descuento_por_rollo
-                    const precioFinal = item.precio_unitario
+                    const precioBase = item.precio_unitario
+                    const precioFinal = Math.max(0, item.precio_unitario - p.descuento_por_rollo)
                     const subtotalItem = item.rollos * precioFinal
                     return (
                       <div key={i} className="flex items-start justify-between gap-3">
@@ -144,7 +149,7 @@ export default function CuentaPedidosTab({
                             {item.rollos} kg · {item.color}
                           </p>
                           <p className="text-xs text-muted-foreground">{item.material} — {item.marca}</p>
-                          {p.descuento_por_rollo > 0 && (
+                          {p.descuento_por_rollo > 0 ? (
                             <p className="text-xs mt-0.5">
                               <span className="line-through text-muted-foreground">{fmtARS(precioBase)}/kg</span>
                               <span className="ml-1.5 font-semibold" style={{ color: '#22c55e' }}>
@@ -152,6 +157,8 @@ export default function CuentaPedidosTab({
                               </span>
                               <span className="ml-1.5 font-bold text-foreground">{fmtARS(precioFinal)}/kg</span>
                             </p>
+                          ) : (
+                            <p className="text-xs mt-0.5 text-muted-foreground">{fmtARS(precioFinal)}/kg</p>
                           )}
                         </div>
                         <span className="font-bold text-sm shrink-0 tabular-nums">{fmtARS(subtotalItem)}</span>

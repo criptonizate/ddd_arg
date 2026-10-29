@@ -1,7 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Coins, Flame, ShoppingBag, Crown, User, Star, Clock, Info } from 'lucide-react'
 import { PUNTOS_POR_CANJE as PUNTOS_CANJE, PESOS_POR_CANJE as PESOS_CANJE } from '@/lib/ddd-coins-helpers'
+
+const HISTORIAL_LIMITE = 20
 
 const MESES_VENCIMIENTO = 12
 
@@ -45,14 +48,16 @@ function diasRestantes(fecha: Date): number {
 }
 
 export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
+  const [verTodo, setVerTodo] = useState(false)
   const bloques = Math.floor(saldo / PUNTOS_CANJE)
   const descuentoDisponible = bloques * PESOS_CANJE
   const progreso = Math.round(((saldo % PUNTOS_CANJE) / PUNTOS_CANJE) * 100)
   const puntosParaSiguiente = saldo % PUNTOS_CANJE === 0 && saldo > 0 ? 0 : PUNTOS_CANJE - (saldo % PUNTOS_CANJE)
 
-  // Agrupar ganancias por mes para la línea de vencimiento
+  // Agrupar ganancias por mes para la línea de vencimiento.
+  // Para cada mes: suma de puntos ganados ese mes + la FECHA DE VENCIMIENTO MÁS TEMPRANA
+  // (= la primera ganancia del mes es la que primero vence).
   const vencimientos: { mes: string; puntos: number; venceEl: Date; diasQuedan: number }[] = []
-  // Agrupar por DÍA exacto (no mes) para precisión de vencimiento
   const porDia: Record<string, number> = {}
   for (const row of historial) {
     if (row.puntos <= 0) continue
@@ -60,23 +65,25 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
     const clave = `${fechaAR.getUTCFullYear()}-${String(fechaAR.getUTCMonth() + 1).padStart(2, '0')}-${String(fechaAR.getUTCDate()).padStart(2, '0')}`
     porDia[clave] = (porDia[clave] ?? 0) + row.puntos
   }
-  // Agrupar por mes para mostrar en la línea de tiempo (UX más limpia)
+  // Agrupar por mes con primera fecha de vencimiento (= mínima) determinística
   const porMes: Record<string, { puntos: number; venceEl: Date }> = {}
   for (const [clave, pts] of Object.entries(porDia)) {
     const [y, m, d] = clave.split('-').map(Number)
     const diaExacto = new Date(y, m - 1, d)
     const venceEl = addMonths(diaExacto, MESES_VENCIMIENTO)
-    const dias = diasRestantes(venceEl)
-    if (dias <= 0) continue
+    if (diasRestantes(venceEl) <= 0) continue
     const mesClave = `${y}-${String(m).padStart(2, '0')}`
-    if (!porMes[mesClave] || venceEl < porMes[mesClave].venceEl) {
-      // Guardar la fecha de vencimiento más temprana del mes
-      porMes[mesClave] = { puntos: (porMes[mesClave]?.puntos ?? 0) + pts, venceEl }
-    } else {
-      porMes[mesClave].puntos += pts
+    const existente = porMes[mesClave]
+    porMes[mesClave] = {
+      puntos: (existente?.puntos ?? 0) + pts,
+      // Siempre guardar la MÍN fecha de vencimiento del mes (determinístico)
+      venceEl: existente ? (venceEl < existente.venceEl ? venceEl : existente.venceEl) : venceEl,
     }
   }
-  for (const [clave, { puntos: pts, venceEl }] of Object.entries(porMes).sort()) {
+  // Ordenar por fecha de vencimiento ascendente (los que vencen primero arriba)
+  const mesesOrdenados = Object.entries(porMes)
+    .sort(([, a], [, b]) => a.venceEl.getTime() - b.venceEl.getTime())
+  for (const [clave, { puntos: pts, venceEl }] of mesesOrdenados) {
     const [y, m] = clave.split('-').map(Number)
     const dias = diasRestantes(venceEl)
     if (dias > 0) {
@@ -250,32 +257,51 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
       {/* Historial */}
       {historial.length > 0 && (
         <div className="rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-3 border-b border-border">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
             <p className="text-sm font-bold">Historial reciente</p>
+            {historial.length > HISTORIAL_LIMITE && (
+              <span className="text-[10px] text-muted-foreground">
+                {verTodo ? historial.length : HISTORIAL_LIMITE} de {historial.length}
+              </span>
+            )}
           </div>
           <div className="divide-y divide-border">
-            {historial.map(row => {
-              const info = MOTIVO_LABEL[row.motivo] ?? { label: row.motivo, icon: <Coins size={13} /> }
+            {(verTodo ? historial : historial.slice(0, HISTORIAL_LIMITE)).map(row => {
+              const infoBase = MOTIVO_LABEL[row.motivo] ?? { label: row.motivo, icon: <Coins size={13} /> }
               const esGanancia = row.puntos > 0
+              // Si el motivo es "canje_pedido" y el motivo real guardado trae el nro, lo mostramos
+              const motivoRaw = row.motivo
+              const matchNumero = motivoRaw.match(/N°\s*(\d+)/i)
+              const label = matchNumero && motivoRaw.startsWith('canje')
+                ? `${infoBase.label} N° ${matchNumero[1]}`
+                : infoBase.label
               return (
                 <div key={row.id} className="flex items-center justify-between gap-2 px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-muted-foreground">{info.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{info.label}</p>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-muted-foreground shrink-0">{infoBase.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{label}</p>
                       <p className="text-[10px] text-muted-foreground">
                         {new Date(row.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
-                  <span className={`text-sm font-bold shrink-0 ${!esGanancia ? 'text-red-400' : ''}`}
+                  <span className={`text-sm font-bold shrink-0 tabular-nums ${esGanancia ? '' : 'text-red-400'}`}
                     style={esGanancia ? { color: '#f59e0b' } : {}}>
-                    {esGanancia ? '+' : ''}{row.puntos} pts
+                    {esGanancia ? '+' : ''}{row.puntos.toLocaleString('es-AR')} pts
                   </span>
                 </div>
               )
             })}
           </div>
+          {historial.length > HISTORIAL_LIMITE && (
+            <button
+              onClick={() => setVerTodo(v => !v)}
+              className="w-full py-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border transition-colors min-h-[44px]"
+            >
+              {verTodo ? '↑ Mostrar menos' : `↓ Ver más antiguos (${historial.length - HISTORIAL_LIMITE})`}
+            </button>
+          )}
         </div>
       )}
 

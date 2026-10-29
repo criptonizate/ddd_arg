@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function MembresiaProgressBar({
   pct,
@@ -10,10 +10,14 @@ export default function MembresiaProgressBar({
   color: string
   barBg: string
 }) {
-  const [width, setWidth] = useState(0)
+  const [width, setWidth] = useState(pct)
+  const prev = useRef(pct)
 
   useEffect(() => {
-    const t = setTimeout(() => setWidth(pct), 100)
+    // Solo re-animar si el valor realmente cambió — evita el titileo con router.refresh
+    if (prev.current === pct) return
+    prev.current = pct
+    const t = setTimeout(() => setWidth(pct), 50)
     return () => clearTimeout(t)
   }, [pct])
 

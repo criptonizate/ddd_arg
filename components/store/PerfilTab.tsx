@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { saveMyProfile, type UserProfile } from '@/lib/actions/perfil'
-import { CheckCircle2, Pencil } from 'lucide-react'
+import { signOutCliente } from '@/lib/actions/auth'
+import { CheckCircle2, Pencil, LogOut, Gift } from 'lucide-react'
 
 interface Props {
   nombre: string
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function PerfilTab({ nombre, email, avatarUrl, profile: initialProfile }: Props) {
+  const [imgError, setImgError] = useState(false)
   const [editing, setEditing] = useState(false)
   const [apodo, setApodo] = useState(initialProfile?.apodo ?? '')
   const [telefono, setTelefono] = useState(initialProfile?.telefono ?? '')
@@ -50,8 +52,24 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   const inputCls = "w-full text-base border border-border rounded-xl px-3.5 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
   const labelCls = "text-xs font-semibold text-muted-foreground block mb-1.5"
 
+  const perfilCompleto = !!(initialProfile?.telefono && initialProfile?.dni)
+  const inicial = (nombre?.trim()?.[0] ?? '?').toUpperCase()
+
   return (
     <div className="space-y-6">
+
+      {/* Banner incentivo si perfil incompleto */}
+      {!perfilCompleto && !editing && (
+        <div className="rounded-2xl border p-4 flex items-center gap-3" style={{ backgroundColor: 'oklch(0.22 0.04 60)', borderColor: '#d97706' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(217,119,6,0.25)' }}>
+            <Gift size={18} style={{ color: '#fcd34d' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold" style={{ color: '#f0fdf4' }}>Completá tu perfil y ganá <span style={{ color: '#fcd34d' }}>+20 🪙 pts</span></p>
+            <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>Nos ayuda a contactarte más rápido con tus pedidos.</p>
+          </div>
+        </div>
+      )}
 
       {/* Número de cliente */}
       {initialProfile?.numero_cliente && (
@@ -78,12 +96,12 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
           <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Solo lectura</span>
         </div>
         <div className="px-5 py-4 flex items-center gap-4">
-          {avatarUrl ? (
+          {avatarUrl && !imgError ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" className="w-14 h-14 rounded-full border border-border shrink-0" />
+            <img src={avatarUrl} alt="" onError={() => setImgError(true)} className="w-14 h-14 rounded-full border border-border shrink-0" />
           ) : (
             <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-              <span className="text-2xl font-black text-green-600">{nombre[0]?.toUpperCase()}</span>
+              <span className="text-2xl font-black text-green-600">{inicial}</span>
             </div>
           )}
           <div className="min-w-0">
@@ -233,12 +251,22 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
 
           {/* Toast de éxito */}
           {saved && !editing && (
-            <div className="flex items-center gap-2 text-sm font-semibold text-green-600 dark:text-green-400">
+            <div className="flex items-center gap-2 text-sm font-semibold text-green-600 dark:text-green-400" role="status" aria-live="polite">
               <CheckCircle2 size={15} /> Datos guardados correctamente
             </div>
           )}
         </div>
       </div>
+
+      {/* Cerrar sesión — tap target grande */}
+      <form action={signOutCliente}>
+        <button
+          type="submit"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-muted-foreground border border-border hover:bg-secondary hover:text-foreground transition-colors min-h-[48px]"
+        >
+          <LogOut size={15} /> Cerrar sesión
+        </button>
+      </form>
     </div>
   )
 }

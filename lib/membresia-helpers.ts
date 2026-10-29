@@ -28,14 +28,15 @@ export function addDias(date: Date, dias: number): Date {
 // Cada vez que se cruza un hito (5, 10, 15 kg), periodoFin se reinicia a +30 días
 // desde la fecha de ese último pedido (no se suman días restantes).
 // Si el período vence, el contador vuelve a 0 y empieza un período nuevo.
-// extensionDias: días extra confirmados por admin (extensiones pagas)
+// extensionDias: días extra confirmados por admin (extensiones pagas),
+// se aplican UNA sola vez al período activo final.
 export function calcularPeriodo(
   eventos: EventoCompra[],
   extensionDias = 0,
 ): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
   // Primer evento siempre arranca un período
   let periodoInicio = new Date(eventos[0].fecha_iso)
-  let periodoFin = addDias(periodoInicio, DIAS_PERIODO + extensionDias)
+  let periodoFin = addDias(periodoInicio, DIAS_PERIODO)
   let kgPeriodo = 0
 
   for (const e of eventos) {
@@ -46,12 +47,6 @@ export function calcularPeriodo(
       periodoInicio = fecha
       periodoFin = addDias(fecha, DIAS_PERIODO)
       kgPeriodo = e.kg
-      // Verificar si este primer evento ya cruza un hito
-      for (const hito of HITOS_KG) {
-        if (kgPeriodo >= hito) {
-          periodoFin = addDias(fecha, DIAS_PERIODO)
-        }
-      }
     } else {
       // Dentro del período activo — acumular kg
       const kgAntes = kgPeriodo
@@ -67,7 +62,7 @@ export function calcularPeriodo(
     }
   }
 
-  // Aplicar días de extensión paga al período activo final
+  // Aplicar días de extensión paga al período activo final (una sola vez)
   if (extensionDias > 0) {
     periodoFin = addDias(periodoFin, extensionDias)
   }
@@ -82,6 +77,19 @@ export const TIERS_MEMBRESIA = [
   { min:  5, descuento: 2000, label: 'Plata',   emoji: '🥈', color: 'amber'  as const },
 ] as const
 
+export const KG_ACTIVACION_MEMBRESIA = Math.min(...TIERS_MEMBRESIA.map(t => t.min))  // 5 kg
+
+// Devuelve el próximo tier (el de min más chico que sea mayor al min actual).
+// Si ya es el nivel máximo (Platino), devuelve undefined.
+// Si no tiene nivel, devuelve el tier más bajo (Plata).
+export function siguienteTier(nivelActual: string | null) {
+  const tiersAsc = [...TIERS_MEMBRESIA].sort((a, b) => a.min - b.min)
+  if (!nivelActual) return tiersAsc[0]
+  const actual = tiersAsc.find(t => t.label === nivelActual)
+  if (!actual) return tiersAsc[0]
+  return tiersAsc.find(t => t.min > actual.min)
+}
+
 export type NivelMembresia = 'Platino' | 'Oro' | 'Plata' | null
 
 export interface MembresiaStatus {
@@ -94,4 +102,7 @@ export interface MembresiaStatus {
   totalHistorico: number
   extensionPendiente: boolean  // hay una solicitud de extensión esperando confirmación
   esTrial: boolean             // período de prueba gratuito para nuevos usuarios
+  ultimoNivel: NivelMembresia  // nivel que tenía en el último período (aunque haya vencido)
+  kgUltimoPeriodo: number      // kg que compró en el último período (aunque haya vencido)
+  diasDesdeVencimiento: number // 0 si está activa, >0 si venció hace N días
 }

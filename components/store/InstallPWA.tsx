@@ -30,20 +30,22 @@ export default function InstallPWA() {
       if (dismissed && Date.now() - Number(dismissed) < 7 * 86400000) return
     } catch {}
 
-    // iOS no dispara beforeinstallprompt — mostramos hint manual
+    // iOS no dispara beforeinstallprompt — mostramos hint manual.
+    // Diferimos la aparición ~4s para no colisionar con CoinsToast (que dura 3.5s).
     const ua = window.navigator.userAgent
     const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream
+    let iosTimer: ReturnType<typeof setTimeout> | null = null
     if (iOS) {
       setIsIOS(true)
-      setVisible(true)
-      return
+      iosTimer = setTimeout(() => setVisible(true), 4000)
     }
 
-    // Android / Desktop: escuchar evento del navegador
+    // Android / Desktop: escuchar evento del navegador (también diferido)
+    let desktopTimer: ReturnType<typeof setTimeout> | null = null
     const handler = (e: Event) => {
       e.preventDefault()
       setPrompt(e as BeforeInstallPromptEvent)
-      setVisible(true)
+      desktopTimer = setTimeout(() => setVisible(true), 4000)
     }
     window.addEventListener('beforeinstallprompt', handler)
 
@@ -54,6 +56,8 @@ export default function InstallPWA() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
       window.removeEventListener('appinstalled', installed)
+      if (iosTimer) clearTimeout(iosTimer)
+      if (desktopTimer) clearTimeout(desktopTimer)
     }
   }, [])
 
