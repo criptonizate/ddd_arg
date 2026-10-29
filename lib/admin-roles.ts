@@ -9,6 +9,8 @@ export const LIMITED_ADMINS: Record<string, string[]> = {
     '/admin/presupuesto',
     '/admin/filamentos',
     '/admin/cuentas',
+    '/admin/ventas',
+    '/admin/pedidos',
   ],
 }
 
