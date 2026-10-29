@@ -2743,10 +2743,15 @@ export default function FilamentosClient({ initialFilamentos, clientes = [] }: {
                           const res = await notificarSugerenciaDisponible(s.id)
                           if (res.error) { alert(res.error); return }
                           setSugerencias(prev => prev ? prev.map(x => x.id === s.id ? { ...x, estado: 'notificado', respondido_at: new Date().toISOString(), leido: true } : x) : prev)
+                          if (res.emailEnviado) {
+                            // feedback breve: email enviado
+                            console.log(`Email enviado para sugerencia ${s.id}`)
+                          }
                         }}
                         className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
+                        title="Marca como notificado y envía email al cliente"
                       >
-                        ✅ Avisar que ya hay stock
+                        ✅ Avisar que ya hay stock (+ email)
                       </button>
                     )}
                     {!s.leido && (

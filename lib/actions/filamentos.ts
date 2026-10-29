@@ -846,18 +846,49 @@ export async function marcarSugerenciasVistas(): Promise<void> {
     .eq('visto_por_cliente', false)
 }
 
-// Admin notifica al cliente que su color ya está en stock
-export async function notificarSugerenciaDisponible(id: string): Promise<{ error?: string }> {
+// Admin notifica al cliente que su color ya está en stock.
+// Marca estado=notificado y envía email al cliente.
+export async function notificarSugerenciaDisponible(id: string): Promise<{ error?: string; emailEnviado?: boolean }> {
   await getAdminUser()
   const sb = createServiceClient()
+
+  // Primero obtener los datos de la sugerencia para el email
+  const { data: sug } = await sb
+    .from('filamento_sugerencias')
+    .select('user_id, color, mensaje')
+    .eq('id', id)
+    .maybeSingle()
+
   const { error } = await sb
     .from('filamento_sugerencias')
     .update({ estado: 'notificado', respondido_at: new Date().toISOString(), leido: true })
     .eq('id', id)
   if (error) return { error: error.message }
+
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
-  return {}
+
+  // Enviar email al cliente — en background, no fallar si falla
+  let emailEnviado = false
+  if (sug?.user_id) {
+    try {
+      const { data: authUser } = await sb.auth.admin.getUserById(sug.user_id)
+      const clienteEmail = authUser?.user?.email
+      if (clienteEmail) {
+        const clienteNombre = authUser.user?.user_metadata?.full_name
+          ?? authUser.user?.email?.split('@')[0]
+          ?? 'Cliente'
+        const color = sug.color || sug.mensaje
+        const { sendColorDisponibleCliente } = await import('@/lib/email')
+        await sendColorDisponibleCliente({ clienteEmail, clienteNombre, color })
+        emailEnviado = true
+      }
+    } catch (err) {
+      console.error('[notificarSugerenciaDisponible] email error:', err)
+    }
+  }
+
+  return { emailEnviado }
 }
 
 export async function descartarSugerencia(id: string): Promise<{ error?: string }> {

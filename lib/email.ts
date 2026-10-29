@@ -252,6 +252,36 @@ export async function sendCarritoAbandonado({
   if (error) console.error('[email] sendCarritoAbandonado error:', error)
 }
 
+export async function sendColorDisponibleCliente(data: {
+  clienteEmail: string
+  clienteNombre: string
+  color: string
+}) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: data.clienteEmail,
+    subject: `🎨 Ya tenemos "${data.color}" en stock — DDD ARG`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#111;color:#f0fdf4;padding:24px;border-radius:12px">
+        <h2 style="color:#c084fc;margin:0 0 4px">✨ ¡Ya hay stock del color que pediste!</h2>
+        <p style="color:#86efac;margin:0 0 20px">Hola <strong style="color:#f0fdf4">${data.clienteNombre}</strong>, repusimos el color que nos pediste:</p>
+
+        <div style="background:#1a0f2e;border:1px solid #7c3aed;border-radius:8px;padding:16px 20px;margin-bottom:20px;text-align:center">
+          <p style="color:#c084fc;font-size:14px;margin:0 0 6px">Color disponible:</p>
+          <p style="color:#f0fdf4;font-weight:900;font-size:22px;margin:0">${data.color}</p>
+        </div>
+
+        <a href="${siteUrl}/filamentos" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin-bottom:12px">
+          Ver en la tienda y hacer tu pedido →
+        </a>
+        <p style="color:#86efac;font-size:12px;margin:16px 0 0">Si otro cliente lo pide también, puede agotarse rápido — te avisamos primero por ser el que lo encargó.</p>
+      </div>
+    `,
+  })
+  if (error) console.error('[email] sendColorDisponibleCliente error:', error)
+}
+
 export async function sendMembresiaPorVencerCliente(data: {
   clienteEmail: string
   clienteNombre: string
