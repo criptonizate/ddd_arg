@@ -52,14 +52,16 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   const inputCls = "w-full text-base border border-border rounded-xl px-3.5 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
   const labelCls = "text-xs font-semibold text-muted-foreground block mb-1.5"
 
-  const perfilCompleto = !!(initialProfile?.telefono && initialProfile?.dni)
+  // Perfil sin ningún dato = aún no reclamó los 20 pts; incompleto = tiene algo pero falta
+  const perfilVirgen = !initialProfile?.telefono && !initialProfile?.dni && !initialProfile?.apodo
+  const perfilFaltante = !initialProfile?.telefono || !initialProfile?.dni
   const inicial = (nombre?.trim()?.[0] ?? '?').toUpperCase()
 
   return (
     <div className="space-y-6">
 
-      {/* Banner incentivo si perfil incompleto */}
-      {!perfilCompleto && !editing && (
+      {/* Banner incentivo: +20 pts solo si todavía no reclamó, o invitación suave si falta algo */}
+      {perfilVirgen && !editing ? (
         <div className="rounded-2xl border p-4 flex items-center gap-3" style={{ backgroundColor: 'oklch(0.22 0.04 60)', borderColor: '#d97706' }}>
           <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(217,119,6,0.25)' }}>
             <Gift size={18} style={{ color: '#fcd34d' }} />
@@ -69,7 +71,14 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
             <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>Nos ayuda a contactarte más rápido con tus pedidos.</p>
           </div>
         </div>
-      )}
+      ) : perfilFaltante && !editing ? (
+        <div className="rounded-2xl border border-border bg-secondary/40 p-3 flex items-center gap-2.5">
+          <span className="text-amber-500 text-sm">💡</span>
+          <p className="text-xs text-muted-foreground flex-1">
+            Agregá tu <strong className="text-foreground">{!initialProfile?.telefono ? 'teléfono' : 'DNI'}</strong> para que podamos contactarte más rápido.
+          </p>
+        </div>
+      ) : null}
 
       {/* Número de cliente */}
       {initialProfile?.numero_cliente && (
