@@ -190,7 +190,9 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
     const [{ data: profiles }, { data: pedidosHistorial }, { data: ventasHistorial }, { data: trials }, { data: extensionesData }] = await Promise.all([
       supabase.from('user_profiles').select('user_id, numero_cliente').in('user_id', userIds),
       supabase.from('filamento_pedidos').select('user_id, updated_at, total_rollos').in('user_id', userIds).in('estado', ['confirmado', 'entregado']),
-      supabase.from('filamento_ventas').select('user_id, fecha, gramos').in('user_id', userIds),
+      // IMPORTANTE: excluir ventas con pedido_id — esas son copia de un pedido web
+      // que ya se contabiliza por `filamento_pedidos`. Si no filtramos, se suman doble.
+      supabase.from('filamento_ventas').select('user_id, fecha, gramos').in('user_id', userIds).is('pedido_id', null),
       supabase.from('membresia_trial').select('user_id, trial_fin').in('user_id', userIds),
       supabase.from('membresia_extensiones').select('user_id, dias, estado').in('user_id', userIds),
     ])
@@ -500,7 +502,8 @@ async function calcularDescuentoProyectado(
     supabase
       .from('filamento_ventas')
       .select('fecha, gramos')
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .is('pedido_id', null), // excluir copias de pedidos web
     supabase
       .from('membresia_extensiones')
       .select('dias, estado')
@@ -565,7 +568,8 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     supabase
       .from('filamento_ventas')
       .select('fecha, gramos')
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .is('pedido_id', null), // excluir copias de pedidos web (ya contabilizados en filamento_pedidos)
     supabase
       .from('membresia_extensiones')
       .select('dias, estado')
@@ -860,7 +864,7 @@ export async function getMembresiasAdmin(): Promise<MembresiaAdminRow[]> {
 
   const [{ data: pedidosData }, { data: ventasData }, { data: usersData }, { data: notasData }] = await Promise.all([
     supabase.from('filamento_pedidos').select('user_id, updated_at, total_rollos').in('estado', ['confirmado', 'entregado']).not('user_id', 'is', null),
-    supabase.from('filamento_ventas').select('user_id, fecha, gramos').not('user_id', 'is', null),
+    supabase.from('filamento_ventas').select('user_id, fecha, gramos').not('user_id', 'is', null).is('pedido_id', null), // excluir copias de pedidos web
     supabase.auth.admin.listUsers({ perPage: 500 }),
     supabase.from('user_profiles').select('user_id, admin_apodo'),
   ])

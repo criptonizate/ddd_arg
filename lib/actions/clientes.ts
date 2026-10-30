@@ -290,6 +290,7 @@ export async function getClientesConVentasFilamento(): Promise<ClienteFilamentoS
     .from('filamento_ventas')
     .select('cliente_id, gramos, precio_kg, fecha, clientes(id, nombre, dni, telefono, apodo)')
     .not('cliente_id', 'is', null)
+    .is('pedido_id', null) // excluir copias de pedidos web (duplicarían kg/plata)
     .order('fecha', { ascending: false })
   if (!data?.length) return []
   const map = new Map<string, ClienteFilamentoStats>()

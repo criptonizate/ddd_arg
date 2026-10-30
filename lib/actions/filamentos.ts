@@ -195,6 +195,7 @@ export async function getVentasDeCliente(clienteId: string): Promise<VentaFilame
     .from('filamento_ventas')
     .select('*, filamentos(nombre, color, material, marca)')
     .eq('cliente_id', clienteId)
+    .is('pedido_id', null) // excluir copias de pedidos web (ya aparecen en "Pedidos web")
     .order('fecha', { ascending: false })
   return (data ?? []).map((r: any) => ({
     ...r,
@@ -214,6 +215,7 @@ export async function getKgMensualesCliente(clienteId: string, mes: string): Pro
     .from('filamento_ventas')
     .select('gramos')
     .eq('cliente_id', clienteId)
+    .is('pedido_id', null) // excluir copias de pedidos web para no doble-contar kg
     .gte('fecha', `${mes}-01`)
     .lte('fecha', `${mes}-31`)
   return (data ?? []).reduce((s: number, r: { gramos: number }) => s + r.gramos / 1000, 0)
@@ -343,6 +345,7 @@ export async function getHistorialVentasFilamentos(): Promise<VentaFilamento[]> 
   const { data } = await supabase
     .from('filamento_ventas')
     .select('*, filamentos(nombre, color, material)')
+    .is('pedido_id', null) // excluir copias de pedidos web (ya visibles en la tab Pedidos)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(200)
@@ -460,6 +463,7 @@ export async function getVentasDeUsuario(userId: string): Promise<VentaFilamento
     .from('filamento_ventas')
     .select('*, filamentos(nombre, color, material, marca)')
     .eq('user_id', userId)
+    .is('pedido_id', null) // excluir copias de pedidos web (duplicarían el detalle del pedido)
     .order('fecha', { ascending: false })
   return (data ?? []).map((r: any) => ({
     ...r,
