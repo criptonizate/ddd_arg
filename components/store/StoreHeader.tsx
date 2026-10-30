@@ -293,6 +293,7 @@ export default function StoreHeader() {
         }}
       >
         <div
+          data-marquee-store
           className="flex gap-0 py-2"
           style={{
             animation: 'marquee-store 28s linear infinite',
@@ -384,6 +385,9 @@ export default function StoreHeader() {
         @keyframes marquee-store {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-marquee-store] { animation: none !important; }
         }
       `}</style>
     </header>

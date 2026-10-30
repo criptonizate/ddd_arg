@@ -538,6 +538,7 @@ function GrupoHeader({ cfg, count }: { cfg: typeof GRUPO[keyof typeof GRUPO]; co
 // ── Helper: cobro rápido inline ────────────────────────────────────────────────
 
 function CobrarInline({ orderId, total, sena }: { orderId: string; total: number; sena: number }) {
+  const router = useRouter()
   const pendiente = total - sena
   const [showInput, setShowInput] = useState(false)
   const [valor, setValor] = useState(pendiente)
@@ -550,6 +551,8 @@ function CobrarInline({ orderId, total, sena }: { orderId: string; total: number
     startTransition(async () => {
       await updateOrderSena(orderId, nuevoSena)
       setShowInput(false)
+      // Refrescar la vista para que el banner "Deben $X" del padre se recalcule.
+      router.refresh()
     })
   }
 

@@ -181,22 +181,24 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
         <>
           <button
             onClick={(e) => { e.stopPropagation(); prev() }}
-            className="absolute left-3 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+            aria-label="Foto anterior"
+            className="absolute left-3 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
           >
-            <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); next() }}
-            className="absolute right-3 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+            aria-label="Foto siguiente"
+            className="absolute right-3 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
           >
-            <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         </>
       )}
 
       <img
         src={imgUrl(fotos[idx], 1200, 90)}
-        alt={`Foto ${idx + 1}`}
+        alt={`Foto ${idx + 1} de ${fotos.length}`}
         className="max-w-full max-h-[85dvh] object-contain rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         onError={(e) => { (e.target as HTMLImageElement).src = fotos[idx] }}
@@ -208,6 +210,8 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
             <button
               key={i}
               onClick={(e) => { e.stopPropagation(); setIdx(i) }}
+              aria-label={`Ir a foto ${i + 1}`}
+              aria-current={i === idx ? 'true' : undefined}
               className={`rounded-full transition-all ${i === idx ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/40 hover:bg-white/70'}`}
             />
           ))}
@@ -1136,9 +1140,9 @@ export default function FilamentosShop({
           {/* Item 4 — Filamentos sin stock */}
           {agotadosFiltrados.length > 0 && (
             <div className="mt-10">
-              <h3 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
                 <span>⏳</span> Sin stock por ahora
-              </h3>
+              </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {agotadosFiltrados.map(f => {
                   const yaAlertado = misAlertas.includes(f.id)
@@ -1362,7 +1366,7 @@ export default function FilamentosShop({
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                   <h2 className="font-bold text-base">Confirmar pedido</h2>
                   {checkoutStep === 'form' && (
-                    <button onClick={() => { setShowCheckout(false); setPuntosACanjear(0) }} className="p-1.5 rounded-lg hover:bg-secondary"><X size={16} /></button>
+                    <button onClick={() => { setShowCheckout(false); setPuntosACanjear(0) }} aria-label="Cerrar checkout" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary"><X size={16} /></button>
                   )}
                 </div>
 

@@ -22,8 +22,11 @@ function fmtDate(iso: string) {
 }
 
 function useNow(intervalMs = 30000) {
-  const [now, setNow] = useState(() => Date.now())
+  // null en SSR + primera render para evitar hydration mismatch (server time != client time).
+  // El consumidor debe tolerar null (ej: mostrar placeholder).
+  const [now, setNow] = useState<number | null>(null)
   useEffect(() => {
+    setNow(Date.now())
     const t = setInterval(() => setNow(Date.now()), intervalMs)
     return () => clearInterval(t)
   }, [intervalMs])
@@ -32,6 +35,7 @@ function useNow(intervalMs = 30000) {
 
 function CountdownReserva({ reservadoHasta }: { reservadoHasta: string }) {
   const now = useNow(60000)
+  if (now === null) return null // SSR / primer render — evita mismatch
   const ms = new Date(reservadoHasta).getTime() - now
   if (ms <= 0) return <span className="text-red-500 font-semibold text-[11px]">⚠ Reserva vencida</span>
   const horas = Math.floor(ms / 3600000)
@@ -58,6 +62,7 @@ export default function CuentaPedidosTab({
   const [, startTransition] = useTransition()
   const [cancelando, setCancelando] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<Record<string, string>>({})
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
   // Item 3 — Realtime: re-render cuando cambia el estado de un pedido
   useEffect(() => {
@@ -80,9 +85,14 @@ export default function CuentaPedidosTab({
     return () => { supabase.removeChannel(channel) }
   }, [userId, router])
 
-  // Item 6 — Cancelar pedido pendiente
-  function handleCancelar(pedidoId: string) {
-    if (!confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.')) return
+  function pedirConfirmacionCancelar(pedidoId: string) {
+    setConfirmCancelId(pedidoId)
+  }
+
+  function ejecutarCancelacion() {
+    const pedidoId = confirmCancelId
+    if (!pedidoId) return
+    setConfirmCancelId(null)
     setCancelando(pedidoId)
     setCancelError(prev => { const n = { ...prev }; delete n[pedidoId]; return n })
     startTransition(async () => {
@@ -201,9 +211,8 @@ export default function CuentaPedidosTab({
                         Recordatorio por WhatsApp
                       </a>
 
-                      {/* Item 6 — Cancelar pedido pendiente */}
                       <button
-                        onClick={() => handleCancelar(p.id)}
+                        onClick={() => pedirConfirmacionCancelar(p.id)}
                         disabled={cancelando === p.id}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50"
                       >
@@ -261,6 +270,51 @@ export default function CuentaPedidosTab({
           </div>
         </section>
       )}
+
+      {/* Modal custom de confirmación — reemplaza window.confirm que no
+          mostraba qué pedido se cancelaba. */}
+      {confirmCancelId && (() => {
+        const pedido = initialPedidos?.find(p => p.id === confirmCancelId)
+        if (!pedido) return null
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-cancel-title"
+            className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4"
+            onClick={() => setConfirmCancelId(null)}
+          >
+            <div
+              className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-border">
+                <h3 id="confirm-cancel-title" className="font-bold text-base">¿Cancelar pedido N°{pedido.numero}?</h3>
+                <p className="text-xs text-muted-foreground mt-1">{pedido.total_rollos} kg · {fmtARS(pedido.total)}</p>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-sm text-muted-foreground">
+                  Vamos a liberar la reserva de stock. Si tenías DDD Coins canjeados o puntos ganados por este pedido, se devuelven. Esta acción no se puede deshacer.
+                </p>
+              </div>
+              <div className="px-5 pb-5 flex gap-2">
+                <button
+                  onClick={() => setConfirmCancelId(null)}
+                  className="flex-1 min-h-[44px] px-4 rounded-xl border border-border hover:bg-secondary text-sm font-semibold"
+                >
+                  No, mantener
+                </button>
+                <button
+                  onClick={ejecutarCancelacion}
+                  className="flex-1 min-h-[44px] px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold"
+                >
+                  Sí, cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </>
   )
 }
