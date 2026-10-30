@@ -507,6 +507,8 @@ export default function FilamentosShop({
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
   const cartSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const alertToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Flag para reabrir el checkout después del login si el usuario venía intentando confirmar
+  const postLoginIntentRef = useRef<'checkout' | null>(null)
   useEffect(() => () => { if (alertToastTimerRef.current) clearTimeout(alertToastTimerRef.current) }, [])
   const { setFilamentCount } = useCart()
 
@@ -580,6 +582,15 @@ export default function FilamentosShop({
       }
       if (u) {
         setShowAuthModal(false)
+        // Si venía intentando confirmar el pedido, reabrir el checkout
+        if (postLoginIntentRef.current === 'checkout') {
+          postLoginIntentRef.current = null
+          setShowCheckout(true)
+          setCheckoutStep('form')
+          setCheckoutError('')
+          setPedidoNumero(null)
+          setPuntosACanjear(0)
+        }
         // Limpiar carrito anónimo de localStorage — ahora usa DB
         try { localStorage.removeItem('ddd_cart_filamentos') } catch { /* noop */ }
         // Fetch membership for newly logged-in user
@@ -776,7 +787,14 @@ export default function FilamentosShop({
 
   async function abrirCheckout() {
     if (!cart.length) return
-    if (!user) { setShowCart(false); setShowAuthModal(true); return }
+    if (!user) {
+      // Marcar intención para que, después del login, se reabra el checkout
+      // automáticamente en vez de dejar al usuario perdido en la grilla.
+      postLoginIntentRef.current = 'checkout'
+      setShowCart(false)
+      setShowAuthModal(true)
+      return
+    }
     if (user) {
       const { getMembresiaCliente } = await import('@/lib/actions/filamento-pedidos')
       const mem = await getMembresiaCliente(user.id).catch(() => null)
@@ -1283,23 +1301,30 @@ export default function FilamentosShop({
                   )
                 })}
               </div>
-              <div className="space-y-1 pt-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{totalKg} kg · subtotal</span>
-                  <span>{fmtARS(subtotal)}</span>
-                </div>
-                {descuento > 0 && (
-                  <div className="flex justify-between text-xs text-orange-600 dark:text-orange-400">
-                    <span>Descuento ({descLabel})</span>
-                    <span>-{fmtARS(descuento * totalKg)}</span>
+              {(() => {
+                // Subtotal es el precio con descuento ya aplicado — para mostrar la
+                // resta correcta necesitamos el bruto (precio base × kg).
+                const subtotalBruto = cart.reduce((s, i) => s + i.rollos * (i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT), 0)
+                const ahorroMembresia = subtotalBruto - subtotal
+                return (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{totalKg} kg · subtotal</span>
+                      <span>{fmtARS(subtotalBruto)}</span>
+                    </div>
+                    {ahorroMembresia > 0 && (
+                      <div className="flex justify-between text-xs text-green-600 dark:text-green-400">
+                        <span>Ahorro {descLabel} (-{fmtARS(descuento)}/kg)</span>
+                        <span className="font-semibold">-{fmtARS(ahorroMembresia)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-base pt-2 border-t border-border">
+                      <span>Total</span>
+                      <span>{fmtARS(subtotal)}</span>
+                    </div>
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-border">
-                  <span>Total estimado</span>
-                  <span>{fmtARS(subtotal)}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center">El vendedor confirmará disponibilidad y precio final</p>
-              </div>
+                )
+              })()}
               {(() => {
                 const hayProblemas = cart.some(item => {
                   const filActual = localFilamentos.find(f => f.id === item.filamento.id) ?? item.filamento
@@ -1341,7 +1366,7 @@ export default function FilamentosShop({
                   )}
                 </div>
 
-                {/* Resumen del carrito — siempre visible */}
+                {/* Resumen del carrito — total refleja coins canjeados en vivo */}
                 <div className="px-6 pt-5 space-y-4">
                   <div className="bg-secondary/40 rounded-xl px-4 py-3 space-y-1">
                     {cart.map(i => (
@@ -1351,12 +1376,28 @@ export default function FilamentosShop({
                         <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento))}</span>
                       </div>
                     ))}
-                    <div className="border-t border-border mt-2 pt-2 flex justify-between text-sm font-bold">
-                      <span>{totalKg} kg</span><span>{fmtARS(subtotal)}</span>
+                    <div className="border-t border-border mt-2 pt-2 space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Subtotal ({totalKg} kg)</span>
+                        <span>{fmtARS(subtotal)}</span>
+                      </div>
+                      {descuento > 0 && (
+                        <p className="text-[10px] text-green-600 dark:text-green-400 flex justify-between">
+                          <span>Membresía {descLabel}</span>
+                          <span>-{fmtARS(descuento)}/kg incluido</span>
+                        </p>
+                      )}
+                      {puntosACanjear > 0 && (
+                        <div className="flex justify-between text-xs" style={{ color: '#f59e0b' }}>
+                          <span>🪙 DDD Coins</span>
+                          <span>-{fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-base font-bold pt-1 border-t border-border/60">
+                        <span>Total a pagar</span>
+                        <span>{fmtARS(Math.max(0, subtotal - (puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE))}</span>
+                      </div>
                     </div>
-                    {descuento > 0 && (
-                      <p className="text-[10px] text-orange-600 dark:text-orange-400 text-center">Descuento: -{fmtARS(descuento)}/kg ({descLabel})</p>
-                    )}
                   </div>
                 </div>
 
