@@ -2184,37 +2184,65 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
               {/* Detalle expandido */}
               {isExpanded && (
                 <div className="border-t border-border px-4 py-4 space-y-4">
-                  {/* Items */}
+                  {/* Items — mostramos precio final por kg (ya con descuento aplicado) */}
                   <div className="space-y-2">
-                    {p.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted-foreground/20 border border-border" />
-                        <span className="flex-1 min-w-0">
-                          <span className="font-medium">{item.color}</span>
-                          <span className="text-muted-foreground ml-1">— {item.material} · {item.marca}</span>
-                        </span>
-                        <span className="font-semibold tabular-nums shrink-0">{item.rollos} kg</span>
-                        <span className="text-muted-foreground tabular-nums shrink-0 text-xs">${item.precio_unitario.toLocaleString('es-AR')}/kg</span>
-                      </div>
-                    ))}
+                    {p.items.map((item, idx) => {
+                      const precioFinalKg = Math.max(0, item.precio_unitario - p.descuento_por_rollo)
+                      const subtotal = precioFinalKg * item.rollos
+                      const hayDescuento = p.descuento_por_rollo > 0
+                      return (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted-foreground/20 border border-border" />
+                          <span className="flex-1 min-w-0">
+                            <span className="font-medium">{item.color}</span>
+                            <span className="text-muted-foreground ml-1">— {item.material} · {item.marca}</span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">{item.rollos} kg</span>
+                          <span className="tabular-nums shrink-0 text-xs text-right">
+                            {hayDescuento ? (
+                              <>
+                                <span className="font-semibold text-green-600 dark:text-green-400">${precioFinalKg.toLocaleString('es-AR')}/kg</span>
+                                <span className="text-muted-foreground line-through ml-1.5">${item.precio_unitario.toLocaleString('es-AR')}</span>
+                                <span className="block text-[10px] text-muted-foreground">= ${subtotal.toLocaleString('es-AR')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-semibold">${item.precio_unitario.toLocaleString('es-AR')}/kg</span>
+                                <span className="block text-[10px] text-muted-foreground">= ${subtotal.toLocaleString('es-AR')}</span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
 
-                  {/* Totales */}
-                  <div className="bg-secondary/30 rounded-lg px-3 py-2.5 text-sm">
-                    <div className="flex justify-between font-bold">
-                      <span>{p.total_rollos} kg total</span>
-                      <span>${p.total.toLocaleString('es-AR')}</span>
+                  {/* Totales — destacado para cobro */}
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-3 text-sm">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">💵 A cobrar</span>
+                      <span className="text-2xl font-black tabular-nums text-green-700 dark:text-green-400">
+                        ${p.total.toLocaleString('es-AR')}
+                      </span>
                     </div>
-                    {p.descuento_por_rollo > 0 && (
-                      <p className="text-[11px] text-orange-600 dark:text-orange-400 mt-0.5">
-                        Descuento membresía: -${p.descuento_por_rollo.toLocaleString('es-AR')}/kg
-                      </p>
-                    )}
-                    {p.descuento_coins > 0 && (
-                      <p className="text-[11px] mt-0.5" style={{ color: '#f59e0b' }}>
-                        🪙 Descuento DDD Coins: -${p.descuento_coins.toLocaleString('es-AR')}
-                      </p>
-                    )}
+                    <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
+                      <span>{p.total_rollos} kg total</span>
+                      {(p.descuento_por_rollo > 0 || p.descuento_coins > 0) && (
+                        <span className="text-right">
+                          {p.descuento_por_rollo > 0 && (
+                            <span className="text-orange-600 dark:text-orange-400">
+                              Membresía: -${p.descuento_por_rollo.toLocaleString('es-AR')}/kg
+                            </span>
+                          )}
+                          {p.descuento_por_rollo > 0 && p.descuento_coins > 0 && <span className="mx-1">·</span>}
+                          {p.descuento_coins > 0 && (
+                            <span style={{ color: '#f59e0b' }}>
+                              🪙 -${p.descuento_coins.toLocaleString('es-AR')}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {p.nota && (
@@ -2391,10 +2419,29 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                 ))}
               </div>
 
-              {/* Resumen */}
-              <div className="bg-secondary/40 rounded-xl px-3 py-2.5 text-sm flex justify-between font-medium">
-                <span>{editModal.items.reduce((s, i) => s + i.rollos, 0)} kg total</span>
-              </div>
+              {/* Resumen con cobro estimado */}
+              {(() => {
+                const totalKg = editModal.items.reduce((s, i) => s + i.rollos, 0)
+                const descKg = editModal.pedido.descuento_por_rollo ?? 0
+                const descCoins = editModal.pedido.descuento_coins ?? 0
+                const subtotal = editModal.items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descKg), 0)
+                const totalFinal = Math.max(0, subtotal - descCoins)
+                return (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-3 py-3 text-sm">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase">💵 A cobrar</span>
+                      <span className="text-xl font-black tabular-nums text-green-700 dark:text-green-400">
+                        ${totalFinal.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {totalKg} kg
+                      {descKg > 0 && <span className="text-orange-600 dark:text-orange-400 ml-2">Membresía: -${descKg.toLocaleString('es-AR')}/kg</span>}
+                      {descCoins > 0 && <span className="ml-2" style={{ color: '#f59e0b' }}>🪙 -${descCoins.toLocaleString('es-AR')}</span>}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {editError && <p className="text-xs text-red-600">{editError}</p>}
             </div>
