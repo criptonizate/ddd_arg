@@ -264,6 +264,10 @@ function FilamentoCard({
   onDelete: () => void
 }) {
   const [fil, setFil] = useState(initial)
+  // Re-sincronizar cuando el padre refresca (ej: después de anular un pedido
+  // que restaura stock) para no mostrar valores viejos.
+  useEffect(() => { setFil(initial) }, [initial])
+
   const [expanded, setExpanded] = useState(false)
   const [gramos, setGramos] = useState(String(initial.gramos_sueltos || ''))
   const [costoKgStr, setCostoKgStr] = useState(String(initial.costo_kg || ''))
@@ -315,8 +319,12 @@ function FilamentoCard({
   async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<File> {
     return new Promise((resolve) => {
       const img = new Image()
+      const url = URL.createObjectURL(file)
+      // Si el archivo no es imagen válida (HEIC, corrupto, etc) el onload no dispara.
+      // Resolvemos con el file original para no dejar la UI colgada.
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
       img.onload = () => {
-        URL.revokeObjectURL(img.src)
+        URL.revokeObjectURL(url)
         let { width, height } = img
         if (width > maxWidth) {
           height = Math.round(height * maxWidth / width)
@@ -327,12 +335,14 @@ function FilamentoCard({
         canvas.height = height
         canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
         canvas.toBlob(
-          (blob) => resolve(new File([blob!], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+          (blob) => resolve(blob
+            ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+            : file),
           'image/jpeg',
           quality
         )
       }
-      img.src = URL.createObjectURL(file)
+      img.src = url
     })
   }
 
@@ -463,35 +473,51 @@ function FilamentoCard({
     })
   }
 
+  // Guard anti-doble-click: startTransition no setea isPending de forma síncrona,
+  // así que en móvil con doble tap rápido se dispara dos veces el server action.
+  const submittingRef = useRef(false)
+
   function handleRegistrarVenta() {
+    if (submittingRef.current) return
     const kg = ventaKg
     const precio = parseFloat(ventaPrecioKg)
     if (!kg || kg <= 0) { setVentaError('Ingresá los kg a vender'); return }
     const gramos = Math.round(kg * 1000)
     if (gramos > totalGr) { setVentaError(`Stock insuficiente (${Math.floor(totalGr / 1000)} kg disponibles)`); return }
     setVentaError('')
+    submittingRef.current = true
     startTransition(async () => {
-      const res = await registrarVentaFilamento(fil.id, {
-        gramos, precio_kg: precio, costo_kg: fil.costo_kg,
-        cliente: ventaCliente, cliente_id: ventaClienteId, nota: '', fecha: ventaFecha,
-      })
-      if (res.error) { setVentaError(res.error); return }
-      if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
-      if (res.venta) setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
-      setVentaKg(1); clearCliente(); setVentaFecha(today); setShowVenta(false)
+      try {
+        const res = await registrarVentaFilamento(fil.id, {
+          gramos, precio_kg: precio, costo_kg: fil.costo_kg,
+          cliente: ventaCliente, cliente_id: ventaClienteId, nota: '', fecha: ventaFecha,
+        })
+        if (res.error) { setVentaError(res.error); return }
+        if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
+        if (res.venta) setVentas((prev) => prev ? [res.venta!, ...prev] : [res.venta!])
+        setVentaKg(1); clearCliente(); setVentaFecha(today); setShowVenta(false)
+      } finally {
+        submittingRef.current = false
+      }
     })
   }
 
   function handleUsoPropioConfirmar() {
+    if (submittingRef.current) return
     const gr = parseFloat(usoPropioGr)
     if (!gr || gr <= 0) { setUsoPropioError('Ingresá los gramos a descontar'); return }
     if (gr > totalGr) { setUsoPropioError(`Stock insuficiente (${Math.round(totalGr)}g disponibles)`); return }
     setUsoPropioError('')
+    submittingRef.current = true
     startTransition(async () => {
-      const res = await descontarUsoPropioFilamento(fil.id, gr)
-      if (res.error) { setUsoPropioError(res.error); return }
-      if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
-      setUsoPropioGr(''); setShowUsoPropio(false)
+      try {
+        const res = await descontarUsoPropioFilamento(fil.id, gr)
+        if (res.error) { setUsoPropioError(res.error); return }
+        if (res.filamento) { setFil(res.filamento); setGramos(String(res.filamento.gramos_sueltos || '')); onUpdate(res.filamento) }
+        setUsoPropioGr(''); setShowUsoPropio(false)
+      } finally {
+        submittingRef.current = false
+      }
     })
   }
 
@@ -1317,16 +1343,18 @@ function VincularClienteModal({
 
 function HistorialVentas() {
   const [ventas, setVentas] = useState<VentaFilamento[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [vincularModal, setVincularModal] = useState<{ cliente: string; sinCuenta: number } | null>(null)
 
-  if (ventas === null && !loading) {
-    setLoading(true)
+  useEffect(() => {
+    let cancel = false
     getHistorialVentasFilamentos().then((data) => {
+      if (cancel) return
       setVentas(data)
       setLoading(false)
     })
-  }
+    return () => { cancel = true }
+  }, [])
 
   if (loading) return <p className="text-sm text-muted-foreground py-8 text-center">Cargando...</p>
   if (!ventas || ventas.length === 0) {

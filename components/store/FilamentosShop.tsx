@@ -496,18 +496,27 @@ export default function FilamentosShop({
   const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: (typeof cart[0] & { precioUnitario: number })[]; kg: number; subtotal: number; descuento: number; descLabel: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
+  // Re-sincronizar cuando el server devuelve stock actualizado (otro cliente compró, admin cambió precio, etc).
+  useEffect(() => { setLocalFilamentos(filamentos) }, [filamentos])
+  // Mantener una ref actualizada para que closures (auth listener) usen el valor vigente.
+  const localFilamentosRef = useRef(localFilamentos)
+  useEffect(() => { localFilamentosRef.current = localFilamentos }, [localFilamentos])
+
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [membresia, setMembresia] = useState<MembresiaStatus | null>(initialMembresia ?? null)
   const cartSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const alertToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (alertToastTimerRef.current) clearTimeout(alertToastTimerRef.current) }, [])
   const { setFilamentCount } = useCart()
 
-  // Sincronizar count de items con CartProvider para el badge del header
+  // Sincronizar count de items con CartProvider para el badge del header.
+  // Sin cleanup intermedio: el cleanup corría antes de cada update y causaba
+  // flicker a 0 visible en el badge entre + y - rápidos.
   useEffect(() => {
-    const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
-    setFilamentCount(totalKg)
-    return () => setFilamentCount(0)
+    setFilamentCount(cart.reduce((s, i) => s + i.rollos, 0))
   }, [cart, setFilamentCount])
+  useEffect(() => () => setFilamentCount(0), [setFilamentCount])
 
   // Persistir carrito anónimo en localStorage continuamente
   useEffect(() => {
@@ -584,8 +593,11 @@ export default function FilamentosShop({
             setCart(prev => {
               if (prev.length > 0) return prev
               const removed: string[] = []
+              // Usar ref para captar el stock vigente al momento del callback,
+              // no el del primer render del componente.
+              const filamentosActuales = localFilamentosRef.current
               const restored = savedItems.flatMap(item => {
-                const fil = localFilamentos.find(f => f.id === item.filamento_id)
+                const fil = filamentosActuales.find(f => f.id === item.filamento_id)
                 if (!fil) return []
                 const max = maxKg(fil)
                 if (max <= 0) { removed.push(fil.color || fil.nombre); return [] }
@@ -733,7 +745,8 @@ export default function FilamentosShop({
     if (!result.error) {
       setMisAlertas(prev => [...prev, filamentoId])
       setAlertToast(true)
-      setTimeout(() => setAlertToast(false), 5000)
+      if (alertToastTimerRef.current) clearTimeout(alertToastTimerRef.current)
+      alertToastTimerRef.current = setTimeout(() => setAlertToast(false), 5000)
     }
   }
 

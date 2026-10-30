@@ -369,10 +369,13 @@ function UserDetail({
   const [, startTransitionNotas] = useTransition()
 
   useEffect(() => {
-    getAdminUserNotes(usuario.id).then(setNotas)
+    let cancel = false
+    getAdminUserNotes(usuario.id).then(n => { if (!cancel) setNotas(n) })
+    return () => { cancel = true }
   }, [usuario.id])
 
   useEffect(() => {
+    let cancel = false
     setLoading(true)
     setPedidos(null)
     setVentas(null)
@@ -382,11 +385,15 @@ function UserDetail({
       getVentasDeUsuario(usuario.id),
       getSaldoCoins(usuario.id).catch(() => 0),
     ]).then(([p, v, coins]) => {
+      // Si el admin cambió de usuario antes de que esta Promise resolviera,
+      // no pintar los datos del usuario anterior sobre el nuevo panel.
+      if (cancel) return
       setPedidos(p)
       setVentas(v)
       setSaldoCoins(coins)
       setLoading(false)
     })
+    return () => { cancel = true }
   }, [usuario.id])
 
   const pedidosFiltrados = pedidos?.filter(p =>

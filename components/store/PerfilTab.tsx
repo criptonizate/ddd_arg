@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { saveMyProfile, type UserProfile } from '@/lib/actions/perfil'
 import { signOutCliente } from '@/lib/actions/auth'
 import { CheckCircle2, Pencil, LogOut, Gift } from 'lucide-react'
@@ -22,6 +22,8 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) }, [])
 
   function handleSave() {
     setError('')
@@ -36,7 +38,8 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
       if (result.error) { setError(result.error); return }
       setEditing(false)
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000)
     })
   }
 
