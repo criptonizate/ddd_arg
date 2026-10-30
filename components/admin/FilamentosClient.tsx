@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2, Eye, EyeOff, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2, Eye, EyeOff, MessageSquare, RefreshCw } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -28,7 +28,7 @@ import {
 } from '@/lib/actions/filamentos'
 import { createClienteRapido, updateClienteBasico, getClientesConVentasFilamento, type ClienteFilamentoStats } from '@/lib/actions/clientes'
 import { getVentasDeCliente } from '@/lib/actions/filamentos'
-import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
+import { getFilamentoPedidos, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, recalcularDescuentoPedido, type FilamentoPedido, type FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
 import { createBrowserClient } from '@supabase/ssr'
 import InsumosAdminTab from './InsumosAdminTab'
 import DemandaTab from './DemandaTab'
@@ -2051,6 +2051,24 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
     })
   }
 
+  function recalcularDescuento(id: string) {
+    setProcesando(id)
+    setError('')
+    startTransition(async () => {
+      const r = await recalcularDescuentoPedido(id)
+      if (r.error) {
+        setError(r.error)
+        setProcesando(null)
+        return
+      }
+      setPedidos(prev => prev.map(p => p.id === id
+        ? { ...p, descuento_por_rollo: r.descuento_aplicado ?? p.descuento_por_rollo, total: r.total_nuevo ?? p.total }
+        : p
+      ))
+      setProcesando(null)
+    })
+  }
+
   function ejecutarAnular() {
     if (!anularModal) return
     const { id } = anularModal
@@ -2295,6 +2313,18 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
 
                   {/* Acciones */}
                   <div className="flex gap-2 flex-wrap">
+                    {/* Recalcular descuento — visible siempre que haya cliente y no esté cancelado */}
+                    {p.user_id && p.estado !== 'cancelado' && (
+                      <button
+                        onClick={() => recalcularDescuento(p.id)}
+                        disabled={isProcesando}
+                        title="Recalcula el descuento según la membresía del cliente (incluyendo este pedido)"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {isProcesando ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                        Recalcular descuento
+                      </button>
+                    )}
                     {p.estado === 'pendiente' && (
                       <>
                         <button

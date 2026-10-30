@@ -70,10 +70,6 @@ export async function crearPedidoFilamento(data: {
 
   const supabase = createServiceClient()
 
-  // Calcular descuento server-side según membresía real del usuario
-  const membresia = await getMembresiaCliente(user.id).catch(() => null)
-  const descuento_por_rollo = membresia?.descuento ?? 0
-
   // Buscar precios reales de cada filamento en DB (no confiar en los del cliente)
   const filamentoIds = [...new Set(data.items.map(i => i.filamento_id))]
   const { data: filamentosDB } = await supabase
@@ -92,6 +88,12 @@ export async function crearPedidoFilamento(data: {
     }))
   if (!itemsValidados.length) return { error: 'Ningún filamento del pedido es válido' }
   const total_rollos = itemsValidados.reduce((s, i) => s + i.rollos, 0)
+
+  // Calcular descuento server-side INCLUYENDO este pedido en el cálculo de membresía.
+  // Si Jonathan tiene 0 kg previos y pide 5 kg hoy, cruza el hito de Plata y le toca
+  // $2000/kg off. Si tenía 3 kg y pide 2 kg, también cruza. Idéntica lógica al
+  // preview del carrito en FilamentosShop para que el precio final coincida.
+  const descuento_por_rollo = await calcularDescuentoProyectado(user.id, total_rollos)
 
   // Descuento DDD Coins
   let descuento_coins = 0
@@ -420,18 +422,19 @@ export async function editarItemsPedidoFilamento(
 
   const supabase = createServiceClient()
 
-  // Obtener user_id del pedido para recalcular descuento según membresía real
+  // Obtener user_id del pedido para recalcular descuento INCLUYENDO este pedido
   const { data: pedidoRow } = await supabase
     .from('filamento_pedidos')
-    .select('user_id')
+    .select('user_id, descuento_coins')
     .eq('id', pedidoId)
     .single()
-  const membresia = pedidoRow?.user_id
-    ? await getMembresiaCliente(pedidoRow.user_id).catch(() => null)
-    : null
-  const descuento_por_rollo = membresia?.descuento ?? 0
+  const descuento_por_rollo = pedidoRow?.user_id
+    ? await calcularDescuentoProyectado(pedidoRow.user_id, total_rollos, pedidoId)
+    : 0
+  const descuento_coins = pedidoRow?.descuento_coins ?? 0
 
-  const total = items.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0)
+  const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
+  const total = Math.max(0, subtotal - descuento_coins)
   const { error } = await supabase
     .from('filamento_pedidos')
     .update({ items, total_rollos, descuento_por_rollo, total, updated_at: new Date().toISOString() })
@@ -442,8 +445,112 @@ export async function editarItemsPedidoFilamento(
   return {}
 }
 
+// Admin: recalcula el descuento de un pedido ya creado según la membresía
+// proyectada (incluyendo el propio pedido). Útil cuando un pedido quedó sin
+// descuento por un bug previo del cálculo backend.
+export async function recalcularDescuentoPedido(pedidoId: string): Promise<{ error?: string; descuento_aplicado?: number; total_anterior?: number; total_nuevo?: number }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+  const { data: pedido, error: readErr } = await supabase
+    .from('filamento_pedidos')
+    .select('user_id, items, total_rollos, descuento_coins, total')
+    .eq('id', pedidoId)
+    .single()
+  if (readErr || !pedido) return { error: readErr?.message ?? 'Pedido no encontrado' }
+  if (!pedido.user_id) return { error: 'El pedido no tiene cliente registrado' }
+
+  const items = pedido.items as FilamentoPedidoItem[]
+  const descuento_por_rollo = await calcularDescuentoProyectado(pedido.user_id, pedido.total_rollos ?? 0, pedidoId)
+  const descuento_coins = pedido.descuento_coins ?? 0
+  const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
+  const total = Math.max(0, subtotal - descuento_coins)
+
+  const { error: updErr } = await supabase
+    .from('filamento_pedidos')
+    .update({ descuento_por_rollo, total, updated_at: new Date().toISOString() })
+    .eq('id', pedidoId)
+  if (updErr) return { error: updErr.message }
+
+  revalidatePath('/admin/filamentos')
+  return { descuento_aplicado: descuento_por_rollo, total_anterior: pedido.total ?? 0, total_nuevo: total }
+}
+
 import { TIERS_MEMBRESIA, calcularPeriodo, costoExtension, DIAS_EXTENSION, siguienteTier, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
+
+// Calcula el descuento por kg que corresponde al cliente INCLUYENDO el pedido
+// que está haciendo ahora. Si al sumar los kg del pedido cruza el umbral de
+// Plata/Oro/Platino, aplica el descuento del tier correspondiente al mismo
+// pedido. Si el pedido ya existe (edición o recálculo), se excluye del
+// histórico para evitar doble conteo. Fallback a trial Plata cuando no hay
+// histórico pero el usuario tiene trial activo.
+async function calcularDescuentoProyectado(
+  userId: string,
+  kgNuevoPedido: number,
+  excludePedidoId?: string,
+): Promise<number> {
+  const supabase = createServiceClient()
+
+  const [pedidosRes, ventasRes, extensionesRes, trialRes] = await Promise.all([
+    supabase
+      .from('filamento_pedidos')
+      .select('id, updated_at, total_rollos')
+      .eq('user_id', userId)
+      .in('estado', ['confirmado', 'entregado']),
+    supabase
+      .from('filamento_ventas')
+      .select('fecha, gramos')
+      .eq('user_id', userId),
+    supabase
+      .from('membresia_extensiones')
+      .select('dias, estado')
+      .eq('user_id', userId),
+    supabase
+      .from('membresia_trial')
+      .select('trial_fin')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
+
+  const nowMs = Date.now()
+  const trialFin = trialRes.data?.trial_fin as string | undefined
+  const trialActivo = !!(trialFin && new Date(trialFin).getTime() > nowMs)
+
+  const eventosExistentes: EventoCompra[] = [
+    ...(pedidosRes.data ?? [])
+      .filter((p: { id: string; total_rollos: number }) => p.id !== excludePedidoId && p.total_rollos > 0)
+      .map((p: { updated_at: string; total_rollos: number }) => ({ fecha_iso: p.updated_at, kg: p.total_rollos })),
+    ...(ventasRes.data ?? [])
+      .filter((v: { gramos: number }) => v.gramos > 0)
+      .map((v: { fecha: string; gramos: number }) => ({
+        fecha_iso: v.fecha.includes('T') ? v.fecha : `${v.fecha}T12:00:00Z`,
+        kg: v.gramos / 1000,
+      })),
+  ]
+
+  const nuevoEvento: EventoCompra = { fecha_iso: new Date().toISOString(), kg: kgNuevoPedido }
+  const todos = [...eventosExistentes, nuevoEvento]
+    .filter(e => e.kg > 0)
+    .sort((a, b) => new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime())
+
+  const plata = TIERS_MEMBRESIA.find(t => t.label === 'Plata')!
+
+  if (!todos.length) {
+    return trialActivo ? plata.descuento : 0
+  }
+
+  const extensionDias = (extensionesRes.data ?? [])
+    .filter((e: { estado: string }) => e.estado === 'confirmado' || e.estado === 'pendiente')
+    .reduce((s: number, e: { dias: number }) => s + (e.dias ?? 0), 0)
+
+  const { periodoFin, kgPeriodo } = calcularPeriodo(todos, extensionDias)
+  const activo = periodoFin.getTime() > nowMs
+
+  const tierPorKg = activo ? TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min) : undefined
+  if (tierPorKg) return tierPorKg.descuento
+  if (trialActivo) return plata.descuento
+  return 0
+}
 
 // Público — sin auth de admin, llamado desde la página de cuenta del cliente
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
