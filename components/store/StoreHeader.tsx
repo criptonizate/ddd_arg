@@ -111,7 +111,9 @@ export default function StoreHeader() {
           {/* Hamburguesa mobile */}
           <button
             onClick={() => setMenuOpen(v => !v)}
-            aria-label="Menú"
+            aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={menuOpen}
+            aria-controls="store-mobile-menu"
             className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
             style={{ color: 'oklch(0.65 0.005 264)' }}
           >
@@ -179,6 +181,9 @@ export default function StoreHeader() {
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
                     aria-label="Mi cuenta"
+                    aria-expanded={showDropdown}
+                    aria-haspopup="menu"
+                    aria-controls="store-user-menu"
                     className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80 gap-1.5"
                   >
                     {user.user_metadata?.avatar_url ? (
@@ -194,6 +199,8 @@ export default function StoreHeader() {
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
                       <div
+                        id="store-user-menu"
+                        role="menu"
                         className="absolute right-0 top-full mt-2 z-20 w-52 rounded-xl shadow-2xl border overflow-hidden"
                         style={{
                           backgroundColor: 'oklch(0.155 0.005 264)',
@@ -313,6 +320,7 @@ export default function StoreHeader() {
         <>
           <div className="fixed inset-0 z-30 md:hidden" onClick={() => setMenuOpen(false)} />
           <div
+            id="store-mobile-menu"
             className="absolute left-0 right-0 z-40 md:hidden border-b shadow-2xl"
             style={{
               backgroundColor: 'oklch(0.17 0.005 264)',

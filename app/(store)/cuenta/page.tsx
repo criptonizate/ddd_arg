@@ -151,13 +151,14 @@ export default async function CuentaPage({
         <div className="flex gap-0.5 border-b border-border overflow-x-auto scrollbar-hide">
         <Link
           href="/cuenta"
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+          aria-current={tab === 'perfil' ? 'page' : undefined}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'perfil'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <User size={13} />
+          <User size={16} />
           Mi perfil
           {!profile?.telefono && (
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
@@ -165,24 +166,26 @@ export default async function CuentaPage({
         </Link>
         <Link
           href="/cuenta?tab=pedidos"
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+          aria-current={tab === 'pedidos' ? 'page' : undefined}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'pedidos'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Package size={13} />
+          <Package size={16} />
           Mis pedidos
         </Link>
         <Link
           href="/cuenta?tab=membresia"
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+          aria-current={tab === 'membresia' ? 'page' : undefined}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'membresia'
               ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Crown size={13} />
+          <Crown size={16} />
           Membresía
           {membresia?.nivel && (
             <span className={`hidden sm:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
@@ -192,7 +195,8 @@ export default async function CuentaPage({
         </Link>
         <Link
           href="/cuenta?tab=coins"
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+          aria-current={tab === 'coins' ? 'page' : undefined}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'coins'
               ? 'border-yellow-500 text-yellow-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -200,23 +204,24 @@ export default async function CuentaPage({
         >
           🪙 Coins
           {saldoCoins > 0 && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
               {saldoCoins.toLocaleString('es-AR')}
             </span>
           )}
         </Link>
         <Link
           href="/cuenta?tab=colores"
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+          aria-current={tab === 'colores' ? 'page' : undefined}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'colores'
               ? 'border-violet-500 text-violet-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Palette size={13} />
+          <Palette size={16} />
           Pedir color
           {sugerenciasNuevas > 0 && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/40">
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/40">
               {sugerenciasNuevas}
             </span>
           )}

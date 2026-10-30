@@ -1142,7 +1142,7 @@ export default function FilamentosShop({
                         <button
                           onClick={() => handleAvisar(f.id)}
                           disabled={yaAlertado || cargando}
-                          className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-2 rounded-xl border transition-colors disabled:cursor-default"
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-2.5 min-h-[44px] rounded-xl border transition-colors disabled:cursor-default"
                           style={yaAlertado
                             ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
                             : cargando
@@ -1428,23 +1428,27 @@ export default function FilamentosShop({
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
-                        <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
+                        <label htmlFor="checkout-nombre" className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
+                        <input id="checkout-nombre" type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
                           placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
-                          maxLength={100}
-                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                          maxLength={100} required aria-required="true"
+                          autoComplete="name" enterKeyHint="next"
+                          aria-invalid={!!checkoutError}
+                          aria-describedby={checkoutError ? 'checkout-error' : undefined}
+                          className="w-full text-base border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
-                        <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
+                        <label htmlFor="checkout-telefono" className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
+                        <input id="checkout-telefono" type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
                           placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
                           maxLength={20}
-                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                          inputMode="numeric" autoComplete="tel" enterKeyHint="done"
+                          className="w-full text-base border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                       </div>
                     </div>
-                    {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Tu pedido queda registrado en tu cuenta. Te avisamos por WhatsApp cuando esté listo para coordinar la entrega. Para separar los filamentos se requiere abonar una seña o el total.
+                    {checkoutError && <p id="checkout-error" role="alert" className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Tu pedido queda registrado en tu cuenta. Te avisamos por WhatsApp para coordinar la entrega y los datos de transferencia.
                     </p>
                   </div>
                 )}

@@ -161,7 +161,7 @@
   --secondary: oklch(0.27 0.005 264);
   --secondary-foreground: oklch(0.92 0.003 264);
   --muted: oklch(0.27 0.005 264);
-  --muted-foreground: oklch(0.42 0.006 264); /* texto secundario oscuro — más negro */
+  --muted-foreground: oklch(0.72 0.008 264); /* ≥4.5:1 contrast sobre background 0.17 (WCAG 1.4.3) */
   --accent: oklch(0.30 0.007 264);
   --accent-foreground: oklch(0.97 0.002 264);
   --destructive: oklch(0.65 0.22 25);

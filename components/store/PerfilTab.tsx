@@ -172,6 +172,9 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
             {editing ? (
               <input
                 type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                enterKeyHint="next"
                 value={telefono}
                 onChange={e => setTelefono(e.target.value)}
                 placeholder="Ej: 3804559900"
@@ -195,6 +198,9 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
             {editing ? (
               <input
                 type="text"
+                inputMode="numeric"
+                enterKeyHint="done"
+                autoComplete="off"
                 value={dni}
                 onChange={e => setDni(e.target.value)}
                 placeholder="Ej: 38456789"

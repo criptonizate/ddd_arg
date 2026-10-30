@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Download, X } from 'lucide-react'
+import { useCart } from './CartProvider'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -9,12 +10,14 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISSED_KEY = 'ddd_arg_pwa_dismissed'
+const DISMISSED_DAYS = 30
 
 export default function InstallPWA() {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [visible, setVisible] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [showIOSHint, setShowIOSHint] = useState(false)
+  const { filamentCount } = useCart()
 
   useEffect(() => {
     // Si ya está instalado (display-mode standalone), no mostrar
@@ -24,20 +27,20 @@ export default function InstallPWA() {
       (window.navigator as unknown as { standalone?: boolean }).standalone === true
     if (standalone) return
 
-    // Dismissed hace menos de 7 días
+    // Dismissed hace menos de 30 días — más tiempo entre reapariciones
     try {
       const dismissed = localStorage.getItem(DISMISSED_KEY)
-      if (dismissed && Date.now() - Number(dismissed) < 7 * 86400000) return
+      if (dismissed && Date.now() - Number(dismissed) < DISMISSED_DAYS * 86400000) return
     } catch {}
 
-    // iOS no dispara beforeinstallprompt — mostramos hint manual.
-    // Diferimos la aparición ~4s para no colisionar con CoinsToast (que dura 3.5s).
+    // Diferimos la aparición 20s para que el usuario entienda la tienda primero
+    // y no colisionemos con el flujo inicial de compra.
     const ua = window.navigator.userAgent
     const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream
     let iosTimer: ReturnType<typeof setTimeout> | null = null
     if (iOS) {
       setIsIOS(true)
-      iosTimer = setTimeout(() => setVisible(true), 4000)
+      iosTimer = setTimeout(() => setVisible(true), 20000)
     }
 
     // Android / Desktop: escuchar evento del navegador (también diferido)
@@ -45,7 +48,7 @@ export default function InstallPWA() {
     const handler = (e: Event) => {
       e.preventDefault()
       setPrompt(e as BeforeInstallPromptEvent)
-      desktopTimer = setTimeout(() => setVisible(true), 4000)
+      desktopTimer = setTimeout(() => setVisible(true), 20000)
     }
     window.addEventListener('beforeinstallprompt', handler)
 
@@ -75,7 +78,8 @@ export default function InstallPWA() {
     try { localStorage.setItem(DISMISSED_KEY, String(Date.now())) } catch {}
   }
 
-  if (!visible) return null
+  // No tapar el FAB del carrito cuando hay items — es la conversión principal.
+  if (!visible || filamentCount > 0) return null
 
   return (
     <>
@@ -134,12 +138,16 @@ export default function InstallPWA() {
             background: 'transparent',
             color: '#86efac',
             border: 'none',
-            padding: '6px',
+            padding: '12px',
+            minWidth: 44,
+            minHeight: 44,
             cursor: 'pointer',
             display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          <X size={14} />
+          <X size={16} />
         </button>
       </div>
 
