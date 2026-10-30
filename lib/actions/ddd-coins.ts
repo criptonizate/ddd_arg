@@ -91,12 +91,28 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
 export async function sumarPuntosPorCompra(userId: string, rollos: number, pedidoId: string): Promise<void> {
   if (rollos <= 0) return
   const db = createServiceClient()
+  // Idempotencia: si ya hay puntos por compra para este pedido, no duplicar
+  const { count } = await db
+    .from('ddd_coins')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('pedido_id', pedidoId)
+    .eq('motivo', 'compra')
+  if ((count ?? 0) > 0) return
   await db.from('ddd_coins').insert({
     user_id: userId,
     puntos: rollos * 10,
     motivo: 'compra',
     pedido_id: pedidoId,
   })
+}
+
+// Revierte TODAS las filas de ddd_coins asociadas a un pedido (compra + canje).
+// Se usa al cancelar/anular un pedido para no dejar puntos "gratis" ni canjes
+// de puntos sin contrapartida.
+export async function revertirCoinsDePedido(pedidoId: string): Promise<void> {
+  const db = createServiceClient()
+  await db.from('ddd_coins').delete().eq('pedido_id', pedidoId)
 }
 
 export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> {
@@ -138,8 +154,18 @@ export async function canjearCoinsEnPedido(
   if (!user || user.id !== userId) return { error: 'No autorizado' }
 
   const db = createServiceClient()
-  const { data: coinsData } = await db.from('ddd_coins').select('puntos').eq('user_id', userId)
-  const saldo = (coinsData ?? []).reduce((s: number, r: { puntos: number }) => s + r.puntos, 0)
+  // Idempotencia: si ya hay un canje registrado para este pedido, no duplicar
+  const { count: canjesExistentes } = await db
+    .from('ddd_coins')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('pedido_id', pedidoId)
+    .eq('motivo', 'canje_pedido')
+  if ((canjesExistentes ?? 0) > 0) return {}
+
+  // Verificar saldo via RPC (más barato que sumar en memoria)
+  const { data: saldoData } = await db.rpc('get_saldo_coins', { p_user_id: userId })
+  const saldo = (saldoData as number | null) ?? 0
   if (saldo < puntosACanjear) return { error: 'No tenés suficientes DDD Coins' }
 
   await db.from('ddd_coins').insert({

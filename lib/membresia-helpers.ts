@@ -34,37 +34,32 @@ export function calcularPeriodo(
   eventos: EventoCompra[],
   extensionDias = 0,
 ): { periodoInicio: Date; periodoFin: Date; kgPeriodo: number } {
-  // Primer evento siempre arranca un período
+  // Primer evento siempre arranca un período (aplicando extensión desde el inicio)
   let periodoInicio = new Date(eventos[0].fecha_iso)
-  let periodoFin = addDias(periodoInicio, DIAS_PERIODO)
+  let periodoFin = addDias(periodoInicio, DIAS_PERIODO + extensionDias)
   let kgPeriodo = 0
 
   for (const e of eventos) {
     const fecha = new Date(e.fecha_iso)
 
     if (fecha > periodoFin) {
-      // Período vencido — empieza uno nuevo con este evento
+      // Período (ya extendido) vencido — empieza uno nuevo con este evento
       periodoInicio = fecha
-      periodoFin = addDias(fecha, DIAS_PERIODO)
+      periodoFin = addDias(fecha, DIAS_PERIODO + extensionDias)
       kgPeriodo = e.kg
     } else {
-      // Dentro del período activo — acumular kg
+      // Dentro del período activo (incluyendo extensión) — acumular kg
       const kgAntes = kgPeriodo
       kgPeriodo += e.kg
 
       // Verificar si se cruzó algún hito nuevo con este pedido
       for (const hito of HITOS_KG) {
         if (kgAntes < hito && kgPeriodo >= hito) {
-          // Reiniciar exactamente 30 días desde este pedido (sin sumar días restantes)
-          periodoFin = addDias(fecha, DIAS_PERIODO)
+          // Reiniciar exactamente 30 días (+ extensión) desde este pedido
+          periodoFin = addDias(fecha, DIAS_PERIODO + extensionDias)
         }
       }
     }
-  }
-
-  // Aplicar días de extensión paga al período activo final (una sola vez)
-  if (extensionDias > 0) {
-    periodoFin = addDias(periodoFin, extensionDias)
   }
 
   return { periodoInicio, periodoFin, kgPeriodo }

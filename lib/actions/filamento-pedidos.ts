@@ -282,9 +282,11 @@ export async function updateEstadoPedidoFilamento(
     .update({ estado, ...(nota !== undefined ? { nota } : {}), updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) return { error: error.message }
-  // Al cancelar, liberar la reserva de stock
+  // Al cancelar, liberar la reserva de stock y revertir cualquier coin del pedido
   if (estado === 'cancelado') {
     await supabase.from('filamento_reservas').delete().eq('pedido_id', id)
+    const { revertirCoinsDePedido } = await import('./ddd-coins')
+    await revertirCoinsDePedido(id)
   }
   revalidatePath('/admin/filamentos')
   return {}
@@ -424,16 +426,22 @@ export async function editarItemsPedidoFilamento(
 
   const supabase = createServiceClient()
 
-  // Obtener user_id del pedido para recalcular descuento INCLUYENDO este pedido
+  // Obtener pedido para validar estado y recalcular descuento INCLUYENDO este pedido
   const { data: pedidoRow } = await supabase
     .from('filamento_pedidos')
-    .select('user_id, descuento_coins')
+    .select('user_id, descuento_coins, estado')
     .eq('id', pedidoId)
     .single()
-  const descuento_por_rollo = pedidoRow?.user_id
+  if (!pedidoRow) return { error: 'Pedido no encontrado' }
+  // Si ya está confirmado o entregado, el stock está descontado y las ventas registradas.
+  // Editar los items dejaría todo inconsistente. Para modificar, hay que anular y crear uno nuevo.
+  if (pedidoRow.estado !== 'pendiente') {
+    return { error: `Solo se pueden editar pedidos pendientes. Este está "${pedidoRow.estado}" — para modificarlo, anulá y creá uno nuevo.` }
+  }
+  const descuento_por_rollo = pedidoRow.user_id
     ? await calcularDescuentoProyectado(pedidoRow.user_id, total_rollos, pedidoId)
     : 0
-  const descuento_coins = pedidoRow?.descuento_coins ?? 0
+  const descuento_coins = pedidoRow.descuento_coins ?? 0
 
   const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
   const total = Math.max(0, subtotal - descuento_coins)
@@ -467,9 +475,12 @@ export async function recalcularDescuentoPedido(pedidoId: string): Promise<{ err
   const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
   const total = Math.max(0, subtotal - descuento_coins)
 
+  // NO mutar updated_at: `getMembresiaCliente` lo usa como fecha del evento.
+  // Si lo tocamos, el pedido histórico "salta" a hoy y el cálculo de membresía
+  // futura se desincroniza.
   const { error: updErr } = await supabase
     .from('filamento_pedidos')
-    .update({ descuento_por_rollo, total, updated_at: new Date().toISOString() })
+    .update({ descuento_por_rollo, total })
     .eq('id', pedidoId)
   if (updErr) return { error: updErr.message }
 
@@ -791,6 +802,11 @@ export async function anularPedidoConfirmado(
 
   if (deleteErr) return { error: `Error al eliminar ventas del pedido: ${deleteErr.message}` }
 
+  // Revertir coins (compra ganada + canje aplicado) para que no queden ni puntos
+  // "gratis" ni débitos sin descuento efectivo.
+  const { revertirCoinsDePedido } = await import('./ddd-coins')
+  await revertirCoinsDePedido(pedidoId)
+
   const notaFinal = nota ? nota : 'Anulado por admin (stock restaurado)'
   const { error } = await supabase
     .from('filamento_pedidos')
@@ -830,6 +846,8 @@ export async function cancelarMiPedido(pedidoId: string): Promise<{ error?: stri
   if (error) return { error: error.message }
 
   await db.from('filamento_reservas').delete().eq('pedido_id', pedidoId)
+  const { revertirCoinsDePedido } = await import('./ddd-coins')
+  await revertirCoinsDePedido(pedidoId)
 
   revalidatePath('/cuenta')
   return {}

@@ -166,6 +166,7 @@ export async function getPastClients(): Promise<{ nombre: string; telefono: stri
 }
 
 export async function getPendingOrdersCount(): Promise<number> {
+  await getAdminUser()
   const supabase = createServiceClient()
   const { count } = await supabase
     .from('orders')
@@ -237,6 +238,7 @@ export async function getOrders(params?: {
   limit?: number
   offset?: number
 }) {
+  await getAdminUser()
   const supabase = createServiceClient()
   let query = supabase
     .from('orders')
@@ -261,6 +263,7 @@ export async function getOrders(params?: {
 }
 
 export async function getOrder(id: string) {
+  await getAdminUser()
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('orders')
@@ -343,22 +346,31 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
   const supabase = createServiceClient()
   const { items, ...orderData } = validated.data
 
-  // Verificar stock disponible antes de crear
-  for (const item of items) {
-    const { data: variant } = await supabase
-      .from('product_variants')
-      .select('stock, nombre_variante')
-      .eq('id', item.variant_id)
-      .single()
+  // Re-fetchear precios server-side: NO confiar en el precio_unitario que mande
+  // el cliente (podría venir manipulado a 0). También aprovechamos para validar
+  // stock en una sola pasada.
+  const variantIds = [...new Set(items.map(i => i.variant_id))]
+  const { data: variants } = await supabase
+    .from('product_variants')
+    .select('id, stock, nombre_variante, precio')
+    .in('id', variantIds)
+  const variantMap = new Map<string, { stock: number; nombre_variante: string; precio: number }>()
+  for (const v of variants ?? []) variantMap.set(v.id, v)
 
-    if (!variant || variant.stock < item.cantidad) {
-      return {
-        error: `Stock insuficiente para ${variant?.nombre_variante ?? 'una variante'}`,
-      }
+  for (const item of items) {
+    const variant = variantMap.get(item.variant_id)
+    if (!variant) return { error: `Variante no encontrada` }
+    if (variant.stock < item.cantidad) {
+      return { error: `Stock insuficiente para ${variant.nombre_variante}` }
     }
   }
 
-  const total = items.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
+  // Reconstruir items con precios reales de la DB
+  const itemsValidados = items.map(i => ({
+    ...i,
+    precio_unitario: variantMap.get(i.variant_id)!.precio ?? 0,
+  }))
+  const total = itemsValidados.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -374,7 +386,7 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
 
   if (orderError || !order) return { error: orderError?.message ?? 'Error al crear el pedido' }
 
-  const orderItems = items.map((i) => ({ ...i, order_id: order.id }))
+  const orderItems = itemsValidados.map((i) => ({ ...i, order_id: order.id }))
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
 
   if (itemsError) {
