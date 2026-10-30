@@ -32,6 +32,15 @@ export interface FilamentoPedido {
   reservado_hasta: string | null
   created_at: string
   updated_at: string
+  // Enriched en el admin para diagnosticar por qué un pedido no tuvo descuento.
+  // Es la membresía ACTUAL del cliente, no la del momento del pedido.
+  cliente_membresia?: {
+    nivel: 'Platino' | 'Oro' | 'Plata' | null
+    kgPeriodo: number
+    diasRestantes: number
+    esTrial: boolean
+    kgParaProximoTier: number | null
+  } | null
 }
 
 // ── Público: crear pedido (requiere login) ─────────────────────────────────
@@ -173,17 +182,73 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
   const { data } = await q
   const pedidos = (data ?? []) as FilamentoPedido[]
 
-  // Enrich with numero_cliente from user_profiles
   const userIds = [...new Set(pedidos.filter(p => p.user_id).map(p => p.user_id!))]
   if (userIds.length) {
-    const { data: profiles } = await supabase
-      .from('user_profiles')
-      .select('user_id, numero_cliente')
-      .in('user_id', userIds)
-    const map: Record<string, number> = {}
-    for (const p of profiles ?? []) map[p.user_id] = p.numero_cliente
+    // numero_cliente + membresía actual del cliente (bulk, para no hacer N+1)
+    const [{ data: profiles }, { data: pedidosHistorial }, { data: ventasHistorial }, { data: trials }, { data: extensionesData }] = await Promise.all([
+      supabase.from('user_profiles').select('user_id, numero_cliente').in('user_id', userIds),
+      supabase.from('filamento_pedidos').select('user_id, updated_at, total_rollos').in('user_id', userIds).in('estado', ['confirmado', 'entregado']),
+      supabase.from('filamento_ventas').select('user_id, fecha, gramos').in('user_id', userIds),
+      supabase.from('membresia_trial').select('user_id, trial_fin').in('user_id', userIds),
+      supabase.from('membresia_extensiones').select('user_id, dias, estado').in('user_id', userIds),
+    ])
+
+    const numeroMap: Record<string, number> = {}
+    for (const p of profiles ?? []) numeroMap[p.user_id] = p.numero_cliente
+
+    const eventosMap: Record<string, EventoCompra[]> = {}
+    for (const p of pedidosHistorial ?? []) {
+      if (!p.user_id || !(p.total_rollos > 0)) continue
+      ;(eventosMap[p.user_id] ??= []).push({ fecha_iso: p.updated_at, kg: p.total_rollos })
+    }
+    for (const v of ventasHistorial ?? []) {
+      if (!v.user_id || !(v.gramos > 0)) continue
+      const fecha_iso = v.fecha.includes('T') ? v.fecha : `${v.fecha}T12:00:00Z`
+      ;(eventosMap[v.user_id] ??= []).push({ fecha_iso, kg: v.gramos / 1000 })
+    }
+
+    const trialMap: Record<string, string> = {}
+    for (const t of trials ?? []) if (t.trial_fin) trialMap[t.user_id] = t.trial_fin
+
+    const extensionDiasMap: Record<string, number> = {}
+    for (const e of extensionesData ?? []) {
+      if (e.estado === 'confirmado' || e.estado === 'pendiente') {
+        extensionDiasMap[e.user_id] = (extensionDiasMap[e.user_id] ?? 0) + (e.dias ?? 0)
+      }
+    }
+
+    const now = Date.now()
+    const membresiaMap: Record<string, FilamentoPedido['cliente_membresia']> = {}
+    for (const uid of userIds) {
+      const eventos = (eventosMap[uid] ?? [])
+        .filter(e => e.kg > 0)
+        .sort((a, b) => new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime())
+
+      const trialFin = trialMap[uid]
+      if (!eventos.length) {
+        if (trialFin && new Date(trialFin).getTime() > now) {
+          const diasRestantes = Math.max(0, Math.ceil((new Date(trialFin).getTime() - now) / 86400000))
+          membresiaMap[uid] = { nivel: 'Plata', kgPeriodo: 0, diasRestantes, esTrial: true, kgParaProximoTier: 10 }
+        } else {
+          membresiaMap[uid] = { nivel: null, kgPeriodo: 0, diasRestantes: 0, esTrial: false, kgParaProximoTier: 5 }
+        }
+        continue
+      }
+
+      const extDias = extensionDiasMap[uid] ?? 0
+      const { periodoFin, kgPeriodo } = calcularPeriodo(eventos, extDias)
+      const activo = periodoFin.getTime() > now
+      const diasRestantes = activo ? Math.max(0, Math.ceil((periodoFin.getTime() - now) / 86400000)) : 0
+      const tier = activo ? TIERS_MEMBRESIA.find(t => kgPeriodo >= t.min) : undefined
+      const nivel = tier?.label ?? null
+      const siguiente = siguienteTier(nivel)
+      const kgParaProximoTier = siguiente ? Math.max(0, siguiente.min - (activo ? kgPeriodo : 0)) : null
+      membresiaMap[uid] = { nivel, kgPeriodo: activo ? kgPeriodo : 0, diasRestantes, esTrial: false, kgParaProximoTier }
+    }
+
     for (const p of pedidos) {
-      p.numero_cliente = p.user_id ? (map[p.user_id] ?? null) : null
+      p.numero_cliente = p.user_id ? (numeroMap[p.user_id] ?? null) : null
+      p.cliente_membresia = p.user_id ? (membresiaMap[p.user_id] ?? null) : null
     }
   }
   return pedidos
@@ -377,7 +442,7 @@ export async function editarItemsPedidoFilamento(
   return {}
 }
 
-import { TIERS_MEMBRESIA, calcularPeriodo, costoExtension, DIAS_EXTENSION, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
+import { TIERS_MEMBRESIA, calcularPeriodo, costoExtension, DIAS_EXTENSION, siguienteTier, type EventoCompra, type NivelMembresia, type MembresiaStatus } from '@/lib/membresia-helpers'
 export type { NivelMembresia, MembresiaStatus } from '@/lib/membresia-helpers'
 
 // Público — sin auth de admin, llamado desde la página de cuenta del cliente

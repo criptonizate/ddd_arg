@@ -2184,6 +2184,50 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
               {/* Detalle expandido */}
               {isExpanded && (
                 <div className="border-t border-border px-4 py-4 space-y-4">
+                  {/* Estado de membresía del cliente — para explicar por qué hay/no hay descuento */}
+                  {p.cliente_membresia && (() => {
+                    const m = p.cliente_membresia
+                    const emojiTier: Record<string, string> = { Platino: '💎', Oro: '⭐', Plata: '🥈' }
+                    if (m.nivel) {
+                      return (
+                        <div className="rounded-lg px-3 py-2 text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="font-semibold">
+                              {emojiTier[m.nivel]} Membresía {m.nivel}{m.esTrial ? ' (Trial)' : ''} activa
+                              <span className="text-muted-foreground font-normal ml-2">
+                                — {m.kgPeriodo.toFixed(1)} kg este período · {m.diasRestantes} días restantes
+                              </span>
+                            </span>
+                            {m.kgParaProximoTier !== null && m.kgParaProximoTier > 0 && (
+                              <span className="text-muted-foreground">
+                                Faltan {m.kgParaProximoTier.toFixed(1)} kg para subir de nivel
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="rounded-lg px-3 py-2 text-xs bg-secondary/50 border border-border">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span>
+                            <span className="font-semibold">Sin membresía activa</span>
+                            <span className="text-muted-foreground ml-2">
+                              {m.kgPeriodo > 0
+                                ? `— ${m.kgPeriodo.toFixed(1)} kg acumulados`
+                                : '— no tiene compras recientes ni trial'}
+                            </span>
+                          </span>
+                          {m.kgParaProximoTier !== null && (
+                            <span className="text-muted-foreground">
+                              Faltan {m.kgParaProximoTier.toFixed(1)} kg para activar Plata
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
                   {/* Items — mostramos precio final por kg (ya con descuento aplicado) */}
                   <div className="space-y-2">
                     {p.items.map((item, idx) => {
