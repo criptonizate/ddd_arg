@@ -76,13 +76,27 @@ function GoogleIcon() {
 }
 
 function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden">
+    <div
+      className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
+      onClick={onClose}
+    >
+      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-7 space-y-5">
           <div className="text-center">
-            <div className="text-4xl mb-3">🔒</div>
-            <h2 className="text-lg font-bold mb-2">Ingresá para hacer tu pedido</h2>
+            <div className="text-4xl mb-3" aria-hidden="true">🔒</div>
+            <h2 id="auth-modal-title" className="text-lg font-bold mb-2">Ingresá para hacer tu pedido</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Necesitamos tu cuenta para que puedas ver el estado de tu pedido, historial de compras y acceder a{' '}
               <span className="font-semibold text-orange-600 dark:text-orange-400">precios mayoristas</span> exclusivos.
@@ -502,6 +516,21 @@ export default function FilamentosShop({
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
   // Re-sincronizar cuando el server devuelve stock actualizado (otro cliente compró, admin cambió precio, etc).
   useEffect(() => { setLocalFilamentos(filamentos) }, [filamentos])
+
+  // Escape cierra el carrito, el checkout (si está en form) y el panel de filtros
+  useEffect(() => {
+    if (!showCart && !showFilters && !showCheckout) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      // Prioridad: checkout > carrito > filtros (lo que está "arriba" primero)
+      if (showCheckout && checkoutStep === 'form') { setShowCheckout(false); setPuntosACanjear(0) }
+      else if (showCart) setShowCart(false)
+      else if (showFilters) setShowFilters(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCart, showFilters, showCheckout, checkoutStep])
   // Mantener una ref actualizada para que closures (auth listener) usen el valor vigente.
   const localFilamentosRef = useRef(localFilamentos)
   useEffect(() => { localFilamentosRef.current = localFilamentos }, [localFilamentos])
@@ -1230,10 +1259,11 @@ export default function FilamentosShop({
       {totalKg > 0 && (
         <button
           onClick={abrirCarrito}
-          className="fixed bottom-[env(safe-area-inset-bottom,0px)] mb-5 right-3 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none"
+          aria-label={`Abrir carrito: ${totalKg} kg, ${fmtARS(subtotal)}`}
+          className="fixed bottom-[env(safe-area-inset-bottom,0px)] mb-5 right-3 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
           style={{ marginBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}
         >
-          <ShoppingCart size={16} className="shrink-0" />
+          <ShoppingCart size={16} className="shrink-0" aria-hidden="true" />
           <span className="text-xs sm:text-sm font-bold">{totalKg} kg</span>
           <span className="text-xs sm:text-sm font-bold">{fmtARS(subtotal)}</span>
           {descuento > 0 && (
@@ -1246,13 +1276,13 @@ export default function FilamentosShop({
 
       {/* ── Panel del carrito ── */}
       {showCart && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 min-w-0 bg-black/40" onClick={() => setShowCart(false)} />
+        <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title">
+          <div className="flex-1 min-w-0 bg-black/40" onClick={() => setShowCart(false)} aria-hidden="true" />
           <div className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="font-bold text-base">Tu carrito</h2>
-              <button onClick={() => setShowCart(false)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary">
-                <X size={16} />
+              <h2 id="cart-drawer-title" className="font-bold text-base">Tu carrito</h2>
+              <button onClick={() => setShowCart(false)} aria-label="Cerrar carrito" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -1358,13 +1388,13 @@ export default function FilamentosShop({
 
       {/* ── Modal de checkout ── */}
       {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
           <div className="w-full sm:max-w-md bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto" style={{ maxHeight: '92dvh' }}>
 
             {checkoutStep !== 'done' ? (
               <>
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                  <h2 className="font-bold text-base">Confirmar pedido</h2>
+                  <h2 id="checkout-title" className="font-bold text-base">Confirmar pedido</h2>
                   {checkoutStep === 'form' && (
                     <button onClick={() => { setShowCheckout(false); setPuntosACanjear(0) }} aria-label="Cerrar checkout" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary"><X size={16} /></button>
                   )}

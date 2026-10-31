@@ -64,6 +64,16 @@ export default function CuentaPedidosTab({
   const [cancelError, setCancelError] = useState<Record<string, string>>({})
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
+  // Escape cierra el modal de confirmación
+  useEffect(() => {
+    if (!confirmCancelId) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setConfirmCancelId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmCancelId])
+
   // Item 3 — Realtime: re-render cuando cambia el estado de un pedido
   useEffect(() => {
     const supabase = createBrowserClient(
