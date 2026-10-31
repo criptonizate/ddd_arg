@@ -99,12 +99,15 @@ export async function sumarPuntosPorCompra(userId: string, rollos: number, pedid
     .eq('pedido_id', pedidoId)
     .eq('motivo', 'compra')
   if ((count ?? 0) > 0) return
-  await db.from('ddd_coins').insert({
+  const { error } = await db.from('ddd_coins').insert({
     user_id: userId,
     puntos: rollos * 10,
     motivo: 'compra',
     pedido_id: pedidoId,
   })
+  // 23505 = unique_violation. El unique index parcial garantiza idempotencia aun
+  // frente a inserts concurrentes; si vino por race, es "ya hecho" y lo swalloweamos.
+  if (error && error.code !== '23505') throw error
 }
 
 // Revierte TODAS las filas de ddd_coins asociadas a un pedido (compra + canje).
@@ -168,11 +171,13 @@ export async function canjearCoinsEnPedido(
   const saldo = (saldoData as number | null) ?? 0
   if (saldo < puntosACanjear) return { error: 'No tenés suficientes DDD Coins' }
 
-  await db.from('ddd_coins').insert({
+  const { error } = await db.from('ddd_coins').insert({
     user_id: userId,
     puntos: -puntosACanjear,
     motivo: 'canje_pedido',
     pedido_id: pedidoId,
   })
+  // Si otra request concurrente ya grabó el canje, no duplicamos (unique index).
+  if (error && error.code !== '23505') return { error: error.message }
   return {}
 }

@@ -129,16 +129,27 @@ export async function crearPedidoFilamento(data: {
 
   if (error) return { error: error.message }
 
-  // Reservar stock por 3h para cada item
+  // Reservar stock por 3h para cada item — atómico vía RPC: valida stock
+  // real disponible (stock total - reservas activas) con FOR UPDATE lock.
+  // Si falla, revertimos el pedido recién insertado.
   if (itemsValidados.length > 0) {
-    await supabase
-      .from('filamento_reservas')
-      .insert(itemsValidados.map(item => ({
-        pedido_id: row.id,
-        filamento_id: item.filamento_id,
-        gramos: Math.round(item.rollos * 1000),
-        reservado_hasta: reservadoHasta,
-      })))
+    const { data: reservaResult, error: reservaErr } = await supabase.rpc(
+      'reservar_pedido_filamento',
+      {
+        p_pedido_id: row.id,
+        p_items: itemsValidados.map(item => ({
+          filamento_id: item.filamento_id,
+          gramos: Math.round(item.rollos * 1000),
+        })),
+        p_reservado_hasta: reservadoHasta,
+      }
+    )
+    const result = reservaResult as { ok?: boolean; error?: string } | null
+    if (reservaErr || !result?.ok) {
+      // Rollback del pedido: borrarlo para no dejar un pedido fantasma sin stock.
+      await supabase.from('filamento_pedidos').delete().eq('id', row.id)
+      return { error: result?.error ?? reservaErr?.message ?? 'No se pudo reservar stock' }
+    }
   }
 
   revalidatePath('/admin/filamentos')
@@ -294,6 +305,64 @@ export async function updateEstadoPedidoFilamento(
 
 // Confirma el pedido y descuenta el stock de cada item
 export async function confirmarPedidoYDescontarStock(
+  pedidoId: string,
+  nota?: string,
+): Promise<{ error?: string }> {
+  await getAdminUser()
+  const supabase = createServiceClient()
+
+  // Camino atómico: delega todo a la RPC `confirmar_pedido_filamento_atomico`.
+  // Si falla cualquier item, rollback automático (nada queda a medias).
+  const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+    'confirmar_pedido_filamento_atomico',
+    { p_pedido_id: pedidoId, p_nota: nota ?? null }
+  )
+  const result = rpcResult as { ok?: boolean; error?: string } | null
+  if (rpcErr || !result?.ok) {
+    return { error: result?.error ?? rpcErr?.message ?? 'Error confirmando pedido' }
+  }
+
+  // Fetch del pedido para los emails (lectura, no afecta la transacción).
+  const { data: pedido } = await supabase
+    .from('filamento_pedidos')
+    .select('*')
+    .eq('id', pedidoId)
+    .single()
+  if (!pedido) {
+    // El pedido existe (acabamos de actualizar), pero por las dudas no reventamos
+    revalidatePath('/admin/filamentos')
+    revalidatePath('/filamentos')
+    return {}
+  }
+
+  revalidatePath('/admin/filamentos')
+  revalidatePath('/filamentos')
+
+  // Email de confirmación al cliente (fire-and-forget).
+  if (pedido.user_id) {
+    const supabaseAuth = createServiceClient()
+    const { data: { user } } = await supabaseAuth.auth.admin.getUserById(pedido.user_id)
+    if (user?.email) {
+      void sendPedidoConfirmadoCliente({
+        numero: pedido.numero,
+        clienteNombre: pedido.cliente_nombre,
+        clienteEmail: user.email,
+        items: pedido.items as FilamentoPedidoItem[],
+        totalRollos: pedido.total_rollos,
+        descuentoPorRollo: pedido.descuento_por_rollo,
+        total: pedido.total,
+      })
+    }
+  }
+
+  return {}
+}
+
+// ── Camino legacy no atómico (kept out of the way) ──────────────────────────
+// La implementación anterior iteraba items en JS. La dejamos marcada como dead
+// code para no borrar historia por si hay que debuggear algo específico; en la
+// práctica ya no se llama.
+async function _confirmarPedidoYDescontarStockLegacy(
   pedidoId: string,
   nota?: string,
 ): Promise<{ error?: string }> {
