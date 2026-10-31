@@ -13,6 +13,7 @@ import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 import { useCart } from '@/components/store/CartProvider'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const PRECIO_BASE_DEFAULT = 22000
@@ -76,6 +77,8 @@ function GoogleIcon() {
 }
 
 function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -92,7 +95,7 @@ function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => v
       aria-labelledby="auth-modal-title"
       onClick={onClose}
     >
-      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div ref={panelRef} className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-7 space-y-5">
           <div className="text-center">
             <div className="text-4xl mb-3" aria-hidden="true">🔒</div>
@@ -366,11 +369,11 @@ function FilamentoCard({
           </>
         )}
 
-        {/* Stock badge */}
+        {/* Stock badge — colores con contraste >= 4.5:1 contra el texto */}
         <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 ${
-          disponible >= 10 ? 'bg-green-500 text-white'
+          disponible >= 10 ? 'bg-green-700 text-white'
           : disponible >= 3 ? 'bg-yellow-400 text-yellow-950'
-          : 'bg-red-500 text-white'
+          : 'bg-red-700 text-white'
         }`}>
           {disponible} kg
         </span>
@@ -489,6 +492,8 @@ export default function FilamentosShop({
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const cartDrawerRef = useRef<HTMLDivElement>(null)
+  const checkoutPanelRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
   const [matFilter, setMatFilter] = useState<string>('')
   const [marcaFilter, setMarcaFilter] = useState<string>('')
@@ -504,6 +509,7 @@ export default function FilamentosShop({
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
+  useFocusTrap(checkoutPanelRef, showCheckout)
   const [puntosACanjear, setPuntosACanjear] = useState(0)
   const [clienteNombre, setClienteNombre] = useState(
     initialUser?.user_metadata?.full_name ? String(initialUser.user_metadata.full_name) : ''
@@ -516,6 +522,10 @@ export default function FilamentosShop({
   const [localFilamentos, setLocalFilamentos] = useState(filamentos)
   // Re-sincronizar cuando el server devuelve stock actualizado (otro cliente compró, admin cambió precio, etc).
   useEffect(() => { setLocalFilamentos(filamentos) }, [filamentos])
+
+  // Focus trap sobre el drawer del carrito. El de checkout está más abajo
+  // (después de declarar showCheckout).
+  useFocusTrap(cartDrawerRef, showCart)
 
   // Escape cierra el carrito, el checkout (si está en form) y el panel de filtros
   useEffect(() => {
@@ -899,25 +909,29 @@ export default function FilamentosShop({
       </div>
 
       {/* Material */}
-      <div>
+      <div role="group" aria-label="Filtrar por material">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Material</p>
         <div className="space-y-1">
           <button
+            type="button"
             onClick={() => setMatFilter('')}
-            className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${!matFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
+            aria-pressed={!matFilter}
+            className={`w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-lg transition-colors ${!matFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
           >
             Todos ({localFilamentos.length})
           </button>
           {materiales.map(mat => (
             <button
               key={mat}
+              type="button"
               onClick={() => setMatFilter(matFilter === mat ? '' : mat)}
-              className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+              aria-pressed={matFilter === mat}
+              className={`w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center justify-between ${
                 matFilter === mat ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'
               }`}
             >
               <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: MAT_COLORS[mat] ?? '#94a3b8' }} />
+                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: MAT_COLORS[mat] ?? '#94a3b8' }} aria-hidden="true" />
                 {mat}
               </span>
               <span className="text-xs text-muted-foreground">{localFilamentos.filter(f => f.material === mat).length}</span>
@@ -928,7 +942,7 @@ export default function FilamentosShop({
 
       {/* Color */}
       {coloresDisponibles.length > 0 && (
-        <div>
+        <div role="group" aria-label="Filtrar por color">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Color</p>
           <div className="flex flex-wrap gap-2">
             {coloresDisponibles.map(g => {
@@ -936,9 +950,11 @@ export default function FilamentosShop({
               return (
                 <button
                   key={g.label}
+                  type="button"
                   onClick={() => setColorFilter(active ? '' : g.label)}
                   title={g.label}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition-all"
+                  aria-pressed={active}
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] rounded-full border transition-all"
                   style={active
                     ? { backgroundColor: g.css + '33', borderColor: g.css, color: 'var(--foreground)', fontWeight: 600 }
                     : { borderColor: 'var(--border)', color: 'var(--muted-foreground)' }
@@ -947,6 +963,7 @@ export default function FilamentosShop({
                   <span
                     className="w-3 h-3 rounded-full shrink-0 border border-black/10"
                     style={{ backgroundColor: g.css }}
+                    aria-hidden="true"
                   />
                   {g.label}
                 </button>
@@ -957,20 +974,24 @@ export default function FilamentosShop({
       )}
 
       {/* Marca */}
-      <div>
+      <div role="group" aria-label="Filtrar por marca">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Marca</p>
         <div className="space-y-1">
           <button
+            type="button"
             onClick={() => setMarcaFilter('')}
-            className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${!marcaFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
+            aria-pressed={!marcaFilter}
+            className={`w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-lg transition-colors ${!marcaFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
           >
             Todas
           </button>
           {marcas.map(m => (
             <button
               key={m}
+              type="button"
               onClick={() => setMarcaFilter(marcaFilter === m ? '' : m)}
-              className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+              aria-pressed={marcaFilter === m}
+              className={`w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center justify-between ${
                 marcaFilter === m ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'
               }`}
             >
@@ -1278,7 +1299,7 @@ export default function FilamentosShop({
       {showCart && (
         <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title">
           <div className="flex-1 min-w-0 bg-black/40" onClick={() => setShowCart(false)} aria-hidden="true" />
-          <div className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
+          <div ref={cartDrawerRef} className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 id="cart-drawer-title" className="font-bold text-base">Tu carrito</h2>
               <button onClick={() => setShowCart(false)} aria-label="Cerrar carrito" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary">
@@ -1389,7 +1410,14 @@ export default function FilamentosShop({
       {/* ── Modal de checkout ── */}
       {showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
-          <div className="w-full sm:max-w-md bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto" style={{ maxHeight: '92dvh' }}>
+          <div ref={checkoutPanelRef} className="relative w-full sm:max-w-md bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto" style={{ maxHeight: '92dvh' }}>
+            {/* Drag handle — señala bottom-sheet mobile */}
+            <div
+              aria-hidden="true"
+              className="sticky top-0 flex justify-center pt-2 pb-1 bg-background sm:hidden z-10"
+            >
+              <span className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
 
             {checkoutStep !== 'done' ? (
               <>

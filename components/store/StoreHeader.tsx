@@ -126,7 +126,7 @@ export default function StoreHeader() {
               src="/LogoDDDARG.png"
               alt="DDD ARG"
               width={511} height={339}
-              className="h-6 sm:h-11 w-auto brightness-0 invert"
+              className="h-8 sm:h-11 w-auto brightness-0 invert"
               priority
             />
           </Link>

@@ -5,6 +5,7 @@ import { X, CheckCircle2, Copy, Check } from 'lucide-react'
 import { solicitarExtensionMembresia } from '@/lib/actions/filamento-pedidos'
 import type { NivelMembresia } from '@/lib/membresia-helpers'
 import { DIAS_EXTENSION, COSTO_EXTENSION_POR_NIVEL } from '@/lib/membresia-helpers'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 const WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const ALIAS = process.env.NEXT_PUBLIC_ALIAS_PAGO ?? 'juan3d.nx'
@@ -17,6 +18,8 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
   const [copied, setCopied] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, open)
 
   const costo = COSTO_EXTENSION_POR_NIVEL[nivel ?? 'Plata'] ?? 2000
   const urgente = diasRestantes <= 2
@@ -92,10 +95,17 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
         >
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-5 space-y-4 max-h-[85dvh] overflow-y-auto"
+            ref={panelRef}
+            className="relative w-full max-w-sm rounded-2xl p-5 pt-7 space-y-4 max-h-[85dvh] overflow-y-auto"
             style={{ backgroundColor: '#1a1500', border: '1px solid #d97706' }}
             onClick={e => e.stopPropagation()}
           >
+            {/* Drag handle — señala que es un bottom-sheet en mobile */}
+            <div
+              aria-hidden="true"
+              className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full sm:hidden"
+              style={{ backgroundColor: 'rgba(252,211,77,0.4)' }}
+            />
             {/* Cerrar */}
             <button onClick={handleClose} aria-label="Cerrar" className="absolute top-3 right-3 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" style={{ color: '#86efac' }}>
               <X size={16} />

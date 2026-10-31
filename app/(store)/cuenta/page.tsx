@@ -275,8 +275,13 @@ export default async function CuentaPage({
 
               {/* Trial banner */}
               {membresia.esTrial && (
-                <div className="px-3 py-2 rounded-xl text-xs" style={{ backgroundColor: 'rgba(22,101,52,0.4)', border: '1px solid #166534', color: '#86efac' }}>
-                  🎉 <strong style={{ color: '#f0fdf4' }}>Período de prueba gratuito</strong> — Hacé tu primer pedido de 5 kg para activar la membresía completa.
+                <div className="px-3 py-2 rounded-xl text-xs space-y-1" style={{ backgroundColor: 'rgba(22,101,52,0.4)', border: '1px solid #166534', color: '#86efac' }}>
+                  <p>
+                    🎉 <strong style={{ color: '#f0fdf4' }}>Prueba gratuita — {membresia.diasRestantes} {membresia.diasRestantes === 1 ? 'día' : 'días'} restantes</strong>
+                  </p>
+                  <p>
+                    Durante estos 5 días tenés precios Plata (−$2.000/kg). Para que se renueve, hacé tu primer pedido de 5 kg antes del {fmtDate(membresia.periodoFin)}.
+                  </p>
                 </div>
               )}
 

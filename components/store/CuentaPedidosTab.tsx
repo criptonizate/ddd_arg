@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import type { FilamentoPedido, FilamentoPedidoItem } from '@/lib/actions/filamento-pedidos'
@@ -8,6 +8,7 @@ import { cancelarMiPedido } from '@/lib/actions/filamento-pedidos'
 import type { VentaFilamento } from '@/lib/filamentos-helpers'
 import Link from 'next/link'
 import { Clock, CheckCircle2, XCircle, Truck, AlertTriangle } from 'lucide-react'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 const ESTADO_CONFIG = {
   pendiente:  { label: 'Pendiente de confirmación', icon: Clock,        cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
@@ -63,6 +64,8 @@ export default function CuentaPedidosTab({
   const [cancelando, setCancelando] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<Record<string, string>>({})
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  const confirmPanelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(confirmPanelRef, !!confirmCancelId)
 
   // Escape cierra el modal de confirmación
   useEffect(() => {
@@ -121,7 +124,12 @@ export default function CuentaPedidosTab({
       {!initialPedidos?.length ? (
         <div className="text-center py-16 bg-secondary/20 rounded-2xl border border-border px-4">
           <p className="text-4xl mb-3">🎨</p>
-          <p className="font-medium text-muted-foreground">Todavía no hiciste ningún pedido</p>
+          <p className="font-medium text-muted-foreground">Todavía no hiciste ningún pedido web</p>
+          {ventasHistoricas.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Tenés <strong className="text-foreground">{ventasHistoricas.length}</strong> {ventasHistoricas.length === 1 ? 'compra registrada' : 'compras registradas'} en el local — las ves más abajo ↓
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-5">
             <Link href="/filamentos" className="inline-flex items-center gap-1.5 text-sm font-medium bg-foreground text-background rounded-xl px-5 py-2.5 hover:opacity-90 transition-opacity min-h-[44px]">
               Ver filamentos disponibles →
@@ -295,6 +303,7 @@ export default function CuentaPedidosTab({
             onClick={() => setConfirmCancelId(null)}
           >
             <div
+              ref={confirmPanelRef}
               className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl"
               onClick={e => e.stopPropagation()}
             >
