@@ -25,6 +25,10 @@ UPDATE filamento_ventas v
    AND v.pedido_id IS NULL;
 
 -- ── Paso 2: insertar ddd_coins "compra" para cada venta linkeada ───────────
+-- La idempotencia la da el NOT EXISTS. El unique partial index actúa como
+-- backstop ante inserts concurrentes (ignoramos 23505 en caller TS); no usamos
+-- ON CONFLICT porque un unique INDEX (no CONSTRAINT) no es un target válido
+-- para ON CONFLICT ON CONSTRAINT en Postgres.
 INSERT INTO ddd_coins (user_id, puntos, motivo, venta_id, created_at)
 SELECT
   v.user_id,
@@ -41,5 +45,4 @@ WHERE v.user_id IS NOT NULL
      WHERE c.user_id = v.user_id
        AND c.venta_id = v.id
        AND c.motivo = 'compra'
-  )
-ON CONFLICT ON CONSTRAINT ddd_coins_user_venta_motivo_uq DO NOTHING;
+  );
