@@ -3,12 +3,16 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
 import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
+import { isAnyAdmin } from '@/lib/admin-roles'
 
 export async function getSaldoCoins(userId: string): Promise<number> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  // Permitir llamadas desde server actions admin (sin user autenticado) o del propio usuario
-  if (user && user.id !== userId) return 0
+  // Autorizados a leer el saldo de `userId`:
+  //  - el propio usuario
+  //  - cualquier admin (full o scoped) consultando a otro cliente
+  //  - server actions sin sesión (user === null)
+  if (user && user.id !== userId && !isAnyAdmin(user.email)) return 0
 
   const db = createServiceClient()
   const { data } = await db.rpc('get_saldo_coins', { p_user_id: userId })
@@ -18,7 +22,7 @@ export async function getSaldoCoins(userId: string): Promise<number> {
 export async function getHistorialCoins(userId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user && user.id !== userId) return []
+  if (user && user.id !== userId && !isAnyAdmin(user.email)) return []
 
   const db = createServiceClient()
   const { data } = await db
