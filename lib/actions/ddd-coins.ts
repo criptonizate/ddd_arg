@@ -88,25 +88,37 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
   return { ganados, racha }
 }
 
-export async function sumarPuntosPorCompra(userId: string, rollos: number, pedidoId: string): Promise<void> {
+export async function sumarPuntosPorCompra(
+  userId: string,
+  rollos: number,
+  ref: { pedidoId: string } | { ventaId: string },
+): Promise<void> {
   if (rollos <= 0) return
   const db = createServiceClient()
-  // Idempotencia: si ya hay puntos por compra para este pedido, no duplicar
+
+  const isPedido = 'pedidoId' in ref
+  const refColumn = isPedido ? 'pedido_id' : 'venta_id'
+  const refValue  = isPedido ? ref.pedidoId : ref.ventaId
+
+  // Idempotencia: si ya hay puntos "compra" para esta referencia, no duplicar.
   const { count } = await db
     .from('ddd_coins')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('pedido_id', pedidoId)
+    .eq(refColumn, refValue)
     .eq('motivo', 'compra')
   if ((count ?? 0) > 0) return
-  const { error } = await db.from('ddd_coins').insert({
+
+  const row: Record<string, unknown> = {
     user_id: userId,
     puntos: rollos * 10,
     motivo: 'compra',
-    pedido_id: pedidoId,
-  })
-  // 23505 = unique_violation. El unique index parcial garantiza idempotencia aun
-  // frente a inserts concurrentes; si vino por race, es "ya hecho" y lo swalloweamos.
+  }
+  row[refColumn] = refValue
+
+  const { error } = await db.from('ddd_coins').insert(row)
+  // 23505 = unique_violation. El unique partial index garantiza idempotencia a
+  // nivel DB; si vino por race, es "ya hecho" y lo swalloweamos.
   if (error && error.code !== '23505') throw error
 }
 
@@ -116,6 +128,12 @@ export async function sumarPuntosPorCompra(userId: string, rollos: number, pedid
 export async function revertirCoinsDePedido(pedidoId: string): Promise<void> {
   const db = createServiceClient()
   await db.from('ddd_coins').delete().eq('pedido_id', pedidoId)
+}
+
+// Revierte los ddd_coins asociados a una venta (local, no pedido web).
+export async function revertirCoinsDeVenta(ventaId: string): Promise<void> {
+  const db = createServiceClient()
+  await db.from('ddd_coins').delete().eq('venta_id', ventaId)
 }
 
 export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> {

@@ -158,7 +158,7 @@ export async function crearPedidoFilamento(data: {
   // Sumar puntos por compra y canjear coins si corresponde (awaited para consistencia)
   const { sumarPuntosPorCompra, canjearCoinsEnPedido } = await import('./ddd-coins')
   await Promise.allSettled([
-    sumarPuntosPorCompra(user.id, total_rollos, row.id),
+    sumarPuntosPorCompra(user.id, total_rollos, { pedidoId: row.id }),
     data.puntosACanjear && data.puntosACanjear > 0 && descuento_coins > 0
       ? canjearCoinsEnPedido(user.id, data.puntosACanjear, row.id)
       : Promise.resolve(),

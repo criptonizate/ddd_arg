@@ -241,13 +241,38 @@ export async function registrarVentaFilamento(
   const totalDisp = actual.rollos_cerrados * actual.peso_rollo_gr + actual.gramos_sueltos
   if (venta.gramos > totalDisp) return { error: `Stock insuficiente (${Math.round(totalDisp)}g disponibles)` }
 
+  // Resolver user_id: si el admin pasó explícitamente, usar ese; si no,
+  // intentar linkear por email del cliente (clientes.email -> auth.users).
+  // Las ventas del local sin cliente linkeado no otorgan coins.
+  let resolvedUserId: string | null = venta.user_id ?? null
+  if (!resolvedUserId && venta.cliente_id) {
+    const { data: cli } = await supabase
+      .from('clientes')
+      .select('email')
+      .eq('id', venta.cliente_id)
+      .single()
+    if (cli?.email) {
+      const { data: usersList } = await supabase.auth.admin.listUsers({ perPage: 500 })
+      const match = usersList?.users.find((u: { email?: string | null }) => u.email?.toLowerCase() === cli.email!.toLowerCase())
+      if (match) resolvedUserId = match.id
+    }
+  }
+
   // 2. Guardar venta
   const { data: row, error: ventaErr } = await supabase
     .from('filamento_ventas')
-    .insert({ filamento_id: filamentoId, ...venta })
+    .insert({ filamento_id: filamentoId, ...venta, user_id: resolvedUserId })
     .select()
     .single()
   if (ventaErr) return { error: ventaErr.message }
+
+  // 3. DDD Coins: si la venta se vinculó a un user auth, otorgar puntos.
+  // 1 punto por kg (10 puntos cada 1 kg), idempotente vía unique(user_id, venta_id, motivo).
+  if (resolvedUserId) {
+    const kg = venta.gramos / 1000
+    const { sumarPuntosPorCompra } = await import('./ddd-coins')
+    await sumarPuntosPorCompra(resolvedUserId, kg, { ventaId: row.id })
+  }
 
   // 3. Descontar del stock (de gramos_sueltos primero, luego rollos)
   let restante = venta.gramos
@@ -502,6 +527,12 @@ export async function deleteVentaFilamento(
     .select('gramos_sueltos')
     .eq('id', filamentoId)
     .single()
+
+  // Revertir coins si esta venta había otorgado puntos.
+  // Lo hacemos ANTES del delete porque el FK ON DELETE SET NULL dejaría
+  // la fila de ddd_coins huérfana y perderíamos la referencia para limpiarla.
+  const { revertirCoinsDeVenta } = await import('./ddd-coins')
+  await revertirCoinsDeVenta(id)
 
   const { error: delErr } = await supabase.from('filamento_ventas').delete().eq('id', id)
   if (delErr) return { error: delErr.message }
