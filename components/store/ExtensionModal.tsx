@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { X, CheckCircle2 } from 'lucide-react'
+import { useState, useTransition, useEffect, useRef } from 'react'
+import { X, CheckCircle2, Copy, Check } from 'lucide-react'
 import { solicitarExtensionMembresia } from '@/lib/actions/filamento-pedidos'
 import type { NivelMembresia } from '@/lib/membresia-helpers'
 import { DIAS_EXTENSION, COSTO_EXTENSION_POR_NIVEL } from '@/lib/membresia-helpers'
@@ -14,6 +14,9 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [success, setSuccess] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const costo = COSTO_EXTENSION_POR_NIVEL[nivel ?? 'Plata'] ?? 2000
   const urgente = diasRestantes <= 2
@@ -32,8 +35,39 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
   function handleClose() {
     setOpen(false)
     // Reset del estado success después de cerrar (con delay para evitar flicker)
-    setTimeout(() => setSuccess(false), 300)
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    resetTimerRef.current = setTimeout(() => setSuccess(false), 300)
   }
+
+  async function copyAlias() {
+    try {
+      await navigator.clipboard.writeText(ALIAS)
+      setCopied(true)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // noop — en Safari sin https simplemente no copia
+    }
+  }
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    }
+  }, [])
+
+  // Escape closes modal + role=dialog affordances
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   return (
     <>
@@ -49,10 +83,16 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={handleClose}>
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={handleClose}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="extension-modal-title"
+        >
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
+            className="relative w-full max-w-sm rounded-2xl p-5 space-y-4 max-h-[85dvh] overflow-y-auto"
             style={{ backgroundColor: '#1a1500', border: '1px solid #d97706' }}
             onClick={e => e.stopPropagation()}
           >
@@ -72,10 +112,21 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
                   <p className="text-sm" style={{ color: '#86efac' }}>Ahora mandanos el comprobante de la transferencia por WhatsApp para que confirmemos tu extensión.</p>
                 </div>
 
-                <div className="px-4 py-3 rounded-xl space-y-1" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div className="px-4 py-3 rounded-xl space-y-2" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <p className="text-xs" style={{ color: '#86efac' }}>Monto transferido:</p>
                   <p className="font-black text-xl" style={{ color: '#f0fdf4' }}>${costo.toLocaleString('es-AR')}</p>
-                  <p className="text-xs" style={{ color: '#86efac' }}>Alias: <strong style={{ color: '#f0fdf4' }}>{ALIAS}</strong></p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs" style={{ color: '#86efac' }}>Alias: <strong style={{ color: '#f0fdf4' }}>{ALIAS}</strong></p>
+                    <button
+                      onClick={copyAlias}
+                      aria-label={copied ? 'Alias copiado' : 'Copiar alias'}
+                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg min-h-[32px]"
+                      style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.5)' }}
+                    >
+                      {copied ? <Check size={14} /> : <Copy size={14} />}
+                      {copied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
                 </div>
 
                 <a
@@ -100,7 +151,7 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
               /* ── Vista inicial ── */
               <>
                 <div>
-                  <p className="font-black text-lg leading-none" style={{ color: '#fcd34d' }}>⚡ Extender membresía</p>
+                  <p id="extension-modal-title" className="font-black text-lg leading-none" style={{ color: '#fcd34d' }}>⚡ Extender membresía</p>
                   <p className="text-xs mt-1" style={{ color: '#86efac' }}>+{DIAS_EXTENSION} días de membresía {nivel}</p>
                 </div>
 
@@ -119,9 +170,20 @@ export default function ExtensionModal({ nivel, diasRestantes = 10 }: { nivel: N
                   </div>
                 </div>
 
-                <div className="px-4 py-3 rounded-xl space-y-1" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div className="px-4 py-3 rounded-xl space-y-2" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <p className="text-xs" style={{ color: '#86efac' }}>Transferí <strong style={{ color: '#f0fdf4' }}>${costo.toLocaleString('es-AR')}</strong> a este alias:</p>
-                  <p className="font-black text-xl tracking-wide" style={{ color: '#f0fdf4' }}>{ALIAS}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-black text-xl tracking-wide" style={{ color: '#f0fdf4' }}>{ALIAS}</p>
+                    <button
+                      onClick={copyAlias}
+                      aria-label={copied ? 'Alias copiado' : 'Copiar alias'}
+                      className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg min-h-[36px] shrink-0"
+                      style={{ backgroundColor: 'rgba(217,119,6,0.2)', color: '#fcd34d', border: '1px solid rgba(217,119,6,0.5)' }}
+                    >
+                      {copied ? <Check size={14} /> : <Copy size={14} />}
+                      {copied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
                   <p className="text-xs" style={{ color: '#86efac' }}>{NOMBRE_TITULAR}</p>
                 </div>
 

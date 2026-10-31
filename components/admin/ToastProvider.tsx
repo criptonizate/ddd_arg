@@ -35,10 +35,17 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
   return (
     <Ctx.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none">
+      <div
+        role="region"
+        aria-label="Notificaciones"
+        aria-live="polite"
+        aria-atomic="false"
+        className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
+            role={t.type === 'error' ? 'alert' : 'status'}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto max-w-sm transition-all duration-200 ${
               t.type === 'success'
                 ? 'bg-green-600 text-white'
@@ -47,12 +54,16 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
                 : 'bg-foreground text-primary-foreground'
             }`}
           >
-            {t.type === 'success' && <CheckCircle size={15} className="shrink-0" />}
-            {t.type === 'error' && <AlertCircle size={15} className="shrink-0" />}
-            {t.type === 'info' && <Info size={15} className="shrink-0" />}
+            {t.type === 'success' && <CheckCircle size={15} className="shrink-0" aria-hidden="true" />}
+            {t.type === 'error' && <AlertCircle size={15} className="shrink-0" aria-hidden="true" />}
+            {t.type === 'info' && <Info size={15} className="shrink-0" aria-hidden="true" />}
             <span className="flex-1">{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="opacity-70 hover:opacity-100 transition-opacity">
-              <X size={13} />
+            <button
+              onClick={() => dismiss(t.id)}
+              aria-label="Cerrar notificación"
+              className="opacity-70 hover:opacity-100 transition-opacity min-w-[32px] min-h-[32px] flex items-center justify-center"
+            >
+              <X size={13} aria-hidden="true" />
             </button>
           </div>
         ))}

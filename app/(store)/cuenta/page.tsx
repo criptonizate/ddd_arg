@@ -64,11 +64,16 @@ export default async function CuentaPage({
   const sugerenciasNuevas = sugerencias.filter(s => s.estado === 'notificado' && !s.visto_por_cliente).length
 
   const { tab: tabParam } = await searchParams
+  // Default: pedidos si el usuario ya tiene actividad (es el tab más usado),
+  // perfil si recién se registra (para completar sus datos de contacto).
+  const tienePedidos = (pedidos?.length ?? 0) > 0 || ventasHistoricas.length > 0
+  const tabDefault = tienePedidos ? 'pedidos' : 'perfil'
   const tab = tabParam === 'pedidos' ? 'pedidos'
+    : tabParam === 'perfil' ? 'perfil'
     : tabParam === 'membresia' ? 'membresia'
     : tabParam === 'coins' ? 'coins'
     : tabParam === 'colores' ? 'colores'
-    : 'perfil'
+    : tabDefault
 
   const displayName = profile?.apodo || user.user_metadata?.full_name || user.email?.split('@')[0] || ''
   const styles = membresia?.nivel ? NIVEL_STYLES[membresia.nivel as keyof typeof NIVEL_STYLES] : null
@@ -150,7 +155,7 @@ export default async function CuentaPage({
       <div className="relative mb-8">
         <div className="flex gap-0.5 border-b border-border overflow-x-auto scrollbar-hide">
         <Link
-          href="/cuenta"
+          href="/cuenta?tab=perfil"
           aria-current={tab === 'perfil' ? 'page' : undefined}
           className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
             tab === 'perfil'

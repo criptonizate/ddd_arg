@@ -444,6 +444,15 @@ export async function editarItemsPedidoFilamento(
   const descuento_coins = pedidoRow.descuento_coins ?? 0
 
   const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
+  // Si el nuevo subtotal es menor al descuento_coins ya canjeado, bloqueamos la
+  // edición: significaría quemar coins sin que el cliente reciba su contrapartida.
+  // El admin debe anular el pedido (que revierte los coins) y crear uno nuevo.
+  if (descuento_coins > subtotal) {
+    return {
+      error:
+        `El nuevo subtotal ($${subtotal.toLocaleString('es-AR')}) es menor al canje de coins ya aplicado ($${descuento_coins.toLocaleString('es-AR')}). Para reducir el pedido, anulalo y crealo de nuevo (los coins se devuelven).`,
+    }
+  }
   const total = Math.max(0, subtotal - descuento_coins)
   const { error } = await supabase
     .from('filamento_pedidos')
@@ -617,10 +626,14 @@ export async function getMembresiaCliente(userId: string): Promise<MembresiaStat
     if (trial?.trial_fin && new Date(trial.trial_fin).getTime() > nowMs) {
       const trialFin = new Date(trial.trial_fin)
       const diasRestantes = Math.max(0, Math.ceil((trialFin.getTime() - nowMs) / (24 * 60 * 60 * 1000)))
+      // Trial dura 5 días (crear_trial_nuevo_usuario trigger). periodoInicio = trial_fin - 5 días.
+      // Antes se reportaba trial_fin como inicio, confundiendo al usuario en la UI.
+      const TRIAL_DIAS = 5
+      const trialInicio = new Date(trialFin.getTime() - TRIAL_DIAS * 24 * 60 * 60 * 1000)
       const mayoristaTier = TIERS_MEMBRESIA.find(t => t.label === 'Plata')!
       return {
         kgPeriodo: 0,
-        periodoInicio: new Date(trial.trial_fin as string).toISOString(), // se reemplaza al primer pedido
+        periodoInicio: trialInicio.toISOString(),
         periodoFin: trialFin.toISOString(),
         diasRestantes,
         nivel: 'Plata',
@@ -934,7 +947,7 @@ export async function getMembresiasAdmin(): Promise<MembresiaAdminRow[]> {
     })
   }
 
-  const orden: Record<string, number> = { Elite: 0, Plus: 1, Mayorista: 2 }
+  const orden: Record<string, number> = { Platino: 0, Oro: 1, Plata: 2 }
   return rows.sort((a, b) => (orden[a.nivel!] ?? 9) - (orden[b.nivel!] ?? 9) || b.kgPeriodo - a.kgPeriodo)
 }
 
