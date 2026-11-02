@@ -93,14 +93,40 @@ function buildSeedEntries(): GastoEntry[] {
     restante -= monto; amo++; if (amo > 12) { amo = 1; ayr++ }; ai++
   }
 
-  // Préstamo Patagonia (Marta) — 24 cuotas de $1.000.000 desde oct 2026
+  // Préstamo Patagonia (Marta) — 24 cuotas desde oct 2026 (montos reales del banco)
+  const CUOTAS_PATAGONIA = [
+    1052091, // 1 — oct 2026 (monto estimado, no figura en extracto)
+    1052091, // 2 — nov 2026
+    1026222, // 3 — dic 2026
+    1044920, // 4 — ene 2027
+    1041072, // 5 — feb 2027
+     975515, // 6 — mar 2027
+    1032806, // 7 — abr 2027
+    1009259, // 8 — may 2027
+    1023719, // 9 — jun 2027
+    1001267, // 10 — jul 2027
+    1013730, // 11 — ago 2027
+    1008369, // 12 — sep 2027
+     987766, // 13 — oct 2027
+     996855, // 14 — nov 2027
+     977638, // 15 — dic 2027
+     984197, // 16 — ene 2028
+     977404, // 17 — feb 2028
+     950778, // 18 — mar 2028
+     962814, // 19 — abr 2028
+     947697, // 20 — may 2028
+     946774, // 21 — jun 2028
+     933589, // 22 — jul 2028
+     929141, // 23 — ago 2028
+     919678, // 24 — sep 2028
+  ]
   let pyr = 2026, pmo = 10
   for (let n = 1; n <= 24; n++) {
     const mm = String(pmo).padStart(2, '0')
     arr.push({
       id: `e-prestamo-${n}`,
       concept: `Préstamo Patagonia (Marta) - cuota ${n}/24`,
-      type: 'gasto', category: 'fijo', amount: 1000000,
+      type: 'gasto', category: 'fijo', amount: CUOTAS_PATAGONIA[n - 1],
       date: `${pyr}-${mm}-05`, status: 'pendiente', due: `${pyr}-${mm}-05`,
     })
     pmo++; if (pmo > 12) { pmo = 1; pyr++ }
