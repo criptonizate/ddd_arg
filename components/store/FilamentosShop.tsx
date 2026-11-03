@@ -164,9 +164,26 @@ function colorIsLight(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160
 }
 
+// ── Body scroll lock (compartido entre overlays anidados) ────────────────────
+let __bodyScrollLockCount = 0
+function bodyScrollLockAcquire() {
+  __bodyScrollLockCount++
+  if (__bodyScrollLockCount === 1) {
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+  }
+}
+function bodyScrollLockRelease() {
+  __bodyScrollLockCount = Math.max(0, __bodyScrollLockCount - 1)
+  if (__bodyScrollLockCount === 0) {
+    document.body.style.overflow = ''
+    document.body.style.touchAction = ''
+  }
+}
+
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
-function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: number; onClose: () => void }) {
+function Lightbox({ fotos, startIdx, onClose, managesHistory = true }: { fotos: string[]; startIdx: number; onClose: () => void; managesHistory?: boolean }) {
   const [idx, setIdx] = useState(startIdx)
   const prev = () => setIdx((i) => (i - 1 + fotos.length) % fotos.length)
   const next = () => setIdx((i) => (i + 1) % fotos.length)
@@ -175,15 +192,12 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
   const isSwipe = useRef(false)
 
   // Bloquear scroll del fondo mientras el lightbox está abierto.
+  // Usamos un contador global para soportar overlays anidados (modal + lightbox)
+  // y evitar que StrictMode (doble invocación de effects en dev) deje el body
+  // bloqueado al desmontar.
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow
-    const prevTouch = document.body.style.touchAction
-    document.body.style.overflow = 'hidden'
-    document.body.style.touchAction = 'none'
-    return () => {
-      document.body.style.overflow = prevOverflow
-      document.body.style.touchAction = prevTouch
-    }
+    bodyScrollLockAcquire()
+    return () => bodyScrollLockRelease()
   }, [])
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -232,9 +246,9 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
   // programático para consumir ese state. El popstate que llega cuando el
   // usuario toca atrás dispara onClose sin salir.
   useEffect(() => {
+    if (!managesHistory) return
     const STATE_MARK = { __lightboxOpen: true }
     let closedByBack = false
-    // Marcar la posición actual del historial como "con lightbox abierto"
     window.history.pushState(STATE_MARK, '')
     const onPop = () => {
       closedByBack = true
@@ -243,9 +257,6 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
-      // Si se cerró por X / Escape / click fuera, consumir el state que empujamos
-      // para que el back del navegador no quede desincronizado. Si ya se cerró
-      // por un popstate, el browser ya lo sacó — no hacemos nada.
       if (!closedByBack) {
         try { window.history.back() } catch { /* noop */ }
       }
@@ -457,21 +468,36 @@ function GrupoColoresModal({
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
   const [lightboxFotos, setLightboxFotos] = useState<string[] | null>(null)
+  const lightboxRef = useRef<string[] | null>(null)
+  useEffect(() => { lightboxRef.current = lightboxFotos }, [lightboxFotos])
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // Si el lightbox está abierto, lo maneja Lightbox internamente.
-      if (lightboxFotos) return
+      if (lightboxFotos) {
+        if (e.key === 'Escape') setLightboxFotos(null)
+        return
+      }
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, lightboxFotos])
 
-  // Back del navegador: cierra modal en vez de salir (mismo patrón que Lightbox).
+  // Back del navegador: cierra primero el lightbox (si está abierto) y recién
+  // en el siguiente back cierra el modal del grupo.
   useEffect(() => {
     let cerradoPorBack = false
     window.history.pushState({ __grupoOpen: true }, '')
-    const onPop = () => { cerradoPorBack = true; onClose() }
+    const onPop = () => {
+      if (lightboxRef.current) {
+        // Consumimos el pop cerrando el lightbox y volvemos a empujar el estado
+        // para que el próximo back cierre el modal del grupo.
+        setLightboxFotos(null)
+        window.history.pushState({ __grupoOpen: true }, '')
+        return
+      }
+      cerradoPorBack = true
+      onClose()
+    }
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
@@ -483,20 +509,14 @@ function GrupoColoresModal({
 
   // Bloquear scroll del fondo mientras el modal está abierto.
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow
-    const prevTouch = document.body.style.touchAction
-    document.body.style.overflow = 'hidden'
-    document.body.style.touchAction = 'none'
-    return () => {
-      document.body.style.overflow = prevOverflow
-      document.body.style.touchAction = prevTouch
-    }
+    bodyScrollLockAcquire()
+    return () => bodyScrollLockRelease()
   }, [])
 
   return (
     <>
     {lightboxFotos && (
-      <Lightbox fotos={lightboxFotos} startIdx={0} onClose={() => setLightboxFotos(null)} />
+      <Lightbox fotos={lightboxFotos} startIdx={0} onClose={() => setLightboxFotos(null)} managesHistory={false} />
     )}
     <div
       className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center sm:p-4 bg-black/60"
