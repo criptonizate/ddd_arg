@@ -403,11 +403,16 @@ function GrupoColoresModal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
+  const [lightboxFotos, setLightboxFotos] = useState<string[] | null>(null)
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) {
+      // Si el lightbox está abierto, lo maneja Lightbox internamente.
+      if (lightboxFotos) return
+      if (e.key === 'Escape') onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, lightboxFotos])
 
   // Back del navegador: cierra modal en vez de salir (mismo patrón que Lightbox).
   useEffect(() => {
@@ -424,6 +429,10 @@ function GrupoColoresModal({
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <>
+    {lightboxFotos && (
+      <Lightbox fotos={lightboxFotos} startIdx={0} onClose={() => setLightboxFotos(null)} />
+    )}
     <div
       className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center sm:p-4 bg-black/60"
       role="dialog"
@@ -468,16 +477,35 @@ function GrupoColoresModal({
             const precioBase = f.precio_kg ?? PRECIO_BASE_DEFAULT
             const yaAlertado = misAlertas.includes(f.id)
             const cargandoAlerta = alertando === f.id
+            const fotosColor = [f.imagen_url, f.imagen_url_2, f.imagen_url_3].filter(Boolean) as string[]
+            const fotoColor = fotosColor[0] ?? null
             return (
               <div
                 key={f.id}
                 className={`flex items-center gap-3 px-5 py-3 ${sinStock ? 'opacity-70' : ''}`}
               >
-                <span
-                  className="w-10 h-10 rounded-xl shrink-0 border border-black/10 shadow-sm"
-                  style={{ backgroundColor: colorToCss(f.color) }}
-                  aria-hidden="true"
-                />
+                {fotoColor ? (
+                  <button
+                    type="button"
+                    onClick={() => setLightboxFotos(fotosColor)}
+                    aria-label={`Ver foto grande de ${f.color}`}
+                    className="shrink-0 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={fotoColor}
+                      alt={f.color}
+                      className={`w-12 h-12 object-cover border border-black/10 shadow-sm cursor-zoom-in ${sinStock ? 'grayscale' : ''}`}
+                      loading="lazy"
+                    />
+                  </button>
+                ) : (
+                  <span
+                    className="w-12 h-12 rounded-xl shrink-0 border border-black/10 shadow-sm"
+                    style={{ backgroundColor: colorToCss(f.color) }}
+                    aria-hidden="true"
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm leading-tight ${sinStock ? 'line-through text-muted-foreground' : ''}`}>
                     {f.color}
@@ -549,6 +577,7 @@ function GrupoColoresModal({
         </div>
       </div>
     </div>
+    </>
   )
 }
 
