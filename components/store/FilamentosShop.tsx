@@ -170,6 +170,52 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
   const [idx, setIdx] = useState(startIdx)
   const prev = () => setIdx((i) => (i - 1 + fotos.length) % fotos.length)
   const next = () => setIdx((i) => (i + 1) % fotos.length)
+  const [dragX, setDragX] = useState(0)
+  const touchStart = useRef<{ x: number; y: number; t: number } | null>(null)
+  const isSwipe = useRef(false)
+
+  // Bloquear scroll del fondo mientras el lightbox está abierto.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    const prevTouch = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.touchAction = prevTouch
+    }
+  }, [])
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+    isSwipe.current = false
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart.current) return
+    const t = e.touches[0]
+    const dx = t.clientX - touchStart.current.x
+    const dy = t.clientY - touchStart.current.y
+    if (!isSwipe.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+      isSwipe.current = true
+    }
+    if (isSwipe.current) {
+      setDragX(dx)
+    }
+  }
+  const onTouchEnd = () => {
+    if (!touchStart.current) return
+    const dx = dragX
+    const dur = Date.now() - touchStart.current.t
+    const threshold = 60
+    const fast = dur < 300 && Math.abs(dx) > 30
+    if (fotos.length > 1 && (Math.abs(dx) > threshold || fast)) {
+      if (dx < 0) next(); else prev()
+    }
+    touchStart.current = null
+    isSwipe.current = false
+    setDragX(0)
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -208,8 +254,11 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 touch-pan-y select-none"
       onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       <button
         onClick={onClose}
@@ -241,8 +290,12 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
       <img
         src={imgUrl(fotos[idx], 1200, 90)}
         alt={`Foto ${idx + 1} de ${fotos.length}`}
-        className="max-w-full max-h-[85dvh] object-contain rounded-lg shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="max-w-full max-h-[85dvh] object-contain rounded-lg shadow-2xl pointer-events-none"
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: dragX === 0 ? 'transform 180ms ease-out' : 'none',
+        }}
+        draggable={false}
         onError={(e) => { (e.target as HTMLImageElement).src = fotos[idx] }}
       />
 
@@ -427,6 +480,18 @@ function GrupoColoresModal({
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bloquear scroll del fondo mientras el modal está abierto.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    const prevTouch = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.touchAction = prevTouch
+    }
+  }, [])
 
   return (
     <>
