@@ -263,6 +263,295 @@ function Lightbox({ fotos, startIdx, onClose }: { fotos: string[]; startIdx: num
   )
 }
 
+// ── Card del grupo (marca + material) ─────────────────────────────────────────
+
+function FilamentoGrupoCard({
+  grupo, cart, onOpen,
+}: {
+  grupo: { marca: string; material: string; filamentos: Filamento[] }
+  cart: CartItem[]
+  onOpen: () => void
+}) {
+  // Representativo: el primer color con stock y con foto. Fallback: primero del grupo.
+  const conFoto = grupo.filamentos.find(f => (f.imagen_url || f.imagen_url_2 || f.imagen_url_3) && maxKg(f) > 0)
+    ?? grupo.filamentos.find(f => f.imagen_url || f.imagen_url_2 || f.imagen_url_3)
+    ?? grupo.filamentos[0]
+  const foto = conFoto.imagen_url ?? conFoto.imagen_url_2 ?? conFoto.imagen_url_3 ?? null
+  const cssRepr = colorToCss(conFoto.color)
+
+  const totalColores = grupo.filamentos.length
+  const coloresConStock = grupo.filamentos.filter(f => maxKg(f) > 0).length
+  const algunoUltimo = grupo.filamentos.some(f => {
+    const d = maxKg(f)
+    return d > 0 && d <= 3
+  })
+
+  // Swatches (hasta 8 colores únicos, priorizando los que tienen stock)
+  const swatches = grupo.filamentos.slice(0, 8)
+  const kgEnCart = cart
+    .filter(i => i.filamento.marca === grupo.marca && i.filamento.material === grupo.material)
+    .reduce((s, i) => s + i.rollos, 0)
+
+  const precios = grupo.filamentos.map(f => f.precio_kg ?? PRECIO_BASE_DEFAULT)
+  const precioMin = Math.min(...precios)
+  const precioMax = Math.max(...precios)
+  const precioLabel = precioMin === precioMax
+    ? fmtARS(precioMin)
+    : `desde ${fmtARS(precioMin)}`
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`text-left rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border focus:outline-none focus:ring-2 focus:ring-orange-400 ${kgEnCart > 0 ? 'ring-1' : ''}`}
+      style={{
+        backgroundColor: 'oklch(0.26 0.005 264)',
+        borderColor: kgEnCart > 0 ? '#15803d' : 'oklch(1 0 0 / 10%)',
+        ...(kgEnCart > 0 ? { boxShadow: '0 0 0 1px #15803d44' } : {}),
+      }}
+      aria-label={`Ver colores de ${grupo.marca} ${grupo.material}`}
+    >
+      <div
+        className="relative h-40 flex items-center justify-center overflow-hidden"
+        style={foto ? {} : { backgroundColor: cssRepr }}
+      >
+        {foto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={foto} alt={`${grupo.marca} ${grupo.material}`} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <span className="w-16 h-16 rounded-full border-4 border-white/30" style={{ backgroundColor: cssRepr }} />
+        )}
+
+        {/* Indicador de últimas unidades en el grupo */}
+        {algunoUltimo && (
+          <span
+            className="absolute top-2.5 right-2.5 text-sm px-1.5 py-0.5 rounded-full"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+            title="Últimas unidades"
+            aria-label="Últimas unidades"
+          >🔥</span>
+        )}
+
+        {/* Indicador en carrito */}
+        {kgEnCart > 0 && (
+          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#15803d' }}>
+            {kgEnCart} kg
+          </span>
+        )}
+
+        {/* Material badge arriba izq */}
+        <span
+          className="absolute top-2.5 left-2.5 text-[10px] font-black px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: MAT_COLORS[grupo.material] ?? '#94a3b8', color: '#fff' }}
+        >
+          {grupo.material}
+        </span>
+      </div>
+
+      <div className="p-3.5 flex flex-col gap-2">
+        <div>
+          <p className="font-bold text-sm leading-tight">{grupo.marca}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">{grupo.material}</p>
+        </div>
+
+        {/* Swatches */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {swatches.map(f => {
+            const sinStock = maxKg(f) <= 0
+            return (
+              <span
+                key={f.id}
+                className={`w-4 h-4 rounded-full border border-black/20 ${sinStock ? 'opacity-30' : ''}`}
+                style={{ backgroundColor: colorToCss(f.color) }}
+                title={sinStock ? `${f.color} — sin stock` : f.color}
+              />
+            )
+          })}
+          {grupo.filamentos.length > 8 && (
+            <span className="text-[10px] text-muted-foreground ml-0.5">+{grupo.filamentos.length - 8}</span>
+          )}
+        </div>
+
+        <div className="flex items-baseline justify-between gap-2 mt-0.5">
+          <p className="text-base font-black leading-none">{precioLabel}</p>
+          <p className="text-[10px] text-muted-foreground">
+            {coloresConStock} de {totalColores} disponibles
+          </p>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ── Modal detalle del grupo: lista de colores con add-to-cart por color ──
+
+function GrupoColoresModal({
+  grupo, onClose, cart, addToCart, setRollos, removeFromCart, precioParaFilamento, descuento,
+  misAlertas, alertando, handleAvisar,
+}: {
+  grupo: { marca: string; material: string; filamentos: Filamento[] }
+  onClose: () => void
+  cart: CartItem[]
+  addToCart: (f: Filamento) => void
+  setRollos: (id: string, n: number) => void
+  removeFromCart: (id: string) => void
+  precioParaFilamento: (f: Filamento) => number
+  descuento: number
+  misAlertas: string[]
+  alertando: string | null
+  handleAvisar: (id: string) => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Back del navegador: cierra modal en vez de salir (mismo patrón que Lightbox).
+  useEffect(() => {
+    let cerradoPorBack = false
+    window.history.pushState({ __grupoOpen: true }, '')
+    const onPop = () => { cerradoPorBack = true; onClose() }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (!cerradoPorBack) {
+        try { window.history.back() } catch { /* noop */ }
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div
+      className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center sm:p-4 bg-black/60"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="grupo-modal-title"
+      onClick={onClose}
+    >
+      <div
+        ref={panelRef}
+        className="relative w-full sm:max-w-lg bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto"
+        style={{ maxHeight: '92dvh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drag handle mobile */}
+        <div aria-hidden="true" className="sticky top-0 flex justify-center pt-2 pb-1 bg-background sm:hidden z-10">
+          <span className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h2 id="grupo-modal-title" className="font-bold text-base">{grupo.marca}</h2>
+            <p className="text-xs text-muted-foreground">
+              {grupo.material} · {grupo.filamentos.length} colores
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-secondary"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="divide-y divide-border">
+          {grupo.filamentos.map(f => {
+            const disponible = maxKg(f)
+            const enCart = cart.find(i => i.filamento.id === f.id)?.rollos ?? 0
+            const enMax = enCart >= disponible
+            const sinStock = disponible <= 0
+            const precio = precioParaFilamento(f)
+            const precioBase = f.precio_kg ?? PRECIO_BASE_DEFAULT
+            const yaAlertado = misAlertas.includes(f.id)
+            const cargandoAlerta = alertando === f.id
+            return (
+              <div
+                key={f.id}
+                className={`flex items-center gap-3 px-5 py-3 ${sinStock ? 'opacity-70' : ''}`}
+              >
+                <span
+                  className="w-10 h-10 rounded-xl shrink-0 border border-black/10 shadow-sm"
+                  style={{ backgroundColor: colorToCss(f.color) }}
+                  aria-hidden="true"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-semibold text-sm leading-tight ${sinStock ? 'line-through text-muted-foreground' : ''}`}>
+                    {f.color}
+                  </p>
+                  {sinStock ? (
+                    <p className="text-[10px] text-muted-foreground">Sin stock</p>
+                  ) : disponible <= 3 ? (
+                    <p className="text-[10px] font-semibold" style={{ color: '#ea580c' }}>🔥 Últimas unidades</p>
+                  ) : descuento > 0 ? (
+                    <p className="text-[11px]">
+                      <span className="line-through text-muted-foreground mr-1">{fmtARS(precioBase)}</span>
+                      <span className="font-semibold" style={{ color: '#4ade80' }}>{fmtARS(precio)}/kg</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">{fmtARS(precio)}/kg</p>
+                  )}
+                </div>
+
+                {sinStock ? (
+                  <button
+                    onClick={() => handleAvisar(f.id)}
+                    disabled={yaAlertado || cargandoAlerta}
+                    className="shrink-0 flex items-center justify-center gap-1 text-[11px] font-semibold px-3 py-2 min-h-[36px] rounded-xl border transition-colors disabled:cursor-default"
+                    style={yaAlertado
+                      ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
+                      : cargandoAlerta
+                        ? { backgroundColor: 'oklch(0.26 0.005 264)', borderColor: 'oklch(1 0 0 / 15%)', color: 'oklch(0.70 0.006 264)' }
+                        : { backgroundColor: '#7c3aed', borderColor: '#6d28d9', color: '#ffffff' }
+                    }
+                  >
+                    {yaAlertado
+                      ? <><BellOff size={11} /> Anotado</>
+                      : cargandoAlerta
+                        ? <><Loader2 size={11} className="animate-spin" /> Guardando</>
+                        : <><Bell size={11} /> Avisame</>}
+                  </button>
+                ) : enCart === 0 ? (
+                  <button
+                    onClick={() => addToCart(f)}
+                    className="shrink-0 flex items-center gap-1 text-white text-xs font-bold px-3 py-2 min-h-[36px] rounded-xl"
+                    style={{ backgroundColor: '#15803d' }}
+                  >
+                    <Plus size={13} /> Agregar
+                  </button>
+                ) : (
+                  <div className="shrink-0 flex items-center gap-1">
+                    <button
+                      onClick={() => setRollos(f.id, enCart - 1)}
+                      className="w-9 h-9 flex items-center justify-center rounded-md border border-border hover:bg-secondary"
+                      aria-label={`Restar 1 kg de ${f.color}`}
+                    ><Minus size={13} /></button>
+                    <span className="text-xs font-bold w-9 text-center">{enCart} kg</span>
+                    <button
+                      onClick={() => setRollos(f.id, enCart + 1)}
+                      disabled={enMax}
+                      className="w-9 h-9 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"
+                      aria-label={`Sumar 1 kg de ${f.color}`}
+                    ><Plus size={13} /></button>
+                    <button
+                      onClick={() => removeFromCart(f.id)}
+                      className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground"
+                      aria-label={`Quitar ${f.color} del carrito`}
+                    ><Trash2 size={13} /></button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Componente tarjeta de filamento ───────────────────────────────────────────
 
 function FilamentoCard({
@@ -394,14 +683,25 @@ function FilamentoCard({
           </>
         )}
 
-        {/* Stock badge — colores con contraste >= 4.5:1 contra el texto */}
-        <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 ${
-          disponible >= 10 ? 'bg-green-700 text-white'
-          : disponible >= 3 ? 'bg-yellow-400 text-yellow-950'
-          : 'bg-red-700 text-white'
-        }`}>
-          {disponible} kg
-        </span>
+        {/* Stock badge — ocultamos la cantidad; mostramos solo fueguito como gancho.
+            Cuando no hay stock, marcamos "sin stock" claro. */}
+        {disponible <= 0 ? (
+          <span
+            className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 bg-red-700 text-white"
+            aria-label="Sin stock"
+          >
+            sin stock
+          </span>
+        ) : (
+          <span
+            className="absolute top-2.5 right-2.5 text-sm px-1.5 py-0.5 rounded-full z-10"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+            aria-label={disponible <= 3 ? 'Últimas unidades' : 'Disponible'}
+            title={disponible <= 3 ? 'Últimas unidades' : 'Disponible'}
+          >
+            🔥
+          </span>
+        )}
 
         {/* Indicador en carrito */}
         {enCart > 0 && (
@@ -779,6 +1079,47 @@ export default function FilamentosShop({
     () => applyFilters([...agotados]),
     [agotados, matFilter, marcaFilter, colorFilter, search] // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  // Agrupación por marca + material. Cada grupo colapsa los colores en una sola
+  // card; al abrirla se ve el detalle de todos los colores.
+  // Clave: "marca||material". Un grupo contiene filamentos con y sin stock.
+  // Un grupo entra en el listado principal si TIENE al menos un color con stock;
+  // si no, va al listado "sin stock por ahora" con el botón de alerta.
+  const grupos = useMemo(() => {
+    type Grupo = { key: string; marca: string; material: string; filamentos: Filamento[] }
+    const todos = [...filtered, ...agotadosFiltrados]
+    const map = new Map<string, Grupo>()
+    for (const f of todos) {
+      const key = `${f.marca}||${f.material}`
+      let g = map.get(key)
+      if (!g) {
+        g = { key, marca: f.marca, material: f.material, filamentos: [] }
+        map.set(key, g)
+      }
+      if (!g.filamentos.find(x => x.id === f.id)) g.filamentos.push(f)
+    }
+    const activos: Grupo[] = []
+    const agotadosG: Grupo[] = []
+    for (const g of map.values()) {
+      const hayStock = g.filamentos.some(f => maxKg(f) > 0)
+      // Orden interno: con stock primero, dentro de cada subgrupo por color alfabético
+      g.filamentos.sort((a, b) => {
+        const sa = maxKg(a) > 0 ? 0 : 1
+        const sb = maxKg(b) > 0 ? 0 : 1
+        if (sa !== sb) return sa - sb
+        return a.color.localeCompare(b.color, 'es')
+      })
+      ;(hayStock ? activos : agotadosG).push(g)
+    }
+    const sortByMarca = (a: Grupo, b: Grupo) =>
+      a.marca.localeCompare(b.marca, 'es') || a.material.localeCompare(b.material, 'es')
+    activos.sort(sortByMarca)
+    agotadosG.sort(sortByMarca)
+    return { activos, agotados: agotadosG }
+  }, [filtered, agotadosFiltrados])
+  type FilamentoGrupo = typeof grupos.activos[number]
+
+  const [grupoAbierto, setGrupoAbierto] = useState<FilamentoGrupo | null>(null)
 
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
@@ -1189,80 +1530,49 @@ export default function FilamentosShop({
             )}
           </div>
 
-          {/* Grid de productos */}
-          {filtered.length === 0 ? (
+          {/* Grid de grupos (marca + material). Dentro del grupo se abre el modal con todos los colores. */}
+          {grupos.activos.length === 0 && grupos.agotados.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground">
               <p className="text-4xl mb-3">🔍</p>
               <p className="font-medium">Sin resultados</p>
               <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter(''); setColorFilter('') }}
                 className="mt-3 text-sm text-orange-600 underline">Limpiar filtros</button>
             </div>
-          ) : (
+          ) : grupos.activos.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filtered.map((f, index) => (
-                <FilamentoCard
-                  key={f.id} f={f} index={index}
-                  enCart={getCartRollos(f.id)}
-                  onAdd={() => addToCart(f)}
-                  onSetRollos={n => setRollos(f.id, n)}
-                  precioUnitario={(f.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento}
-                  descuento={descuento}
+              {grupos.activos.map(g => (
+                <FilamentoGrupoCard
+                  key={g.key}
+                  grupo={g}
+                  cart={cart}
+                  onOpen={() => setGrupoAbierto(g)}
                 />
               ))}
             </div>
-          )}
+          ) : null}
 
-          {/* Item 4 — Filamentos sin stock */}
-          {agotadosFiltrados.length > 0 && (
-            <div className="mt-10">
-              <h2 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
-                <span>⏳</span> Sin stock por ahora
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {agotadosFiltrados.map(f => {
-                  const yaAlertado = misAlertas.includes(f.id)
-                  const cargando = alertando === f.id
-                  return (
-                    <div
-                      key={f.id}
-                      className="rounded-2xl overflow-hidden border opacity-60"
-                      style={{ backgroundColor: 'oklch(0.22 0.005 264)', borderColor: 'oklch(1 0 0 / 8%)' }}
-                    >
-                      <div className="h-24 flex items-center justify-center"
-                        style={{ backgroundColor: colorToCss(f.color), opacity: 0.5 }}>
-                        <span className="w-12 h-12 rounded-full border-2 border-white/30"
-                          style={{ backgroundColor: colorToCss(f.color) }} />
-                      </div>
-                      <div className="p-3 space-y-2">
-                        <p className="font-bold text-sm leading-tight line-clamp-1">{f.color}</p>
-                        <p className="text-[10px] text-muted-foreground">{f.material} · {f.marca}</p>
-                        <button
-                          onClick={() => handleAvisar(f.id)}
-                          disabled={yaAlertado || cargando}
-                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-2.5 min-h-[44px] rounded-xl border transition-colors disabled:cursor-default"
-                          style={yaAlertado
-                            ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
-                            : cargando
-                              ? { backgroundColor: 'oklch(0.26 0.005 264)', borderColor: 'oklch(1 0 0 / 15%)', color: 'oklch(0.70 0.006 264)' }
-                              : { backgroundColor: '#7c3aed', borderColor: '#6d28d9', color: '#ffffff' }
-                          }
-                        >
-                          {yaAlertado
-                            ? <><BellOff size={11} /> Anotado</>
-                            : cargando
-                              ? <><Loader2 size={11} className="animate-spin" /> Guardando…</>
-                              : <><Bell size={11} /> Avisame cuando llegue</>
-                          }
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+          {/* Grupos totalmente sin stock: ocultos de la vista principal.
+              Dentro de cada grupo activo, los colores sin stock se siguen viendo
+              con tachado en el modal (y mantienen el botón "Avisame"). */}
         </div>
       </div>
+
+      {/* Modal detalle del grupo */}
+      {grupoAbierto && (
+        <GrupoColoresModal
+          grupo={grupoAbierto}
+          onClose={() => setGrupoAbierto(null)}
+          cart={cart}
+          addToCart={addToCart}
+          setRollos={setRollos}
+          removeFromCart={removeFromCart}
+          precioParaFilamento={(f) => (f.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento}
+          descuento={descuento}
+          misAlertas={misAlertas}
+          alertando={alertando}
+          handleAvisar={handleAvisar}
+        />
+      )}
 
       {/* ── Sugerencias de filamentos ── */}
       <div className="mt-12 mb-6">
@@ -1338,12 +1648,23 @@ export default function FilamentosShop({
                 const stockDisp = maxKg(filActual)
                 const sinStock = stockDisp === 0
                 const stockInsuf = !sinStock && item.rollos > stockDisp
+                const ultimasUnidades = !sinStock && !stockInsuf && stockDisp <= 3
                 return (
                   <div key={item.filamento.id} className={`flex items-center gap-3 transition-opacity ${sinStock ? 'opacity-50' : ''}`}>
                     <span className="w-9 h-9 rounded-xl shrink-0 border border-black/10 shadow-sm"
                       style={{ backgroundColor: colorToCss(item.filamento.color) }} />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${sinStock ? 'line-through text-muted-foreground' : ''}`}>{item.filamento.color}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className={`text-sm font-semibold truncate ${sinStock ? 'line-through text-muted-foreground' : ''}`}>{item.filamento.color}</p>
+                        {ultimasUnidades && (
+                          <span
+                            className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: 'rgba(249,115,22,0.15)', color: '#ea580c', border: '1px solid rgba(249,115,22,0.45)' }}
+                          >
+                            🔥 Últimas unidades
+                          </span>
+                        )}
+                      </div>
                       {sinStock ? (
                         <p className="text-[10px] text-red-500 font-semibold">Sin stock — reservado por otro cliente</p>
                       ) : stockInsuf ? (
@@ -1417,6 +1738,15 @@ export default function FilamentosShop({
                         Algunos items no tienen stock disponible. Quitálos del carrito para continuar.
                       </p>
                     )}
+                    <div
+                      className="flex items-start gap-2 text-[11px] rounded-xl px-3 py-2"
+                      style={{ backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#15803d' }}
+                    >
+                      <span aria-hidden="true">🔒</span>
+                      <span>
+                        <strong>Al confirmar, reservamos tu pedido</strong> hasta que lo aprobemos. Nadie más puede comprar esos filamentos mientras tanto.
+                      </span>
+                    </div>
                     <button
                       onClick={() => { setShowCart(false); abrirCheckout() }}
                       disabled={hayProblemas}
