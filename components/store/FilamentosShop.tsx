@@ -1199,10 +1199,16 @@ export default function FilamentosShop({
     }
     if (search.trim()) {
       const q = normalizeStr(search.trim())
+      // Expandir con sinónimos bilingüe: si el query coincide con algún keyword de un grupo de color,
+      // buscar también con el resto de keywords de ese grupo (ej: "rojo" → también "red", "vermilion"...)
+      const grupoMatch = COLOR_GRUPOS.find(g => g.keywords.some(k => normalizeStr(k).includes(q) || q.includes(normalizeStr(k))))
+      const terms = grupoMatch ? [q, ...grupoMatch.keywords.map(normalizeStr)] : [q]
       list = list.filter(f =>
-        normalizeStr(f.color).includes(q) ||
-        normalizeStr(f.nombre).includes(q) ||
-        normalizeStr(f.marca).includes(q)
+        terms.some(t =>
+          normalizeStr(f.color).includes(t) ||
+          normalizeStr(f.nombre).includes(t) ||
+          normalizeStr(f.marca).includes(t)
+        )
       )
     }
     return list
