@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente, sendExtensionSolicitadaAdmin } from '@/lib/email'
+import { logAdminAction } from '@/lib/audit-log'
 
 export interface FilamentoPedidoItem {
   filamento_id: string
@@ -188,14 +189,9 @@ export async function crearPedidoFilamento(data: {
     }
   }
 
-  // Puntos por compra: por ahora quedan aquí (idempotentes via unique index);
-  // en Fase 2 se moverán al confirmar pedido para evitar coins fantasma.
-  try {
-    const { sumarPuntosPorCompra } = await import('./ddd-coins')
-    await sumarPuntosPorCompra(user.id, total_rollos, { pedidoId: row.id })
-  } catch (e) {
-    console.error('[sumarPuntosPorCompra]', e)
-  }
+  // Puntos "compra" se otorgan al confirmar el pedido, NO al crearlo. Antes
+  // se otorgaban aquí y el cliente podía canjear ese saldo en otro pedido
+  // antes de que el admin confirme (coins fantasma).
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
@@ -344,7 +340,7 @@ export async function confirmarPedidoYDescontarStock(
   pedidoId: string,
   nota?: string,
 ): Promise<{ error?: string }> {
-  await getAdminUser()
+  const admin = await getAdminUser()
   const supabase = createServiceClient()
 
   // Camino atómico: delega todo a la RPC `confirmar_pedido_filamento_atomico`.
@@ -358,21 +354,35 @@ export async function confirmarPedidoYDescontarStock(
     return { error: result?.error ?? rpcErr?.message ?? 'Error confirmando pedido' }
   }
 
-  // Fetch del pedido para los emails (lectura, no afecta la transacción).
+  // Fetch del pedido para los emails y para otorgar los coins recién ahora
+  // (antes se otorgaban al crear → coins fantasma si nunca se confirmaba).
   const { data: pedido } = await supabase
     .from('filamento_pedidos')
     .select('*')
     .eq('id', pedidoId)
     .single()
-  if (!pedido) {
-    // El pedido existe (acabamos de actualizar), pero por las dudas no reventamos
-    revalidatePath('/admin/filamentos')
-    revalidatePath('/filamentos')
-    return {}
-  }
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/filamentos')
+  revalidatePath('/cuenta')
+
+  if (!pedido) return {}
+
+  // Otorgar puntos "compra" al confirmar. Idempotente via unique index.
+  if (pedido.user_id && pedido.total_rollos > 0) {
+    try {
+      const { sumarPuntosPorCompra } = await import('./ddd-coins')
+      await sumarPuntosPorCompra(pedido.user_id, pedido.total_rollos, { pedidoId })
+    } catch (e) {
+      console.error('[sumarPuntosPorCompra al confirmar]', e)
+    }
+  }
+
+  await logAdminAction(admin, 'pedido_confirmado', 'filamento_pedidos', pedidoId, {
+    numero: pedido.numero,
+    total_rollos: pedido.total_rollos,
+    nota: nota ?? null,
+  })
 
   // Email de confirmación al cliente (fire-and-forget).
   if (pedido.user_id) {
@@ -882,56 +892,19 @@ export async function anularPedidoConfirmado(
   pedidoId: string,
   nota?: string,
 ): Promise<{ error?: string }> {
-  await getAdminUser()
+  const admin = await getAdminUser()
   const supabase = createServiceClient()
 
-  const { data: pedido, error: fetchErr } = await supabase
-    .from('filamento_pedidos')
-    .select('*')
-    .eq('id', pedidoId)
-    .single()
-
-  if (fetchErr || !pedido) return { error: 'Pedido no encontrado' }
-  if (pedido.estado !== 'confirmado') return { error: 'Solo se pueden anular pedidos confirmados' }
-
-  const items = pedido.items as FilamentoPedidoItem[]
-
-  // Restaurar stock sumando los gramos de vuelta a gramos_sueltos
-  for (const item of items) {
-    const gramos = Math.round(item.rollos * 1000)
-    const { data: fil } = await supabase
-      .from('filamentos')
-      .select('gramos_sueltos')
-      .eq('id', item.filamento_id)
-      .single()
-    if (fil) {
-      await supabase
-        .from('filamentos')
-        .update({ gramos_sueltos: fil.gramos_sueltos + gramos })
-        .eq('id', item.filamento_id)
-    }
-  }
-
-  // Eliminar registros de ventas generados al confirmar este pedido
-  const { error: deleteErr } = await supabase
-    .from('filamento_ventas')
-    .delete()
-    .eq('pedido_id', pedidoId)
-
-  if (deleteErr) return { error: `Error al eliminar ventas del pedido: ${deleteErr.message}` }
-
-  // Revertir coins (compra ganada + canje aplicado) para que no queden ni puntos
-  // "gratis" ni débitos sin descuento efectivo.
-  const { revertirCoinsDePedido } = await import('./ddd-coins')
-  await revertirCoinsDePedido(pedidoId)
-
   const notaFinal = nota ? nota : 'Anulado por admin (stock restaurado)'
-  const { error } = await supabase
-    .from('filamento_pedidos')
-    .update({ estado: 'cancelado', nota: notaFinal, updated_at: new Date().toISOString() })
-    .eq('id', pedidoId)
+  const { data: result, error: rpcErr } = await supabase.rpc('anular_pedido_filamento_atomico', {
+    p_pedido_id: pedidoId,
+    p_nota: notaFinal,
+  })
+  if (rpcErr) return { error: rpcErr.message }
+  const r = result as { ok?: boolean; error?: string } | null
+  if (!r?.ok) return { error: r?.error ?? 'No se pudo anular el pedido' }
 
-  if (error) return { error: error.message }
+  await logAdminAction(admin, 'pedido_anulado', 'filamento_pedidos', pedidoId, { nota: notaFinal })
 
   revalidatePath('/admin/filamentos')
   revalidatePath('/filamentos')

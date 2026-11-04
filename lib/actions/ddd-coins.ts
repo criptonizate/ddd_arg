@@ -71,16 +71,25 @@ export async function getHistorialCoins(userId: string) {
 
 // ─── Login diario ───────────────────────────────────────────────────────────
 
+// Devuelve la fecha ('YYYY-MM-DD') en zona horaria Argentina para un Date dado.
+// Robusto a cambios de DST (que hoy no aplican en AR pero cerraría el flanco
+// si vuelven en el futuro). No depende del offset del server.
+function dateAR(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+
 export async function registrarLoginDiario(): Promise<{ ganados: number; racha: number }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ganados: 0, racha: 0 }
 
   const db = createServiceClient()
-  // Capturar timestamp una sola vez para evitar inconsistencias en medianoche
   const now = Date.now()
-  const hoy  = new Date(now - 3 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const ayer = new Date(now - 3 * 60 * 60 * 1000 - 86400000).toISOString().split('T')[0]
+  const hoy  = dateAR(new Date(now))
+  const ayer = dateAR(new Date(now - 86400000))
 
   const { data: loginRow } = await db
     .from('ddd_coins_login')
@@ -106,23 +115,37 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
   if (racha === 14) puntosTransacciones.push({ puntos: 75, motivo: 'racha_14' })
   if (racha === 30) puntosTransacciones.push({ puntos: 200, motivo: 'racha_30' })
 
-  await db.from('ddd_coins').insert(
-    puntosTransacciones.map(t => ({ user_id: user.id, ...t }))
-  )
+  // Insert fila por fila para que un 23505 de una (doble-click → duplicado
+  // de login_diario) no haga abortar todo el batch. Los unique partial indexes
+  // creados en la migración 067 garantizan idempotencia para login_diario y
+  // racha_*.
+  let ganados = 0
+  for (const t of puntosTransacciones) {
+    const { error } = await db.from('ddd_coins').insert({ user_id: user.id, ...t })
+    if (error) {
+      if (error.code !== '23505') throw error
+    } else {
+      ganados += t.puntos
+    }
+  }
 
-  const ganados = puntosTransacciones.reduce((s, t) => s + t.puntos, 0)
-
-  // Sumar 50 pts de membresía activa (una vez por mes, idempotente)
-  // Verificación barata: si compró 5+ kg en los últimos 30 días tiene membresía
+  // Sumar 50 pts de membresía activa (una vez por mes, idempotente a nivel DB)
+  // Verificación barata: si compró 5+ kg en los últimos 30 días tiene membresía.
+  // Preferimos confirmado_at (estable) a updated_at (mutable); si confirmado_at
+  // es NULL (backfill no completado o pedido viejo), caemos a updated_at.
   try {
     const { data: pedidosRecientes } = await db
       .from('filamento_pedidos')
-      .select('total_rollos')
+      .select('total_rollos, confirmado_at, updated_at')
       .eq('user_id', user.id)
       .in('estado', ['confirmado', 'entregado'])
-      .gte('updated_at', new Date(now - 30 * 86400000).toISOString())
+    const hace30Dias = now - 30 * 86400000
     const kgRecientes = (pedidosRecientes ?? []).reduce(
-      (s: number, p: { total_rollos: number | null }) => s + (p.total_rollos ?? 0), 0
+      (s: number, p: { total_rollos: number | null; confirmado_at: string | null; updated_at: string }) => {
+        const fecha = new Date(p.confirmado_at ?? p.updated_at).getTime()
+        return fecha >= hace30Dias ? s + (p.total_rollos ?? 0) : s
+      },
+      0,
     )
     if (kgRecientes >= 5) await sumarPuntosMembresiaActiva(user.id)
   } catch {}
@@ -192,28 +215,22 @@ export async function revertirCoinsDeVenta(ventaId: string): Promise<void> {
 export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> {
   await requireSelfOrAdmin(userId)
   const db = createServiceClient()
-  const inicioMes = new Date()
-  inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0)
-  const { count } = await db
-    .from('ddd_coins')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('motivo', 'membresia_mensual')
-    .gte('created_at', inicioMes.toISOString())
-  if ((count ?? 0) > 0) return
-  await db.from('ddd_coins').insert({ user_id: userId, puntos: 50, motivo: 'membresia_mensual' })
+  // Insert directo: el unique partial index (motivo='membresia_mensual' por
+  // mes ART) garantiza idempotencia. Si otra request la insertó primero,
+  // 23505 y lo tragamos.
+  const { error } = await db.from('ddd_coins').insert({
+    user_id: userId, puntos: 50, motivo: 'membresia_mensual',
+  })
+  if (error && error.code !== '23505') throw error
 }
 
 export async function sumarPuntosPerfilCompleto(userId: string): Promise<void> {
   await requireSelfOrAdmin(userId)
   const db = createServiceClient()
-  const { count } = await db
-    .from('ddd_coins')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('motivo', 'completar_perfil')
-  if ((count ?? 0) > 0) return
-  await db.from('ddd_coins').insert({ user_id: userId, puntos: 20, motivo: 'completar_perfil' })
+  const { error } = await db.from('ddd_coins').insert({
+    user_id: userId, puntos: 20, motivo: 'completar_perfil',
+  })
+  if (error && error.code !== '23505') throw error
 }
 
 export async function canjearCoinsEnPedido(
