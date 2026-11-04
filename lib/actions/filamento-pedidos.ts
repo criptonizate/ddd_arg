@@ -142,78 +142,37 @@ export async function crearPedidoFilamento(data: {
   }
 
   const total = Math.max(0, subtotal - descuento_coins)
-
   const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
 
-  const { data: row, error } = await supabase
-    .from('filamento_pedidos')
-    .insert({
-      cliente_nombre: data.cliente_nombre.trim(),
-      cliente_telefono: data.cliente_telefono?.trim() || null,
-      items: itemsValidados,
-      total_rollos,
-      descuento_por_rollo,
-      descuento_coins,
-      total,
-      estado: 'pendiente',
-      reservado_hasta: reservadoHasta,
-      user_id: user.id,
-    })
-    .select('id, numero')
-    .single()
-
-  if (error) return { error: error.message }
-
-  // Reservar stock por 3h para cada item — atómico vía RPC: valida stock
-  // real disponible (stock total - reservas activas) con FOR UPDATE lock.
-  // Si falla, revertimos el pedido recién insertado.
-  if (itemsValidados.length > 0) {
-    const { data: reservaResult, error: reservaErr } = await supabase.rpc(
-      'reservar_pedido_filamento',
-      {
-        p_pedido_id: row.id,
-        p_items: itemsValidados.map(item => ({
-          filamento_id: item.filamento_id,
-          gramos: Math.round(item.rollos * 1000),
-        })),
-        p_reservado_hasta: reservadoHasta,
-      }
-    )
-    const result = reservaResult as { ok?: boolean; error?: string } | null
-    if (reservaErr || !result?.ok) {
-      // Rollback del pedido: borrarlo para no dejar un pedido fantasma sin stock.
-      await supabase.from('filamento_pedidos').delete().eq('id', row.id)
-      return { error: result?.error ?? reservaErr?.message ?? 'No se pudo reservar stock' }
-    }
+  // Una sola RPC atómica: insert pedido + reserva stock + canje coins. Si
+  // cualquier paso falla, rollback de toda la tx — no quedan pedidos fantasma
+  // ni canjes sin pedido ni reservas colgadas.
+  const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+    'crear_pedido_filamento_atomico',
+    {
+      p_user_id: user.id,
+      p_cliente_nombre: data.cliente_nombre.trim(),
+      p_cliente_telefono: data.cliente_telefono?.trim() || null,
+      p_items: itemsValidados,
+      p_total_rollos: total_rollos,
+      p_descuento_por_rollo: descuento_por_rollo,
+      p_descuento_coins: descuento_coins,
+      p_total: total,
+      p_puntos_a_canjear: puntosACanjearNormalizados,
+      p_reservado_hasta: reservadoHasta,
+    },
+  )
+  const r = rpcResult as { ok?: boolean; id?: string; numero?: number; error?: string } | null
+  if (rpcErr || !r?.ok) {
+    return { error: r?.error ?? rpcErr?.message ?? 'No se pudo crear el pedido' }
   }
-
-  // Canje de coins: AWAITED y validado. Si falla, revertimos el descuento del
-  // pedido para no cobrar menos sin descontar coins del saldo.
-  if (puntosACanjearNormalizados > 0 && descuento_coins > 0) {
-    const { canjearCoinsEnPedido } = await import('./ddd-coins')
-    const canjeResult = await canjearCoinsEnPedido(user.id, puntosACanjearNormalizados, row.id)
-    if (canjeResult.error) {
-      await supabase
-        .from('filamento_pedidos')
-        .update({
-          descuento_coins: 0,
-          total: Math.max(0, subtotal),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', row.id)
-    }
-  }
-
-  // Puntos "compra" se otorgan al confirmar el pedido, NO al crearlo. Antes
-  // se otorgaban aquí y el cliente podía canjear ese saldo en otro pedido
-  // antes de que el admin confirme (coins fantasma).
 
   revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/cuenta')
 
   // Emails — fire and forget, no bloqueamos la respuesta
   const emailData = {
-    numero: row.numero,
+    numero: r.numero!,
     clienteNombre: data.cliente_nombre,
     clienteEmail: user.email,
     items: itemsValidados,
@@ -226,7 +185,7 @@ export async function crearPedidoFilamento(data: {
     void sendPedidoRecibidoCliente({ ...emailData, clienteEmail: user.email })
   }
 
-  return { numero: row.numero, id: row.id }
+  return { numero: r.numero, id: r.id }
 }
 
 // ── Admin: listar pedidos ──────────────────────────────────────────────────

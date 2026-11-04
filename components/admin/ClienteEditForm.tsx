@@ -57,36 +57,36 @@ export default function ClienteEditForm({ cliente }: { cliente: ClienteDetalle }
 
         {editing ? (
           <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium mb-1 block">Nombre *</label>
+            <label className="block">
+              <span className="text-xs font-medium mb-1 block">Nombre *</span>
               <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 autoFocus />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block">Teléfono</label>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium mb-1 block">Teléfono</span>
               <input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="11 1234-5678" />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block">Email</label>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium mb-1 block">Email</span>
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="cliente@email.com" />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block">Dirección</label>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium mb-1 block">Dirección</span>
               <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block">Notas</label>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium mb-1 block">Notas</span>
               <textarea value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })}
                 rows={3}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 placeholder="Preferencias, detalles importantes..." />
-            </div>
+            </label>
             <label className="flex items-center gap-2.5 cursor-pointer select-none py-1">
               <input
                 type="checkbox"

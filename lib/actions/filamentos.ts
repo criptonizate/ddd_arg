@@ -238,20 +238,20 @@ export async function registrarVentaFilamento(
 
   const supabase = createServiceClient()
 
-  // 1. Stock actual
-  const { data: actual, error: fetchErr } = await supabase
-    .from('filamentos')
-    .select('gramos_sueltos, rollos_cerrados, peso_rollo_gr')
-    .eq('id', filamentoId)
-    .single()
-  if (fetchErr || !actual) return { error: 'Filamento no encontrado' }
-
-  const totalDisp = actual.rollos_cerrados * actual.peso_rollo_gr + actual.gramos_sueltos
-  if (venta.gramos > totalDisp) return { error: `Stock insuficiente (${Math.round(totalDisp)}g disponibles)` }
+  // Descontar stock atómicamente vía RPC (FOR UPDATE + lógica de rollos/sueltos).
+  // Si dos admins registran ventas concurrentes del mismo filamento, el RPC
+  // serializa y rechaza si el stock no alcanza. Antes era read + update en JS
+  // que permitía oversell.
+  const { data: descResult, error: descErr } = await supabase.rpc(
+    'descontar_stock_filamento',
+    { p_filamento_id: filamentoId, p_gramos: venta.gramos, p_rollos: 0 },
+  )
+  if (descErr) return { error: descErr.message }
+  const dr = descResult as { ok?: boolean; error?: string } | null
+  if (!dr?.ok) return { error: dr?.error ?? 'Stock insuficiente' }
 
   // Resolver user_id: si el admin pasó explícitamente, usar ese; si no,
   // intentar linkear por email del cliente (clientes.email -> auth.users).
-  // Las ventas del local sin cliente linkeado no otorgan coins.
   let resolvedUserId: string | null = venta.user_id ?? null
   if (!resolvedUserId && venta.cliente_id) {
     const { data: cli } = await supabase
@@ -266,51 +266,38 @@ export async function registrarVentaFilamento(
     }
   }
 
-  // 2. Guardar venta
+  // Guardar venta. Si falla, intentamos restaurar el stock para no quedar en
+  // inconsistencia (el descuento ya ocurrió).
   const { data: row, error: ventaErr } = await supabase
     .from('filamento_ventas')
     .insert({ filamento_id: filamentoId, ...venta, user_id: resolvedUserId })
     .select()
     .single()
-  if (ventaErr) return { error: ventaErr.message }
+  if (ventaErr) {
+    await supabase.rpc('restaurar_stock_filamento_atomico', {
+      p_filamento_id: filamentoId,
+      p_gramos: venta.gramos,
+      p_rollos: 0,
+    })
+    return { error: ventaErr.message }
+  }
 
-  // 3. DDD Coins: si la venta se vinculó a un user auth, otorgar puntos.
-  // 1 punto por kg (10 puntos cada 1 kg), idempotente vía unique(user_id, venta_id, motivo).
+  // DDD Coins si la venta se vinculó a un user auth (idempotente via unique index).
   if (resolvedUserId) {
     const kg = venta.gramos / 1000
     const { sumarPuntosPorCompra } = await import('./ddd-coins')
     await sumarPuntosPorCompra(resolvedUserId, kg, { ventaId: row.id })
   }
 
-  // 3. Descontar del stock (de gramos_sueltos primero, luego rollos)
-  let restante = venta.gramos
-  let nuevoSueltos = actual.gramos_sueltos
-  let nuevoRollos = actual.rollos_cerrados
-
-  if (nuevoSueltos >= restante) {
-    nuevoSueltos -= restante
-    restante = 0
-  } else {
-    restante -= nuevoSueltos
-    nuevoSueltos = 0
-  }
-  if (restante > 0) {
-    const rollosNecesarios = Math.ceil(restante / actual.peso_rollo_gr)
-    nuevoRollos = Math.max(0, nuevoRollos - rollosNecesarios)
-    const gramosDeRollos = rollosNecesarios * actual.peso_rollo_gr
-    nuevoSueltos = Math.max(0, gramosDeRollos - restante)
-  }
-
-  const { data: updated, error: updErr } = await supabase
+  // Leer el filamento actualizado para devolverlo al cliente
+  const { data: updated } = await supabase
     .from('filamentos')
-    .update({ gramos_sueltos: nuevoSueltos, rollos_cerrados: nuevoRollos })
-    .eq('id', filamentoId)
     .select()
+    .eq('id', filamentoId)
     .single()
-  if (updErr) return { error: updErr.message }
 
   revalidatePath('/admin/filamentos'); updateTag('filamentos')
-  return { venta: row as VentaFilamento, filamento: updated as Filamento }
+  return { venta: row as VentaFilamento, filamento: (updated ?? undefined) as Filamento | undefined }
 }
 
 export async function descontarUsoPropioFilamento(

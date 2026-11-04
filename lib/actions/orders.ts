@@ -346,64 +346,36 @@ export async function createStoreOrder(data: StoreCheckoutValues) {
   const supabase = createServiceClient()
   const { items, ...orderData } = validated.data
 
-  // Re-fetchear precios server-side: NO confiar en el precio_unitario que mande
-  // el cliente (podría venir manipulado a 0). También aprovechamos para validar
-  // stock en una sola pasada.
-  const variantIds = [...new Set(items.map(i => i.variant_id))]
-  const { data: variants } = await supabase
-    .from('product_variants')
-    .select('id, stock, nombre_variante, precio')
-    .in('id', variantIds)
-  const variantMap = new Map<string, { stock: number; nombre_variante: string; precio: number }>()
-  for (const v of variants ?? []) variantMap.set(v.id, v)
-
-  for (const item of items) {
-    const variant = variantMap.get(item.variant_id)
-    if (!variant) return { error: `Variante no encontrada` }
-    if (variant.stock < item.cantidad) {
-      return { error: `Stock insuficiente para ${variant.nombre_variante}` }
-    }
-  }
-
-  // Reconstruir items con precios reales de la DB
-  const itemsValidados = items.map(i => ({
-    ...i,
-    precio_unitario: variantMap.get(i.variant_id)!.precio ?? 0,
-  }))
-  const total = itemsValidados.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0)
-
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      ...orderData,
-      total,
-      origen: 'tienda',
-      estado: 'pendiente',
-      metodo_pago: 'whatsapp',
-    })
-    .select()
-    .single()
-
-  if (orderError || !order) return { error: orderError?.message ?? 'Error al crear el pedido' }
-
-  const orderItems = itemsValidados.map((i) => ({ ...i, order_id: order.id }))
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
-
-  if (itemsError) {
-    await supabase.from('orders').delete().eq('id', order.id)
-    return { error: itemsError.message }
+  // Delega todo a la RPC atómica: FOR UPDATE por variante, valida stock,
+  // recalcula total con precios server-side, inserta order + items, descuenta
+  // stock. Si falla cualquier paso, rollback total. Antes el flujo JS permitía
+  // TOCTOU: dos clientes comprando la última unidad al mismo tiempo pasaban.
+  const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+    'crear_pedido_tienda_atomico',
+    {
+      p_order: orderData,
+      p_items: items.map(i => ({
+        product_id: i.product_id,
+        variant_id: i.variant_id,
+        cantidad: i.cantidad,
+      })),
+    },
+  )
+  const r = rpcResult as { ok?: boolean; id?: string; error?: string } | null
+  if (rpcErr || !r?.ok) {
+    return { error: r?.error ?? rpcErr?.message ?? 'No se pudo crear el pedido' }
   }
 
   // Auto-linkear cliente (best-effort, no falla si la tabla no existe aún)
   try {
     const clienteId = await findOrCreateCliente(
       validated.data.cliente_nombre,
-      validated.data.cliente_telefono || null
+      validated.data.cliente_telefono || null,
     )
-    await supabase.from('orders').update({ cliente_id: clienteId }).eq('id', order.id)
+    await supabase.from('orders').update({ cliente_id: clienteId }).eq('id', r.id!)
   } catch { /* migración pendiente */ }
 
-  return { orderId: order.id }
+  return { orderId: r.id! }
 }
 
 export async function updateOrderConsignacion(orderId: string, es_consignacion: boolean, dias_devolucion: number) {

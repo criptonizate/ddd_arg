@@ -34,8 +34,9 @@ export default function EgresoForm() {
       )}
 
       <div>
-        <label className="text-xs font-medium mb-1 block">Categoría *</label>
+        <label htmlFor="egreso-categoria" className="text-xs font-medium mb-1 block">Categoría *</label>
         <select
+          id="egreso-categoria"
           name="categoria"
           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           required
@@ -47,8 +48,9 @@ export default function EgresoForm() {
       </div>
 
       <div>
-        <label className="text-xs font-medium mb-1 block">Monto (ARS) *</label>
+        <label htmlFor="egreso-monto" className="text-xs font-medium mb-1 block">Monto (ARS) *</label>
         <input
+          id="egreso-monto"
           name="monto"
           type="number"
           min="0.01"
@@ -56,13 +58,16 @@ export default function EgresoForm() {
           placeholder="0"
           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           required
+          aria-invalid={err.monto ? 'true' : undefined}
+          aria-describedby={err.monto ? 'egreso-monto-error' : undefined}
         />
-        {err.monto && <p className="text-xs text-destructive mt-1">{err.monto[0]}</p>}
+        {err.monto && <p id="egreso-monto-error" role="alert" className="text-xs text-destructive mt-1">{err.monto[0]}</p>}
       </div>
 
       <div>
-        <label className="text-xs font-medium mb-1 block">Fecha *</label>
+        <label htmlFor="egreso-fecha" className="text-xs font-medium mb-1 block">Fecha *</label>
         <input
+          id="egreso-fecha"
           name="fecha"
           type="date"
           defaultValue={new Date().toISOString().split('T')[0]}
@@ -72,8 +77,9 @@ export default function EgresoForm() {
       </div>
 
       <div>
-        <label className="text-xs font-medium mb-1 block">Descripción</label>
+        <label htmlFor="egreso-descripcion" className="text-xs font-medium mb-1 block">Descripción</label>
         <input
+          id="egreso-descripcion"
           name="descripcion"
           placeholder="Detalle..."
           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
