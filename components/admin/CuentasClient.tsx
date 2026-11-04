@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil } from 'lucide-react'
 import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
-import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, type FilamentoPedido, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
+import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
 import { getAdminUserNotes, saveAdminUserNotes, getAdminApodoMap, type AdminUserNotes } from '@/lib/actions/perfil'
 import { getSaldoCoins } from '@/lib/actions/ddd-coins'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
@@ -340,6 +340,151 @@ function VincularHistoricasModal({
   )
 }
 
+// ── Detalle expandible de un pedido con acciones admin ────────────────────────
+
+function PedidoDetalle({ pedido, onUpdated }: { pedido: FilamentoPedido; onUpdated: (p: FilamentoPedido) => void }) {
+  const [nota, setNota] = useState(pedido.nota ?? '')
+  const [editando, setEditando] = useState(false)
+  const [items, setItems] = useState<FilamentoPedidoItem[]>(pedido.items)
+  const [accionError, setAccionError] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  function refresh(patch: Partial<FilamentoPedido>) {
+    onUpdated({ ...pedido, ...patch })
+  }
+
+  function handleConfirmar() {
+    setAccionError('')
+    startTransition(async () => {
+      const r = await confirmarPedidoYDescontarStock(pedido.id, nota.trim() || undefined)
+      if (r.error) { setAccionError(r.error); return }
+      refresh({ estado: 'confirmado', nota: nota.trim() || pedido.nota })
+    })
+  }
+
+  function handleEstado(estado: 'cancelado' | 'entregado') {
+    setAccionError('')
+    startTransition(async () => {
+      const r = await updateEstadoPedidoFilamento(pedido.id, estado, nota.trim() || undefined)
+      if (r.error) { setAccionError(r.error); return }
+      refresh({ estado, nota: nota.trim() || pedido.nota })
+    })
+  }
+
+  function handleAnular() {
+    setAccionError('')
+    startTransition(async () => {
+      const r = await anularPedidoConfirmado(pedido.id, nota.trim() || undefined)
+      if (r.error) { setAccionError(r.error); return }
+      refresh({ estado: 'cancelado', nota: nota.trim() || pedido.nota })
+    })
+  }
+
+  function handleGuardarItems() {
+    setAccionError('')
+    startTransition(async () => {
+      const r = await editarItemsPedidoFilamento(pedido.id, items)
+      if (r.error) { setAccionError(r.error); return }
+      const nuevoTotal = items.reduce((s, i) => s + i.rollos * i.precio_unitario, 0)
+      const nuevosTotalRollos = items.reduce((s, i) => s + i.rollos, 0)
+      refresh({ items, total: nuevoTotal, total_rollos: nuevosTotalRollos })
+      setEditando(false)
+    })
+  }
+
+  return (
+    <div className="border-t border-border px-4 py-3 space-y-3">
+      {/* Ítems */}
+      {editando ? (
+        <div className="space-y-2">
+          {items.map((item, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground flex-1 truncate">{item.color} — {item.material} {item.marca}</span>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-xs text-muted-foreground">kg:</span>
+                <input
+                  type="number" min={1} max={50}
+                  value={item.rollos}
+                  onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, rollos: parseInt(e.target.value) || 1 } : x))}
+                  className="w-14 border border-border rounded-md px-2 py-1 text-xs text-center bg-background"
+                />
+                <span className="text-xs text-muted-foreground">precio:</span>
+                <input
+                  type="number" min={0}
+                  value={item.precio_unitario}
+                  onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, precio_unitario: parseFloat(e.target.value) || 0 } : x))}
+                  className="w-24 border border-border rounded-md px-2 py-1 text-xs text-center bg-background"
+                />
+                <button onClick={() => setItems(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-red-500 transition-colors">
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleGuardarItems} disabled={isPending} className="flex-1 py-1.5 text-xs font-medium bg-foreground text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity">
+              {isPending ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}Guardar ítems
+            </button>
+            <button onClick={() => { setItems(pedido.items); setEditando(false) }} className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {pedido.items.map((item, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="flex-1 min-w-0 text-muted-foreground">{item.rollos} kg · {item.color} — {item.material} {item.marca}</span>
+              <span className="tabular-nums text-xs shrink-0">{fmtARS(item.precio_unitario)}/kg</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
+        <span>{pedido.total_rollos} kg{pedido.descuento_por_rollo > 0 && <span className="text-xs font-normal text-green-600 ml-1">-{fmtARS(pedido.descuento_por_rollo)}/kg</span>}</span>
+        <span>{fmtARS(pedido.total)}</span>
+      </div>
+
+      {/* Nota editable */}
+      <textarea
+        value={nota}
+        onChange={e => setNota(e.target.value)}
+        placeholder="Nota interna..."
+        rows={2}
+        className="w-full text-xs border border-border rounded-lg px-3 py-2 bg-background resize-none focus:outline-none focus:ring-2 focus:ring-foreground/20"
+      />
+
+      {accionError && <p className="text-xs text-red-500">{accionError}</p>}
+
+      {/* Botones de acción según estado */}
+      {pedido.estado === 'pendiente' && (
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleConfirmar} disabled={isPending} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {isPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Confirmar
+          </button>
+          <button onClick={() => handleEstado('cancelado')} disabled={isPending} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-secondary text-foreground border border-border rounded-lg hover:bg-secondary/70 disabled:opacity-50 transition-colors">
+            <Ban size={11} /> Cancelar pedido
+          </button>
+          <button onClick={() => setEditando(e => !e)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-secondary transition-colors">
+            <Pencil size={11} /> Editar ítems
+          </button>
+        </div>
+      )}
+      {pedido.estado === 'confirmado' && (
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => handleEstado('entregado')} disabled={isPending} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            {isPending ? <Loader2 size={11} className="animate-spin" /> : <Truck size={11} />} Marcar entregado
+          </button>
+          <button onClick={handleAnular} disabled={isPending} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors">
+            <Ban size={11} /> Anular (restaura stock)
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Panel de detalle de usuario ───────────────────────────────────────────────
 
 function UserDetail({
@@ -645,23 +790,10 @@ function UserDetail({
                     </button>
 
                     {isExp && (
-                      <div className="border-t border-border px-4 py-3 space-y-3">
-                        <div className="space-y-1.5">
-                          {p.items.map((item, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm">
-                              <span className="flex-1 min-w-0 text-muted-foreground">{item.rollos} kg · {item.color} — {item.material} {item.marca}</span>
-                              <span className="tabular-nums text-xs shrink-0">{fmtARS(item.precio_unitario)}/kg</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
-                          <span>{p.total_rollos} kg</span>
-                          <span>{fmtARS(p.total)}</span>
-                        </div>
-                        {p.nota && (
-                          <p className="text-xs text-muted-foreground italic">Nota: {p.nota}</p>
-                        )}
-                      </div>
+                      <PedidoDetalle
+                        pedido={p}
+                        onUpdated={(updated) => setPedidos(prev => prev ? prev.map(x => x.id === updated.id ? updated : x) : prev)}
+                      />
                     )}
                   </div>
                 )
