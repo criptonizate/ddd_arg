@@ -241,25 +241,21 @@ function Lightbox({ fotos, startIdx, onClose, managesHistory = true }: { fotos: 
     return () => window.removeEventListener('keydown', handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Back del navegador/celular cierra el lightbox en vez de salir de la página.
-  // Al abrirlo, pushea un state dummy. Al cerrar (por X o Escape), hace back
-  // programático para consumir ese state. El popstate que llega cuando el
-  // usuario toca atrás dispara onClose sin salir.
+  // Cancelar el back del navegador/celular mientras el lightbox está abierto:
+  // re-empujamos el state en cada popstate para que la página no avance ni
+  // salga del sitio. El usuario cierra con la X, Escape o click fuera.
   useEffect(() => {
     if (!managesHistory) return
     const STATE_MARK = { __lightboxOpen: true }
-    let closedByBack = false
     window.history.pushState(STATE_MARK, '')
     const onPop = () => {
-      closedByBack = true
-      onClose()
+      window.history.pushState(STATE_MARK, '')
     }
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
-      if (!closedByBack) {
-        try { window.history.back() } catch { /* noop */ }
-      }
+      // Al desmontar, consumir el state que empujamos para dejar el history limpio.
+      try { window.history.back() } catch { /* noop */ }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
