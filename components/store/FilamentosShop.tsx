@@ -982,6 +982,8 @@ export default function FilamentosShop({
   // Mantener una ref actualizada para que closures (auth listener) usen el valor vigente.
   const localFilamentosRef = useRef(localFilamentos)
   useEffect(() => { localFilamentosRef.current = localFilamentos }, [localFilamentos])
+  const cartRef = useRef(cart)
+  useEffect(() => { cartRef.current = cart }, [cart])
 
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -1025,8 +1027,39 @@ export default function FilamentosShop({
     return () => { if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current) }
   }, [cart, user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore cart from localStorage on init (anon users) or after OAuth redirect
+  // Restore cart on mount:
+  //  - Si hay usuario inicial (SSR con sesión), cargamos de DB directamente.
+  //    Antes solo se cargaba cuando onAuthStateChange se disparaba, y ese
+  //    event NO se emite en el mount si la sesión ya estaba activa —
+  //    resultado: usuarios logueados abrían la página y el carrito "no cargaba".
+  //  - Si no hay usuario (anónimo), restauramos del localStorage.
   useEffect(() => {
+    if (initialUser) {
+      import('@/lib/actions/filamentos').then(({ getCarritoUsuario }) => {
+        getCarritoUsuario().then(savedItems => {
+          if (!savedItems.length) return
+          setCart(prev => {
+            if (prev.length > 0) return prev
+            const current = localFilamentosRef.current
+            const removed: string[] = []
+            const restored = savedItems.flatMap(item => {
+              const fil = current.find(f => f.id === item.filamento_id)
+              if (!fil) return []
+              const max = maxKg(fil)
+              if (max <= 0) { removed.push(fil.color || fil.nombre); return [] }
+              return [{ filamento: fil, rollos: Math.min(item.rollos, max) }]
+            })
+            if (removed.length) setStockRemovedNames(removed)
+            return restored
+          })
+        }).catch(() => { /* noop */ })
+      })
+      // También limpiamos el localStorage anónimo si quedó colgado
+      try { localStorage.removeItem('ddd_cart_filamentos') } catch { /* noop */ }
+      return
+    }
+
+    // Anónimo: restaurar de localStorage
     try {
       const saved = localStorage.getItem('ddd_cart_filamentos')
       if (saved) {
@@ -1034,7 +1067,7 @@ export default function FilamentosShop({
         if (parsed.length > 0) {
           setCart(prev => {
             if (prev.length > 0) return prev
-            const current = localFilamentos
+            const current = localFilamentosRef.current
             return parsed.flatMap(item => {
               const fil = current.find(f => f.id === item.filamento.id)
               if (!fil) return []
@@ -1044,11 +1077,29 @@ export default function FilamentosShop({
             })
           })
         }
-        // Only remove if user is logged in (will use DB from now on)
-        if (initialUser) localStorage.removeItem('ddd_cart_filamentos')
       }
     } catch { /* noop */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Flush del carrito a DB al cerrar/cambiar de página. Evita perder cambios
+  // hechos dentro de los 2s del debounce si el usuario navega rápido.
+  useEffect(() => {
+    if (!user) return
+    const flush = () => {
+      if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current)
+      // Fire-and-forget — pagehide no espera, pero el server-action sale.
+      import('@/lib/actions/filamentos').then(({ saveCarritoUsuario }) => {
+        saveCarritoUsuario(cartRef.current.map(i => ({ filamento_id: i.filamento.id, rollos: i.rollos })))
+      })
+    }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush()
+    })
+    return () => {
+      window.removeEventListener('pagehide', flush)
+    }
+  }, [user])
 
   // "Repetir pedido" intent: si vino de /cuenta con un pedido anterior, pre-armamos
   // el carrito con los mismos filamentos validando stock. Avisamos lo que no se pudo.
