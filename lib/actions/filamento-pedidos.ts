@@ -69,6 +69,21 @@ export async function crearPedidoFilamento(data: {
   const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) return { error: 'Necesitás iniciar sesión para hacer un pedido' }
 
+  // Rate limit: max 5 pedidos por hora por usuario. Evita que un script
+  // acapare stock con reservas de 3h.
+  const { checkRateLimit } = await import('@/lib/rate-limit')
+  const ok = await checkRateLimit(user.id, 'crear_pedido_filamento', 3600, 5)
+  if (!ok) {
+    return { error: 'Hiciste muchos pedidos en poco tiempo. Esperá un rato antes del próximo.' }
+  }
+
+  // Tope global de kg por pedido: 20 items × 50kg = 1000kg. Limitamos acá a
+  // 100 kg totales para evitar que alguien reserve stock masivo malicioso.
+  const totalKgPedido = data.items.reduce((s, i) => s + i.rollos, 0)
+  if (totalKgPedido > 100) {
+    return { error: 'El pedido excede el máximo permitido (100 kg total). Contactanos por WhatsApp.' }
+  }
+
   const supabase = createServiceClient()
 
   // Buscar precios reales de cada filamento en DB (no confiar en los del cliente)

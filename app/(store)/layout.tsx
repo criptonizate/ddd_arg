@@ -5,6 +5,7 @@ import StoreHeader from '@/components/store/StoreHeader'
 import StoreFooter from '@/components/store/StoreFooter'
 import CartProvider from '@/components/store/CartProvider'
 import WhatsappFab from '@/components/store/WhatsappFab'
+import ColorComparador from '@/components/store/ColorComparador'
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -18,6 +19,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         <main className="flex-1">{children}</main>
         <StoreFooter />
         <WhatsappFab />
+        <ColorComparador />
       </CartProvider>
     </div>
   )
