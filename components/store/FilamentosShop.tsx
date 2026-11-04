@@ -1047,6 +1047,35 @@ export default function FilamentosShop({
     } catch { /* noop */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // "Repetir pedido" intent: si vino de /cuenta con un pedido anterior, pre-armamos
+  // el carrito con los mismos filamentos validando stock. Avisamos lo que no se pudo.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('ddd_repetir_pedido')
+      if (!raw) return
+      sessionStorage.removeItem('ddd_repetir_pedido')
+      const intent = JSON.parse(raw) as { items: { filamento_id: string; rollos: number }[]; numero_origen: number }
+      if (!intent?.items?.length) return
+
+      const nuevosItems: CartItem[] = []
+      const faltantes: string[] = []
+      for (const it of intent.items) {
+        const fil = localFilamentos.find(f => f.id === it.filamento_id)
+        if (!fil) { faltantes.push(it.filamento_id); continue }
+        const max = maxKg(fil)
+        if (max <= 0) { faltantes.push(fil.color ?? fil.id); continue }
+        nuevosItems.push({ filamento: fil, rollos: Math.min(it.rollos, max) })
+      }
+      if (nuevosItems.length > 0) {
+        setCart(nuevosItems)
+        setShowCart(true)
+      }
+      if (faltantes.length > 0) {
+        setStockRemovedNames(faltantes.slice(0, 3))
+      }
+    } catch { /* noop */ }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

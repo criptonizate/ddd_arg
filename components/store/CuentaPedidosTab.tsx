@@ -102,6 +102,20 @@ export default function CuentaPedidosTab({
     setConfirmCancelId(pedidoId)
   }
 
+  function repetirPedido(p: FilamentoPedido) {
+    // Guardar intent en sessionStorage; FilamentosShop lo lee en mount y
+    // pre-llena el carrito validando stock actual de cada item. Si algún
+    // filamento ya no existe o se agotó, se agregan los disponibles y se
+    // avisa en un toast.
+    try {
+      sessionStorage.setItem('ddd_repetir_pedido', JSON.stringify({
+        items: p.items.map(i => ({ filamento_id: i.filamento_id, rollos: i.rollos })),
+        numero_origen: p.numero,
+      }))
+    } catch {}
+    router.push('/filamentos?repetir=1')
+  }
+
   function ejecutarCancelacion() {
     const pedidoId = confirmCancelId
     if (!pedidoId) return
@@ -240,6 +254,22 @@ export default function CuentaPedidosTab({
                     </div>
                   )
                 })()}
+
+                {/* Repetir pedido: visible para pedidos ya entregados o confirmados */}
+                {(p.estado === 'entregado' || p.estado === 'confirmado') && (
+                  <div className="px-5 py-3 border-t border-border flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => repetirPedido(p)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30 hover:bg-orange-500/20 transition-colors"
+                      aria-label={`Repetir pedido N° ${p.numero}`}
+                    >
+                      🔁 Volver a pedir
+                    </button>
+                    <span className="text-[11px] text-muted-foreground">
+                      Pre-armamos tu carrito con los mismos filamentos
+                    </span>
+                  </div>
+                )}
 
                 {cancelError[p.id] && (
                   <div className="px-5 py-2 text-xs text-red-600 flex items-center gap-1.5 border-t border-border">
