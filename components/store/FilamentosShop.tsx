@@ -1673,25 +1673,55 @@ export default function FilamentosShop({
           </div>
 
           {/* Grid de grupos (marca + material). Dentro del grupo se abre el modal con todos los colores. */}
-          {grupos.activos.length === 0 && grupos.agotados.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground">
-              <p className="text-4xl mb-3">🔍</p>
-              <p className="font-medium">Sin resultados</p>
-              <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter(''); setColorFilter('') }}
-                className="mt-3 text-sm text-orange-600 underline">Limpiar filtros</button>
-            </div>
-          ) : grupos.activos.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {grupos.activos.map(g => (
-                <FilamentoGrupoCard
-                  key={g.key}
-                  grupo={g}
-                  cart={cart}
-                  onOpen={() => setGrupoAbierto(g)}
-                />
-              ))}
-            </div>
-          ) : null}
+          {(() => {
+            const isEspecial = (g: FilamentoGrupo) => {
+              const mat = g.material.toLowerCase()
+              return mat.includes('cf') || mat.includes('carbon') || mat.includes('fibra') ||
+                g.filamentos.some(f => f.nombre.toLowerCase().includes('carbon') || f.nombre.toLowerCase().includes('fibra'))
+            }
+            const normales = grupos.activos.filter(g => !isEspecial(g))
+            const especiales = grupos.activos.filter(isEspecial)
+
+            if (grupos.activos.length === 0 && grupos.agotados.length === 0) {
+              return (
+                <div className="text-center py-20 text-muted-foreground">
+                  <p className="text-4xl mb-3">🔍</p>
+                  <p className="font-medium">Sin resultados</p>
+                  <button onClick={() => { setSearch(''); setMatFilter(''); setMarcaFilter(''); setColorFilter('') }}
+                    className="mt-3 text-sm text-orange-600 underline">Limpiar filtros</button>
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-6">
+                {normales.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {normales.map(g => (
+                      <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} />
+                    ))}
+                  </div>
+                )}
+
+                {especiales.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-2 py-1 rounded-full border border-border bg-secondary">
+                        ⚡ Materiales técnicos especiales
+                      </span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {especiales.map(g => (
+                        <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Grupos totalmente sin stock: ocultos de la vista principal.
               Dentro de cada grupo activo, los colores sin stock se siguen viendo
