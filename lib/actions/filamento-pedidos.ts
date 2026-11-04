@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente, sendExtensionSolicitadaAdmin } from '@/lib/email'
@@ -193,7 +193,7 @@ export async function crearPedidoFilamento(data: {
   // se otorgaban aquí y el cliente podía canjear ese saldo en otro pedido
   // antes de que el admin confirme (coins fantasma).
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/cuenta')
 
   // Emails — fire and forget, no bloqueamos la respuesta
@@ -331,7 +331,7 @@ export async function updateEstadoPedidoFilamento(
     const { revertirCoinsDePedido } = await import('./ddd-coins')
     await revertirCoinsDePedido(id)
   }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -362,7 +362,7 @@ export async function confirmarPedidoYDescontarStock(
     .eq('id', pedidoId)
     .single()
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/filamentos')
   revalidatePath('/cuenta')
 
@@ -502,7 +502,7 @@ async function _confirmarPedidoYDescontarStockLegacy(
   // Liberar reserva de stock (ya fue descontado del stock real)
   await supabase.from('filamento_reservas').delete().eq('pedido_id', pedidoId)
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/filamentos')
 
   // Email de confirmación al cliente
@@ -575,7 +575,7 @@ export async function editarItemsPedidoFilamento(
     .eq('id', pedidoId)
 
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -608,7 +608,7 @@ export async function recalcularDescuentoPedido(pedidoId: string): Promise<{ err
     .eq('id', pedidoId)
   if (updErr) return { error: updErr.message }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return { descuento_aplicado: descuento_por_rollo, total_anterior: pedido.total ?? 0, total_nuevo: total }
 }
 
@@ -906,7 +906,7 @@ export async function anularPedidoConfirmado(
 
   await logAdminAction(admin, 'pedido_anulado', 'filamento_pedidos', pedidoId, { nota: notaFinal })
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/filamentos')
   revalidatePath('/cuenta')
   return {}

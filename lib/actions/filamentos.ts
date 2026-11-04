@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import type { Material, Filamento, FilamentoMovimiento } from '@/lib/filamentos-helpers'
@@ -66,7 +66,7 @@ export async function createFilamento(data: {
     .select()
     .single()
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return { filamento: row as Filamento }
 }
 
@@ -78,7 +78,7 @@ export async function updateFilamento(
   const supabase = createServiceClient()
   const { error } = await supabase.from('filamentos').update(data).eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -87,7 +87,7 @@ export async function deleteFilamento(id: string): Promise<{ error?: string }> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('filamentos').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -142,7 +142,7 @@ export async function registrarCompra(
     .single()
   if (updErr) return { error: updErr.message }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return { movimiento: mov as FilamentoMovimiento, filamento: updated as Filamento }
 }
 
@@ -176,11 +176,11 @@ export async function deleteMovimiento(
       .eq('id', filamentoId)
       .select()
       .single()
-    revalidatePath('/admin/filamentos')
+    revalidatePath('/admin/filamentos'); updateTag('filamentos')
     return { filamento: updated as Filamento }
   }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -309,7 +309,7 @@ export async function registrarVentaFilamento(
     .single()
   if (updErr) return { error: updErr.message }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return { venta: row as VentaFilamento, filamento: updated as Filamento }
 }
 
@@ -356,7 +356,7 @@ export async function descontarUsoPropioFilamento(
     .single()
   if (updErr) return { error: updErr.message }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return { filamento: updated as Filamento }
 }
 
@@ -518,7 +518,7 @@ export async function editarClienteVenta(
     .update({ cliente: cliente.trim(), user_id: userId })
     .eq('id', ventaId)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -552,11 +552,11 @@ export async function deleteVentaFilamento(
       .eq('id', filamentoId)
       .select()
       .single()
-    revalidatePath('/admin/filamentos')
+    revalidatePath('/admin/filamentos'); updateTag('filamentos')
     return { filamento: updated as Filamento }
   }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -767,7 +767,7 @@ export async function toggleOcultoFilamento(id: string, oculto: boolean): Promis
   const supabase = createServiceClient()
   const { error } = await supabase.from('filamentos').update({ oculto }).eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/filamentos')
   return {}
 }
@@ -861,7 +861,7 @@ export async function pedirColor(data: { color: string; nota?: string }): Promis
   })
   if (error) return { error: 'No se pudo enviar el pedido' }
   revalidatePath('/cuenta')
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   return {}
 }
 
@@ -932,7 +932,7 @@ export async function notificarSugerenciaDisponible(id: string): Promise<{ error
     .eq('id', id)
   if (error) return { error: error.message }
 
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/cuenta')
 
   // Enviar email al cliente — en background, no fallar si falla
@@ -966,7 +966,7 @@ export async function descartarSugerencia(id: string): Promise<{ error?: string 
     .update({ estado: 'descartado', respondido_at: new Date().toISOString(), leido: true })
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/cuenta')
   return {}
 }
