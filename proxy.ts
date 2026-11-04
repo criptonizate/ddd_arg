@@ -45,12 +45,11 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
-    // Con sesión pero no es admin (ni full ni limited) → logout y redirect
+    // Con sesión pero no es admin: redirigir al home del cliente sin cerrar
+    // sesión. (Antes se hacía signOut, que habilitaba un CSRF-lite: forzar al
+    // cliente a visitar /admin lo deslogueaba.)
     if (!isAnyAdmin(user.email)) {
-      await supabase.auth.signOut()
-      return NextResponse.redirect(
-        new URL('/auth/login?error=unauthorized', request.url)
-      )
+      return NextResponse.redirect(new URL('/', request.url))
     }
     // Admin limitado intentando entrar a una ruta no permitida → redirect a la primera que puede
     if (!canAccessAdminRoute(user.email, pathname)) {

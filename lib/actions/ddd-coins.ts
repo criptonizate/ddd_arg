@@ -5,14 +5,48 @@ import { createClient } from '@/lib/supabase/server'
 import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
 import { isAnyAdmin } from '@/lib/admin-roles'
 
+// ─── Helpers de autorización ────────────────────────────────────────────────
+// Todas las funciones de este archivo son `'use server'`, es decir, endpoints
+// POST invocables por cualquier cliente autenticado. Hay que validar que el
+// caller esté autorizado a tocar los coins de `userId` / `pedidoId`.
+
+async function requireSelfOrAdmin(userId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  if (user.id === userId) return
+  if (isAnyAdmin(user.email)) return
+  throw new Error('No autorizado')
+}
+
+async function requireAdmin(): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAnyAdmin(user.email)) throw new Error('No autorizado')
+}
+
+async function requireOwnerOrAdminDePedido(pedidoId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  if (isAnyAdmin(user.email)) return
+  const db = createServiceClient()
+  const { data: p } = await db
+    .from('filamento_pedidos')
+    .select('user_id')
+    .eq('id', pedidoId)
+    .maybeSingle()
+  if (!p || p.user_id !== user.id) throw new Error('No autorizado')
+}
+
+// ─── Lecturas ───────────────────────────────────────────────────────────────
+
 export async function getSaldoCoins(userId: string): Promise<number> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  // Autorizados a leer el saldo de `userId`:
-  //  - el propio usuario
-  //  - cualquier admin (full o scoped) consultando a otro cliente
-  //  - server actions sin sesión (user === null)
-  if (user && user.id !== userId && !isAnyAdmin(user.email)) return 0
+  // Solo el dueño o un admin pueden leer el saldo. Sin sesión → 0.
+  if (!user) return 0
+  if (user.id !== userId && !isAnyAdmin(user.email)) return 0
 
   const db = createServiceClient()
   const { data } = await db.rpc('get_saldo_coins', { p_user_id: userId })
@@ -22,7 +56,8 @@ export async function getSaldoCoins(userId: string): Promise<number> {
 export async function getHistorialCoins(userId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user && user.id !== userId && !isAnyAdmin(user.email)) return []
+  if (!user) return []
+  if (user.id !== userId && !isAnyAdmin(user.email)) return []
 
   const db = createServiceClient()
   const { data } = await db
@@ -33,6 +68,8 @@ export async function getHistorialCoins(userId: string) {
     .limit(30)
   return data ?? []
 }
+
+// ─── Login diario ───────────────────────────────────────────────────────────
 
 export async function registrarLoginDiario(): Promise<{ ganados: number; racha: number }> {
   const supabase = await createClient()
@@ -51,8 +88,9 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (loginRow?.last_login_date === hoy) return { ganados: 0, racha: loginRow.racha_dias }
-  const racha = loginRow?.last_login_date === ayer ? (loginRow.racha_dias + 1) : 1
+  const rachaPrevia = loginRow?.racha_dias ?? 0
+  if (loginRow?.last_login_date === hoy) return { ganados: 0, racha: rachaPrevia }
+  const racha = loginRow?.last_login_date === ayer ? (rachaPrevia + 1) : 1
 
   await db.from('ddd_coins_login').upsert({
     user_id: user.id,
@@ -84,7 +122,7 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
       .in('estado', ['confirmado', 'entregado'])
       .gte('updated_at', new Date(now - 30 * 86400000).toISOString())
     const kgRecientes = (pedidosRecientes ?? []).reduce(
-      (s: number, p: { total_rollos: number }) => s + p.total_rollos, 0
+      (s: number, p: { total_rollos: number | null }) => s + (p.total_rollos ?? 0), 0
     )
     if (kgRecientes >= 5) await sumarPuntosMembresiaActiva(user.id)
   } catch {}
@@ -92,11 +130,14 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
   return { ganados, racha }
 }
 
+// ─── Mutaciones (todas con guard explícito) ─────────────────────────────────
+
 export async function sumarPuntosPorCompra(
   userId: string,
   rollos: number,
   ref: { pedidoId: string } | { ventaId: string },
 ): Promise<void> {
+  await requireSelfOrAdmin(userId)
   if (rollos <= 0) return
   const db = createServiceClient()
 
@@ -113,9 +154,14 @@ export async function sumarPuntosPorCompra(
     .eq('motivo', 'compra')
   if ((count ?? 0) > 0) return
 
+  // 10 pts/kg. `rollos` puede venir fraccional desde ventas locales (gramos/1000),
+  // así que floor para no redondear hacia arriba y quedar por arriba del backfill.
+  const puntos = Math.floor(rollos * 10)
+  if (puntos <= 0) return
+
   const row: Record<string, unknown> = {
     user_id: userId,
-    puntos: rollos * 10,
+    puntos,
     motivo: 'compra',
   }
   row[refColumn] = refValue
@@ -128,19 +174,23 @@ export async function sumarPuntosPorCompra(
 
 // Revierte TODAS las filas de ddd_coins asociadas a un pedido (compra + canje).
 // Se usa al cancelar/anular un pedido para no dejar puntos "gratis" ni canjes
-// de puntos sin contrapartida.
+// de puntos sin contrapartida. Autorizado para el dueño del pedido o cualquier admin.
 export async function revertirCoinsDePedido(pedidoId: string): Promise<void> {
+  await requireOwnerOrAdminDePedido(pedidoId)
   const db = createServiceClient()
   await db.from('ddd_coins').delete().eq('pedido_id', pedidoId)
 }
 
 // Revierte los ddd_coins asociados a una venta (local, no pedido web).
+// Las ventas locales las maneja solo el admin.
 export async function revertirCoinsDeVenta(ventaId: string): Promise<void> {
+  await requireAdmin()
   const db = createServiceClient()
   await db.from('ddd_coins').delete().eq('venta_id', ventaId)
 }
 
 export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> {
+  await requireSelfOrAdmin(userId)
   const db = createServiceClient()
   const inicioMes = new Date()
   inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0)
@@ -155,6 +205,7 @@ export async function sumarPuntosMembresiaActiva(userId: string): Promise<void> 
 }
 
 export async function sumarPuntosPerfilCompleto(userId: string): Promise<void> {
+  await requireSelfOrAdmin(userId)
   const db = createServiceClient()
   const { count } = await db
     .from('ddd_coins')
@@ -179,6 +230,16 @@ export async function canjearCoinsEnPedido(
   if (!user || user.id !== userId) return { error: 'No autorizado' }
 
   const db = createServiceClient()
+
+  // Verificar que el pedido pertenezca al userId: evita que el cliente canjee
+  // sus coins contra el pedido_id de otro usuario (IDOR parcial).
+  const { data: pedido } = await db
+    .from('filamento_pedidos')
+    .select('user_id')
+    .eq('id', pedidoId)
+    .maybeSingle()
+  if (!pedido || pedido.user_id !== userId) return { error: 'Pedido no encontrado' }
+
   // Idempotencia: si ya hay un canje registrado para este pedido, no duplicar
   const { count: canjesExistentes } = await db
     .from('ddd_coins')

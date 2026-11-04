@@ -95,18 +95,37 @@ export async function crearPedidoFilamento(data: {
   // preview del carrito en FilamentosShop para que el precio final coincida.
   const descuento_por_rollo = await calcularDescuentoProyectado(user.id, total_rollos)
 
-  // Descuento DDD Coins
+  // Subtotal post-descuento-por-rollo. `Math.max(0, ...)` por ítem evita que
+  // un filamento en oferta (precio_unitario < descuento_por_rollo) aporte
+  // negativo y subsidie a los demás.
+  const subtotal = itemsValidados.reduce(
+    (s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo),
+    0,
+  )
+
+  // Descuento DDD Coins — validamos saldo, múltiplo correcto y capamos al
+  // subtotal para que el cliente no "queme" coins sin contrapartida.
   let descuento_coins = 0
+  let puntosACanjearNormalizados = 0
   if (data.puntosACanjear && data.puntosACanjear > 0) {
-    const { calcularDescuentoCoins } = await import('../ddd-coins-helpers')
+    const { calcularDescuentoCoins, PUNTOS_POR_CANJE, PESOS_POR_CANJE } = await import('../ddd-coins-helpers')
     const { getSaldoCoins } = await import('./ddd-coins')
-    const saldo = await getSaldoCoins(user.id)
-    if (saldo >= data.puntosACanjear) {
-      descuento_coins = calcularDescuentoCoins(data.puntosACanjear)
+    if (data.puntosACanjear % PUNTOS_POR_CANJE !== 0) {
+      return { error: 'Cantidad de puntos a canjear inválida' }
     }
+    const saldo = await getSaldoCoins(user.id)
+    if (saldo < data.puntosACanjear) {
+      return { error: 'No tenés suficientes DDD Coins' }
+    }
+    // Capar al subtotal (truncando al múltiplo canjeable más cercano hacia abajo).
+    const maxCanjesPorSubtotal = Math.floor(subtotal / PESOS_POR_CANJE)
+    const canjesPedidos = data.puntosACanjear / PUNTOS_POR_CANJE
+    const canjesFinales = Math.min(maxCanjesPorSubtotal, canjesPedidos)
+    puntosACanjearNormalizados = canjesFinales * PUNTOS_POR_CANJE
+    descuento_coins = calcularDescuentoCoins(puntosACanjearNormalizados)
   }
 
-  const total = Math.max(0, itemsValidados.reduce((s, i) => s + i.rollos * (i.precio_unitario - descuento_por_rollo), 0) - descuento_coins)
+  const total = Math.max(0, subtotal - descuento_coins)
 
   const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
 
@@ -152,17 +171,34 @@ export async function crearPedidoFilamento(data: {
     }
   }
 
+  // Canje de coins: AWAITED y validado. Si falla, revertimos el descuento del
+  // pedido para no cobrar menos sin descontar coins del saldo.
+  if (puntosACanjearNormalizados > 0 && descuento_coins > 0) {
+    const { canjearCoinsEnPedido } = await import('./ddd-coins')
+    const canjeResult = await canjearCoinsEnPedido(user.id, puntosACanjearNormalizados, row.id)
+    if (canjeResult.error) {
+      await supabase
+        .from('filamento_pedidos')
+        .update({
+          descuento_coins: 0,
+          total: Math.max(0, subtotal),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', row.id)
+    }
+  }
+
+  // Puntos por compra: por ahora quedan aquí (idempotentes via unique index);
+  // en Fase 2 se moverán al confirmar pedido para evitar coins fantasma.
+  try {
+    const { sumarPuntosPorCompra } = await import('./ddd-coins')
+    await sumarPuntosPorCompra(user.id, total_rollos, { pedidoId: row.id })
+  } catch (e) {
+    console.error('[sumarPuntosPorCompra]', e)
+  }
+
   revalidatePath('/admin/filamentos')
   revalidatePath('/cuenta')
-
-  // Sumar puntos por compra y canjear coins si corresponde (awaited para consistencia)
-  const { sumarPuntosPorCompra, canjearCoinsEnPedido } = await import('./ddd-coins')
-  await Promise.allSettled([
-    sumarPuntosPorCompra(user.id, total_rollos, { pedidoId: row.id }),
-    data.puntosACanjear && data.puntosACanjear > 0 && descuento_coins > 0
-      ? canjearCoinsEnPedido(user.id, data.puntosACanjear, row.id)
-      : Promise.resolve(),
-  ])
 
   // Emails — fire and forget, no bloqueamos la respuesta
   const emailData = {

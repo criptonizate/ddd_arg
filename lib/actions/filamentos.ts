@@ -211,13 +211,21 @@ export async function getKgMensualesCliente(clienteId: string, mes: string): Pro
   await getAdminUser()
   if (!clienteId) return 0
   const supabase = createServiceClient()
+  // Rango [mes-01, siguienteMes-01) — evita "YYYY-02-31" inválido para febrero/etc.
+  const [yearStr, monthStr] = mes.split('-')
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  if (!year || !month || month < 1 || month > 12) return 0
+  const siguienteMes = month === 12
+    ? `${year + 1}-01`
+    : `${year}-${String(month + 1).padStart(2, '0')}`
   const { data } = await supabase
     .from('filamento_ventas')
     .select('gramos')
     .eq('cliente_id', clienteId)
     .is('pedido_id', null) // excluir copias de pedidos web para no doble-contar kg
     .gte('fecha', `${mes}-01`)
-    .lte('fecha', `${mes}-31`)
+    .lt('fecha', `${siguienteMes}-01`)
   return (data ?? []).reduce((s: number, r: { gramos: number }) => s + r.gramos / 1000, 0)
 }
 

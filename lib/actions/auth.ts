@@ -34,7 +34,15 @@ export async function signInWithGoogleAndReturn(next: string) {
   const supabase = await createClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
-  const safePath = next.startsWith('/') ? next : '/cuenta'
+  // Validar path seguro: evita open redirect vía `//evil.tld`, `javascript:`,
+  // control chars, etc. Todo lo que no sea un path relativo simple cae a /cuenta.
+  const isSafe =
+    next.startsWith('/') &&
+    !next.startsWith('//') &&
+    !next.startsWith('/\\') &&
+    !next.includes('://') &&
+    !/[\x00-\x1f]/.test(next)
+  const safePath = isSafe ? next : '/cuenta'
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: `${siteUrl}/api/auth/callback?next=${encodeURIComponent(safePath)}` },
