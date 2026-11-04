@@ -1674,13 +1674,28 @@ export default function FilamentosShop({
 
           {/* Grid de grupos (marca + material). Dentro del grupo se abre el modal con todos los colores. */}
           {(() => {
-            const isEspecial = (g: FilamentoGrupo) => {
-              const mat = g.material.toLowerCase()
-              return mat.includes('cf') || mat.includes('carbon') || mat.includes('fibra') ||
-                g.filamentos.some(f => f.nombre.toLowerCase().includes('carbon') || f.nombre.toLowerCase().includes('fibra'))
+            // Un filamento individual es "especial" si su nombre o color menciona fibra de carbono
+            const esFibraCarbono = (f: Filamento) => {
+              const n = (f.nombre + ' ' + f.color).toLowerCase()
+              return n.includes('carbon') || n.includes('fibra')
             }
-            const normales = grupos.activos.filter(g => !isEspecial(g))
-            const especiales = grupos.activos.filter(isEspecial)
+
+            // Dividir grupos: si un grupo tiene filamentos especiales Y normales, se parte en dos
+            type FilamentoGrupo = typeof grupos.activos[number]
+            const normales: FilamentoGrupo[] = []
+            const especiales: FilamentoGrupo[] = []
+
+            for (const g of grupos.activos) {
+              const fils_especiales = g.filamentos.filter(esFibraCarbono)
+              const fils_normales   = g.filamentos.filter(f => !esFibraCarbono(f))
+
+              if (fils_normales.length > 0) {
+                normales.push(fils_especiales.length === 0 ? g : { ...g, filamentos: fils_normales })
+              }
+              if (fils_especiales.length > 0) {
+                especiales.push({ ...g, key: g.key + '||cf', filamentos: fils_especiales })
+              }
+            }
 
             if (grupos.activos.length === 0 && grupos.agotados.length === 0) {
               return (
