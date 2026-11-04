@@ -14,19 +14,22 @@ function fmtARS(v: number) {
   return v.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
+// Los emojis son decorativos: se separan del texto para poder marcarlos
+// aria-hidden y que los lectores de pantalla no lean "cohete, Dashboard"
+// sino solo "Dashboard".
 const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: '🚀 Dashboard' },
-  { href: '/admin/ventas', label: '📦 Pedidos', badge: 'pedidos' as const },
-  { href: '/admin/finanzas', label: '💰 Finanzas' },
-  { href: '/admin/negocios', label: '🏪 Negocios' },
-  { href: '/admin/clientes', label: '👥 Clientes' },
-  { href: '/admin/cuentas', label: '🧑‍💻 Cuentas', badge: 'extensiones' as const },
-  { href: '/admin/presupuesto', label: '📋 Presupuesto' },
-  { href: '/admin/calculadora', label: '🧮 Calculadora' },
-  { href: '/admin/productos', label: '🛍️ Productos' },
-  { href: '/admin/produccion', label: '🏭 Producción' },
-  { href: '/admin/filamentos', label: '🧵 Filamentos', badge: 'filamentos' as const },
-  { href: '/admin/gastos', label: '💸 Mis gastos' },
+  { href: '/admin/dashboard',   icon: '🚀', label: 'Dashboard' },
+  { href: '/admin/ventas',      icon: '📦', label: 'Pedidos',     badge: 'pedidos' as const },
+  { href: '/admin/finanzas',    icon: '💰', label: 'Finanzas' },
+  { href: '/admin/negocios',    icon: '🏪', label: 'Negocios' },
+  { href: '/admin/clientes',    icon: '👥', label: 'Clientes' },
+  { href: '/admin/cuentas',     icon: '🧑‍💻', label: 'Cuentas',     badge: 'extensiones' as const },
+  { href: '/admin/presupuesto', icon: '📋', label: 'Presupuesto' },
+  { href: '/admin/calculadora', icon: '🧮', label: 'Calculadora' },
+  { href: '/admin/productos',   icon: '🛍️', label: 'Productos' },
+  { href: '/admin/produccion',  icon: '🏭', label: 'Producción' },
+  { href: '/admin/filamentos',  icon: '🧵', label: 'Filamentos',  badge: 'filamentos' as const },
+  { href: '/admin/gastos',      icon: '💸', label: 'Mis gastos' },
 ]
 
 export default function AdminSidebar({
@@ -115,7 +118,10 @@ export default function AdminSidebar({
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 )}
               >
-                <span>{item.label}</span>
+                <span>
+                  <span aria-hidden="true" className="mr-1.5">{item.icon}</span>
+                  {item.label}
+                </span>
                 {(() => {
                   const count = item.badge === 'pedidos' ? pendingCount : item.badge === 'filamentos' ? filamentoPendingCount : item.badge === 'extensiones' ? extensionPendingCount : 0
                   return count > 0 ? (

@@ -48,8 +48,8 @@ export default function NuevoClienteButton() {
             </div>
             <div className="p-5 space-y-4">
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <div>
-                <label className="text-xs font-medium mb-1 block">Nombre *</label>
+              <label className="block">
+                <span className="text-xs font-medium mb-1 block">Nombre *</span>
                 <input
                   value={nombre} onChange={(e) => setNombre(e.target.value)}
                   autoFocus
@@ -57,16 +57,16 @@ export default function NuevoClienteButton() {
                   placeholder="Juan García"
                   onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                 />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block">Teléfono <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium mb-1 block">Teléfono <span className="text-muted-foreground font-normal">(opcional)</span></span>
                 <input
                   value={telefono} onChange={(e) => setTelefono(e.target.value)}
                   className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="11 1234-5678"
                   onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                 />
-              </div>
+              </label>
               <p className="text-xs text-muted-foreground">Email, dirección y notas se pueden agregar después.</p>
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-border">

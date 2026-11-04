@@ -664,8 +664,19 @@ async function calcularDescuentoProyectado(
   return 0
 }
 
-// Público — sin auth de admin, llamado desde la página de cuenta del cliente
+// Público — solo el dueño o un admin pueden consultar la membresía de `userId`.
+// Antes no validaba: cualquier cliente autenticado podía leer nivel, kg
+// comprados por período, trial y extensiones de cualquier otro user_id.
 export async function getMembresiaCliente(userId: string): Promise<MembresiaStatus | null> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const sb = await createClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return null
+  if (user.id !== userId) {
+    const { isAnyAdmin } = await import('@/lib/admin-roles')
+    if (!isAnyAdmin(user.email)) return null
+  }
+
   const supabase = createServiceClient()
 
   const [{ data: pedidos, error: e1 }, { data: ventas, error: e2 }, { data: extensiones, error: e3 }, { data: trial, error: e4 }] = await Promise.all([
@@ -793,6 +804,14 @@ export async function solicitarExtensionMembresia(): Promise<{ error?: string; y
   if (!user) return { error: 'No autenticado' }
   const userId = user.id
 
+  // Rate limit: max 3 solicitudes de extensión por día por usuario.
+  // Evita spam al admin por email + inserts indefinidos.
+  const { checkRateLimit } = await import('@/lib/rate-limit')
+  const ok = await checkRateLimit(userId, 'extension_membresia', 86400, 3)
+  if (!ok) {
+    return { error: 'Ya solicitaste varias extensiones hoy. Esperá a que el admin las revise.' }
+  }
+
   const sb = createServiceClient()
 
   // Verificar que no haya ya una pendiente
@@ -807,8 +826,12 @@ export async function solicitarExtensionMembresia(): Promise<{ error?: string; y
     return { yaExiste: true }
   }
 
-  // Calcular costo según nivel actual y registrar solicitud
+  // Calcular costo según nivel actual. Si el cliente no tiene membresía activa
+  // ni trial, no puede extender (no hay qué extender).
   const membresiaActual = await getMembresiaCliente(userId)
+  if (!membresiaActual?.nivel && !membresiaActual?.esTrial) {
+    return { error: 'No tenés membresía activa para extender. Hacé un pedido primero.' }
+  }
   const costo = costoExtension(membresiaActual?.nivel ?? null)
   const nivel = membresiaActual?.nivel ?? 'Plata'
   await sb.from('membresia_extensiones').insert({ user_id: userId, dias: DIAS_EXTENSION, costo })
