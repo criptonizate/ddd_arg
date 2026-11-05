@@ -60,3 +60,24 @@ jobs:
           name: playwright-traces-${{ matrix.project }}
           path: test-results/
           retention-days: 7
+
+      # Notificación a Telegram SOLO si algún test falló.
+      # Requiere los secrets TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID
+      # (configurados en Settings → Secrets and variables → Actions).
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PROJECT:   ${{ matrix.project }}
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados"
+            exit 0
+          fi
+          TEXT=$'🧪 *QA nocturno falló*\n\nProyecto: '"$PROJECT"$'\nReporte y traces: descargables desde el run'
+          curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "content-type: application/json" \
+            -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":$(printf '%s' "$TEXT" | jq -Rsa .),\"parse_mode\":\"Markdown\",\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"Ver run\",\"url\":\"${RUN_URL}\"}]]}}" \
+            || echo "::warning::Telegram notification failed"

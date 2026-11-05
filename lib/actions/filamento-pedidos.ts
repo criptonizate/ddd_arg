@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import { sendNuevoPedidoAdmin, sendPedidoRecibidoCliente, sendPedidoConfirmadoCliente, sendExtensionSolicitadaAdmin } from '@/lib/email'
+import { notifyAdmin, fmtARS } from '@/lib/telegram'
 import { logAdminAction } from '@/lib/audit-log'
 
 export interface FilamentoPedidoItem {
@@ -206,6 +207,33 @@ export async function crearPedidoFilamento(data: {
     if (user?.email) {
       void sendPedidoRecibidoCliente({ ...emailData, clienteEmail: user.email })
     }
+
+    // Telegram al admin — notificación corta con lo esencial. Los pedidos
+    // invitados (sin user.email) van con 🚨 porque requieren que el admin
+    // llame primero al cliente, no al revés.
+    const esGuest = !user
+    const telDisplay = data.cliente_telefono?.trim() || '—'
+    const itemsLinea = itemsValidados
+      .map(i => `• ${i.rollos} kg ${i.color} (${i.material} ${i.marca})`)
+      .join('\n')
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+    void notifyAdmin({
+      emoji: esGuest ? '🚨' : '📦',
+      titulo: esGuest
+        ? `Pedido INVITADO Nº ${r.numero}`
+        : `Pedido nuevo Nº ${r.numero}`,
+      detalle: [
+        `Cliente: ${data.cliente_nombre}`,
+        `Tel: ${telDisplay}`,
+        esGuest ? '⚠️ Sin cuenta — contactá vos primero' : null,
+        '',
+        itemsLinea,
+        '',
+        `Total: ${fmtARS(total)}`,
+        descuento_por_rollo > 0 ? `Descuento: −${fmtARS(descuento_por_rollo)}/kg` : null,
+      ].filter(Boolean).join('\n'),
+      url: `${siteUrl}/admin/filamentos`,
+    })
   }
 
   return { numero: r.numero, id: r.id, duplicate: r.duplicate }

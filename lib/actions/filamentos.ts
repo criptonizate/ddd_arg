@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminUser } from './auth'
 import type { Material, Filamento, FilamentoMovimiento } from '@/lib/filamentos-helpers'
+import { notifyAdmin } from '@/lib/telegram'
 
 // ── Filamentos ────────────────────────────────────────────────────────────────
 
@@ -573,6 +574,27 @@ export async function suscribirAlertaStock(filamentoId: string): Promise<{ error
     .upsert({ user_id: user.id, filamento_id: filamentoId }, { onConflict: 'user_id,filamento_id' })
 
   if (error) return { error: error.message }
+
+  // Notificación al admin: alguien quiere reposición de un filamento
+  // específico — señal de demanda que no se debe ignorar.
+  const { data: fil } = await db
+    .from('filamentos')
+    .select('color, material, marca')
+    .eq('id', filamentoId)
+    .single()
+  const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  void notifyAdmin({
+    emoji: '🔔',
+    titulo: 'Alerta de stock solicitada',
+    detalle: [
+      `${nombre} (${user.email ?? '—'}) se anotó para cuando vuelva:`,
+      '',
+      fil ? `${fil.color} — ${fil.material} ${fil.marca}` : `filamento ${filamentoId}`,
+    ].join('\n'),
+    url: `${siteUrl}/admin/filamentos`,
+  })
+
   return {}
 }
 
@@ -779,6 +801,21 @@ export async function enviarSugerenciaFilamento(mensaje: string, color?: string)
   })
   if (error) return { error: 'Error al enviar la sugerencia' }
   revalidatePath('/cuenta')
+
+  // Notificación al admin con el contenido de la sugerencia.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  void notifyAdmin({
+    emoji: '💡',
+    titulo: 'Sugerencia de filamento',
+    detalle: [
+      `De: ${nombre} (${user.email ?? '—'})`,
+      color ? `Color pedido: ${color.trim()}` : null,
+      '',
+      mensaje.trim().slice(0, 500),
+    ].filter(Boolean).join('\n'),
+    url: `${siteUrl}/admin/filamentos`,
+  })
+
   return {}
 }
 

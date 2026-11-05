@@ -97,6 +97,26 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     .eq('user_id', user.id)
     .maybeSingle()
 
+  // Si no existe la fila es la PRIMERA vez que este usuario entra autenticado.
+  // Notificamos al admin por Telegram — señal de "nuevo cliente registrado".
+  if (!loginRow) {
+    void (async () => {
+      const { notifyAdmin } = await import('@/lib/telegram')
+      const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+      await notifyAdmin({
+        emoji: '👤',
+        titulo: 'Cliente nuevo registrado',
+        detalle: [
+          `${nombre}`,
+          `${user.email ?? '—'}`,
+          user.user_metadata?.full_name ? '(con Google)' : null,
+        ].filter(Boolean).join('\n'),
+        url: `${siteUrl}/admin/clientes`,
+      })
+    })()
+  }
+
   const rachaPrevia = loginRow?.racha_dias ?? 0
   if (loginRow?.last_login_date === hoy) return { ganados: 0, racha: rachaPrevia }
   const racha = loginRow?.last_login_date === ayer ? (rachaPrevia + 1) : 1
