@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Coins, Flame, ShoppingBag, Crown, User, Star, Clock, Info } from 'lucide-react'
 import { PUNTOS_POR_CANJE as PUNTOS_CANJE, PESOS_POR_CANJE as PESOS_CANJE } from '@/lib/ddd-coins-helpers'
 
-const HISTORIAL_LIMITE = 20
+const HISTORIAL_PASO = 5
 
 const MESES_VENCIMIENTO = 12
 
@@ -48,11 +48,15 @@ function diasRestantes(fecha: Date): number {
 }
 
 export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
-  const [verTodo, setVerTodo] = useState(false)
+  // Historial paginado: arrancamos mostrando 5, aumentamos de 5 en 5.
+  const [mostrados, setMostrados] = useState(HISTORIAL_PASO)
   const bloques = Math.floor(saldo / PUNTOS_CANJE)
   const descuentoDisponible = bloques * PESOS_CANJE
-  const progreso = Math.round(((saldo % PUNTOS_CANJE) / PUNTOS_CANJE) * 100)
-  const puntosParaSiguiente = saldo % PUNTOS_CANJE === 0 && saldo > 0 ? 0 : PUNTOS_CANJE - (saldo % PUNTOS_CANJE)
+  // "Remanente" = los pts sobrantes que todavía no alcanzan para el próximo
+  // bloque. Con 550 pts: bloques = 3, remanente = 100, faltan 50 para el 4°.
+  const remanente = saldo % PUNTOS_CANJE
+  const progreso = Math.round((remanente / PUNTOS_CANJE) * 100)
+  const puntosParaSiguiente = remanente === 0 && saldo > 0 ? 0 : PUNTOS_CANJE - remanente
 
   // Agrupar ganancias por mes para la línea de vencimiento.
   // Para cada mes: suma de puntos ganados ese mes + la FECHA DE VENCIMIENTO MÁS TEMPRANA
@@ -98,38 +102,51 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
   return (
     <div className="space-y-5">
 
-      {/* Saldo principal */}
+      {/* Saldo principal — layout nuevo pensado para no confundir. En lugar
+          de mostrar "100 / 150" junto a un saldo de 550, mostramos primero
+          el descuento disponible como protagonista, y después "faltan X pts
+          para desbloquear $1.000 más". */}
       <div className="rounded-2xl border border-border px-5 py-5" style={{ background: 'oklch(0.18 0.02 60)' }}>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div style={{ minWidth: 0, flex: 1 }}>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Tus DDD Coins</p>
-            <p className="text-3xl font-black" style={{ color: '#f59e0b' }}>
+            <p className="text-3xl font-black leading-none" style={{ color: '#f59e0b' }}>
               {saldo.toLocaleString('es-AR')} <span className="text-2xl">🪙</span>
             </p>
             {descuentoDisponible > 0 ? (
-              <p className="text-sm font-semibold mt-1" style={{ color: '#4ade80' }}>
-                = ${descuentoDisponible.toLocaleString('es-AR')} de descuento disponible
-              </p>
+              <div className="mt-2 inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl" style={{ background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
+                ✓ ${descuentoDisponible.toLocaleString('es-AR')} disponibles para descontar
+              </div>
             ) : (
-              <p className="text-xs text-muted-foreground mt-1">
-                {puntosParaSiguiente > 0 && saldo > 0
-                  ? `Te faltan ${puntosParaSiguiente} pts para tu primer descuento`
-                  : 'Comprá o iniciá sesión cada día para acumular'}
+              <p className="text-xs text-muted-foreground mt-2">
+                {saldo > 0
+                  ? `Te faltan ${puntosParaSiguiente} pts para tu primer $1.000 de descuento`
+                  : 'Comprá o iniciá sesión cada día para empezar a acumular'}
               </p>
             )}
           </div>
-          <div className="text-4xl">🏅</div>
+          <div className="text-4xl shrink-0">🏅</div>
         </div>
 
-        <div className="mt-4">
-          <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5">
-            <span>{saldo % PUNTOS_CANJE} / {PUNTOS_CANJE} pts para el próximo $1.000</span>
-            <span>{progreso}%</span>
+        {/* Progreso hacia el PRÓXIMO bloque — solo aparece si tiene sentido
+            (hay algo acumulado del bloque siguiente, o todavía no tiene nada). */}
+        {(remanente > 0 || saldo === 0) && (
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+              <span>
+                {descuentoDisponible > 0 ? 'Próximo descuento' : 'Primer descuento'}
+                : <strong className="text-foreground tabular-nums">{remanente}/{PUNTOS_CANJE} pts</strong>
+              </span>
+              <span className="tabular-nums">Faltan {puntosParaSiguiente} pts</span>
+            </div>
+            <div className="h-2.5 rounded-full relative overflow-hidden" style={{ background: 'oklch(0.25 0.02 60)' }}>
+              <div className="h-full rounded-full transition-all" style={{ background: '#f59e0b', width: `${progreso}%` }} />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+              Cada {PUNTOS_CANJE} puntos equivalen a <strong className="text-foreground">${PESOS_CANJE.toLocaleString('es-AR')}</strong> de descuento en tu próximo pedido.
+            </p>
           </div>
-          <div className="h-2 rounded-full" style={{ background: 'oklch(0.25 0.02 60)' }}>
-            <div className="h-2 rounded-full transition-all" style={{ background: '#f59e0b', width: `${progreso}%` }} />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Aviso de vencimiento próximo */}
@@ -254,22 +271,22 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
         </div>
       </div>
 
-      {/* Historial */}
+      {/* Historial paginado — arranca con 5 movimientos y crece de 5 en 5.
+          Antes se mostraban 20 de arranque y confundía con "actividad total".
+          Botón "Ver 5 más" visible mientras queden más; si ya está todo,
+          se oculta. Permite colapsar de vuelta a los últimos 5. */}
       {historial.length > 0 && (
         <div className="rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <p className="text-sm font-bold">Historial reciente</p>
-            {historial.length > HISTORIAL_LIMITE && (
-              <span className="text-[10px] text-muted-foreground">
-                {verTodo ? historial.length : HISTORIAL_LIMITE} de {historial.length}
-              </span>
-            )}
+            <p className="text-sm font-bold">Últimos movimientos</p>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {Math.min(mostrados, historial.length)} de {historial.length}
+            </span>
           </div>
           <div className="divide-y divide-border">
-            {(verTodo ? historial : historial.slice(0, HISTORIAL_LIMITE)).map(row => {
+            {historial.slice(0, mostrados).map(row => {
               const infoBase = MOTIVO_LABEL[row.motivo] ?? { label: row.motivo, icon: <Coins size={13} /> }
               const esGanancia = row.puntos > 0
-              // Si el motivo es "canje_pedido" y el motivo real guardado trae el nro, lo mostramos
               const motivoRaw = row.motivo
               const matchNumero = motivoRaw.match(/N°\s*(\d+)/i)
               const label = matchNumero && motivoRaw.startsWith('canje')
@@ -294,14 +311,21 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
               )
             })}
           </div>
-          {historial.length > HISTORIAL_LIMITE && (
+          {mostrados < historial.length ? (
             <button
-              onClick={() => setVerTodo(v => !v)}
-              className="w-full py-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border transition-colors min-h-[44px]"
+              onClick={() => setMostrados(m => Math.min(historial.length, m + HISTORIAL_PASO))}
+              className="w-full py-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border transition-colors min-h-[44px] active:scale-[0.99]"
             >
-              {verTodo ? '↑ Mostrar menos' : `↓ Ver más antiguos (${historial.length - HISTORIAL_LIMITE})`}
+              ↓ Ver {Math.min(HISTORIAL_PASO, historial.length - mostrados)} más ({historial.length - mostrados} restantes)
             </button>
-          )}
+          ) : mostrados > HISTORIAL_PASO ? (
+            <button
+              onClick={() => setMostrados(HISTORIAL_PASO)}
+              className="w-full py-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border transition-colors min-h-[44px] active:scale-[0.99]"
+            >
+              ↑ Mostrar menos
+            </button>
+          ) : null}
         </div>
       )}
 

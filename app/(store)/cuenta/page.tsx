@@ -16,6 +16,7 @@ import PedirColorTab from '@/components/store/PedirColorTab'
 import MembresiaProgressBar from '@/components/store/MembresiaProgressBar'
 import CoinsToast from '@/components/store/CoinsToast'
 import InstallPWA from '@/components/store/InstallPWA'
+import TabLink from '@/components/store/TabLink'
 import Link from 'next/link'
 import { Package, Crown, User, Palette } from 'lucide-react'
 
@@ -151,86 +152,74 @@ export default async function CuentaPage({
         </div>
       )}
 
-      {/* Tabs — overflow-x-auto con fade indicando scroll */}
+      {/* Tabs — overflow-x-auto con fade indicando scroll. TabLink da feedback
+          táctil inmediato (scale-95 + opacity-60 + spinner) para que el tap
+          nunca sienta "muerto" mientras Next navega. */}
       <div className="relative mb-8">
         <div className="flex gap-0.5 border-b border-border overflow-x-auto scrollbar-hide">
-        <Link
-          href="/cuenta?tab=perfil"
-          aria-current={tab === 'perfil' ? 'page' : undefined}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
-            tab === 'perfil'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <User size={16} />
-          Mi perfil
-          {!profile?.telefono && (
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
-          )}
-        </Link>
-        <Link
-          href="/cuenta?tab=pedidos"
-          aria-current={tab === 'pedidos' ? 'page' : undefined}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
-            tab === 'pedidos'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Package size={16} />
-          Mis pedidos
-        </Link>
-        <Link
-          href="/cuenta?tab=membresia"
-          aria-current={tab === 'membresia' ? 'page' : undefined}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
-            tab === 'membresia'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Crown size={16} />
-          Membresía
-          {membresia?.nivel && (
-            <span className={`hidden sm:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
-              {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji} {membresia.nivel}
-            </span>
-          )}
-        </Link>
-        <Link
-          href="/cuenta?tab=coins"
-          aria-current={tab === 'coins' ? 'page' : undefined}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
-            tab === 'coins'
-              ? 'border-yellow-500 text-yellow-500'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          🪙 Coins
-          {saldoCoins > 0 && (
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
-              {saldoCoins.toLocaleString('es-AR')}
-            </span>
-          )}
-        </Link>
-        <Link
-          href="/cuenta?tab=colores"
-          aria-current={tab === 'colores' ? 'page' : undefined}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] transition-colors whitespace-nowrap ${
-            tab === 'colores'
-              ? 'border-violet-500 text-violet-500'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Palette size={16} />
-          Pedir color
-          {sugerenciasNuevas > 0 && (
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/40">
-              {sugerenciasNuevas}
-            </span>
-          )}
-        </Link>
+          <TabLink
+            href="/cuenta?tab=perfil"
+            active={tab === 'perfil'}
+            activeClasses="border-foreground text-foreground"
+            inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
+            icon={<User size={16} />}
+          >
+            Mi perfil
+            {!profile?.telefono && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Completar datos" />
+            )}
+          </TabLink>
+          <TabLink
+            href="/cuenta?tab=pedidos"
+            active={tab === 'pedidos'}
+            activeClasses="border-foreground text-foreground"
+            inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
+            icon={<Package size={16} />}
+          >
+            Mis pedidos
+          </TabLink>
+          <TabLink
+            href="/cuenta?tab=membresia"
+            active={tab === 'membresia'}
+            activeClasses="border-foreground text-foreground"
+            inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
+            icon={<Crown size={16} />}
+          >
+            Membresía
+            {membresia?.nivel && (
+              <span className={`hidden sm:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
+                {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji} {membresia.nivel}
+              </span>
+            )}
+          </TabLink>
+          <TabLink
+            href="/cuenta?tab=coins"
+            active={tab === 'coins'}
+            activeClasses="border-yellow-500 text-yellow-500"
+            inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
+            icon={<span aria-hidden="true">🪙</span>}
+          >
+            Coins
+            {saldoCoins > 0 && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#92400e', color: '#fde68a' }}>
+                {saldoCoins.toLocaleString('es-AR')}
+              </span>
+            )}
+          </TabLink>
+          <TabLink
+            href="/cuenta?tab=colores"
+            active={tab === 'colores'}
+            activeClasses="border-violet-500 text-violet-500"
+            inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
+            icon={<Palette size={16} />}
+          >
+            Pedir color
+            {sugerenciasNuevas > 0 && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/40">
+                {sugerenciasNuevas}
+              </span>
+            )}
+          </TabLink>
         </div>
         {/* Fade a la derecha indicando que hay más tabs */}
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
@@ -243,6 +232,9 @@ export default async function CuentaPage({
           email={user.email ?? ''}
           avatarUrl={user.user_metadata?.avatar_url ?? null}
           profile={profile}
+          fechaRegistroISO={user.created_at ?? new Date().toISOString()}
+          nivelMembresia={membresia?.nivel ?? null}
+          nivelEmoji={membresia?.nivel ? (TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji ?? null) : null}
         />
       )}
 

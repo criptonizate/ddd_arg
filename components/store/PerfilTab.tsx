@@ -4,15 +4,22 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { saveMyProfile, type UserProfile } from '@/lib/actions/perfil'
 import { signOutCliente } from '@/lib/actions/auth'
 import { CheckCircle2, Pencil, LogOut, Gift } from 'lucide-react'
+import CredencialCliente from '@/components/store/CredencialCliente'
 
 interface Props {
   nombre: string
   email: string
   avatarUrl: string | null
   profile: UserProfile | null
+  fechaRegistroISO: string
+  nivelMembresia: string | null
+  nivelEmoji: string | null
 }
 
-export default function PerfilTab({ nombre, email, avatarUrl, profile: initialProfile }: Props) {
+export default function PerfilTab({
+  nombre, email, avatarUrl, profile: initialProfile,
+  fechaRegistroISO, nivelMembresia, nivelEmoji,
+}: Props) {
   const [imgError, setImgError] = useState(false)
   const [editing, setEditing] = useState(false)
   const [apodo, setApodo] = useState(initialProfile?.apodo ?? '')
@@ -52,8 +59,19 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
     setError('')
   }
 
+  const datosRef = useRef<HTMLDivElement>(null)
   const inputCls = "w-full text-base border border-border rounded-xl px-3.5 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
   const labelCls = "text-xs font-semibold text-muted-foreground block mb-1.5"
+
+  // Abre el modo edición y hace scroll suave hasta la sección de datos para
+  // que el click del banner "Completá tu perfil" se sienta inmediato: el
+  // usuario ve cómo la pantalla se mueve al lugar donde tiene que escribir.
+  function abrirEdicion() {
+    setEditing(true)
+    setTimeout(() => {
+      datosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 60)
+  }
 
   // Perfil sin ningún dato = aún no reclamó los 20 pts; incompleto = tiene algo pero falta
   const perfilVirgen = !initialProfile?.telefono && !initialProfile?.dni && !initialProfile?.apodo
@@ -63,74 +81,70 @@ export default function PerfilTab({ nombre, email, avatarUrl, profile: initialPr
   return (
     <div className="space-y-6">
 
-      {/* Banner incentivo: +20 pts solo si todavía no reclamó, o invitación suave si falta algo */}
+      {/* Credencial — reemplaza al cuadro liso del N° de cliente y a la caja
+          "Cuenta Google". Avatar clickeable para cambiar la foto. */}
+      <CredencialCliente
+        numeroCliente={initialProfile?.numero_cliente ?? null}
+        nombre={nombre}
+        email={email}
+        telefono={initialProfile?.telefono ?? null}
+        dni={initialProfile?.dni ?? null}
+        nivelMembresia={nivelMembresia}
+        nivelEmoji={nivelEmoji}
+        avatarGoogle={avatarUrl}
+        avatarCustom={initialProfile?.avatar_url ?? null}
+        fechaRegistroISO={fechaRegistroISO}
+      />
+      {!imgError && (
+        // Pre-cargamos el avatar de Google para detectar 404 silencioso y usar
+        // la inicial como fallback en la credencial.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl ?? ''} alt="" className="hidden" onError={() => setImgError(true)} />
+      )}
+      <p className="text-[11px] text-muted-foreground text-center -mt-2">
+        Mencioná tu N° de cliente cuando nos escribas por WhatsApp o vengas al local.
+      </p>
+
+      {/* Banner incentivo — AHORA clicable: abre el modo edición directo.
+          Virgen = nunca completó nada → ofrecer +20 pts.
+          Faltante = ya tiene algo pero falta teléfono o DNI. */}
       {perfilVirgen && !editing ? (
-        <div className="rounded-2xl border p-4 flex items-center gap-3" style={{ backgroundColor: 'oklch(0.22 0.04 60)', borderColor: '#d97706' }}>
+        <button
+          type="button"
+          onClick={abrirEdicion}
+          className="w-full text-left rounded-2xl border p-4 flex items-center gap-3 transition-all hover:brightness-110 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-400"
+          style={{ backgroundColor: 'oklch(0.22 0.04 60)', borderColor: '#d97706' }}
+        >
           <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(217,119,6,0.25)' }}>
             <Gift size={18} style={{ color: '#fcd34d' }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold" style={{ color: '#f0fdf4' }}>Completá tu perfil y ganá <span style={{ color: '#fcd34d' }}>+20 🪙 pts</span></p>
-            <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>Nos ayuda a contactarte más rápido con tus pedidos.</p>
+            <p className="text-sm font-bold" style={{ color: '#f0fdf4' }}>
+              Completá tu perfil y ganá <span style={{ color: '#fcd34d' }}>+20 🪙 pts</span>
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#86efac' }}>Tocá acá para completarlo ahora →</p>
           </div>
-        </div>
+        </button>
       ) : perfilFaltante && !editing ? (
-        <div className="rounded-2xl border border-border bg-secondary/40 p-3 flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={abrirEdicion}
+          className="w-full text-left rounded-2xl border border-border bg-secondary/40 p-3 flex items-center gap-2.5 transition-all hover:bg-secondary/60 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-400"
+        >
           <span className="text-amber-500 text-sm">💡</span>
           <p className="text-xs text-muted-foreground flex-1">
-            Agregá tu <strong className="text-foreground">{!initialProfile?.telefono ? 'teléfono' : 'DNI'}</strong> para que podamos contactarte más rápido.
+            Agregá tu <strong className="text-foreground">{!initialProfile?.telefono ? 'teléfono' : 'DNI'}</strong> para que podamos contactarte más rápido. <span className="text-amber-500">Tocá para editar →</span>
           </p>
-        </div>
+        </button>
       ) : null}
 
-      {/* Número de cliente */}
-      {initialProfile?.numero_cliente && (
-        <div className="bg-card border border-border rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-0.5">Tu número de cliente</p>
-            <p className="text-3xl font-black tracking-tight" style={{ color: '#4ade80' }}>
-              N° {initialProfile.numero_cliente}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Mencionalo cuando vengas al local o nos escribas por WhatsApp
-            </p>
-          </div>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ backgroundColor: 'oklch(0.25 0.02 145)' }}>
-            🪪
-          </div>
-        </div>
-      )}
-
-      {/* Identidad Google (solo lectura) */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-bold">Cuenta Google</p>
-          <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Solo lectura</span>
-        </div>
-        <div className="px-5 py-4 flex items-center gap-4">
-          {avatarUrl && !imgError ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" onError={() => setImgError(true)} className="w-14 h-14 rounded-full border border-border shrink-0" />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-              <span className="text-2xl font-black text-green-600">{inicial}</span>
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="font-bold text-base truncate">{nombre}</p>
-            <p className="text-sm text-muted-foreground truncate">{email}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">El nombre y foto provienen de tu cuenta de Google</p>
-          </div>
-        </div>
-      </div>
-
       {/* Datos personales */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div ref={datosRef} className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <p className="text-sm font-bold">Datos personales</p>
           {!editing && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={abrirEdicion}
               className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl text-white transition-all hover:opacity-90 active:scale-95"
               style={{ backgroundColor: '#16a34a' }}
             >

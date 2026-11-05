@@ -2528,47 +2528,78 @@ export default function FilamentosShop({
                   {checkoutError && <p id="checkout-error" role="alert" className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {user
-                      ? 'Queda registrado en tu cuenta. Te contactamos por WhatsApp para confirmar y coordinar (usualmente dentro de 24 h hábiles).'
-                      : 'Guardamos tu pedido y te contactamos por WhatsApp para confirmar y coordinar (usualmente dentro de 24 h hábiles).'}
+                      ? 'Queda registrado en tu cuenta. Te contactamos por WhatsApp para confirmar y coordinar (lun-vie 9:30 a 12:30 · tardes a coordinar).'
+                      : 'Guardamos tu pedido y te contactamos por WhatsApp para confirmar y coordinar (lun-vie 9:30 a 12:30 · tardes a coordinar).'}
                   </p>
                 </div>
 
                 <div className="px-6 pb-5 space-y-2">
 
-                    {/* DDD Coins — colapsado por defecto. El 95% del flujo no
-                        usa coins, no debería ocupar espacio salvo que el user
-                        lo quiera. Si ya hay canje elegido lo dejamos abierto. */}
-                    {user && saldoCoins >= PUNTOS_POR_CANJE && checkoutStep === 'form' && (
-                      <details className="rounded-xl border border-border bg-muted/30" open={puntosACanjear > 0}>
-                        <summary className="list-none cursor-pointer px-4 py-3 flex items-center justify-between text-sm font-semibold">
-                          <span className="flex items-center gap-2">
-                            <span aria-hidden="true">🪙</span>
-                            Usar mis DDD Coins
-                            <span className="text-xs font-normal text-muted-foreground">({saldoCoins} pts)</span>
-                          </span>
-                          <span className="text-xs text-muted-foreground">{puntosACanjear > 0 ? `-${fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}` : 'Ver opciones ▾'}</span>
-                        </summary>
-                        <div className="px-4 pb-4 pt-1 space-y-2">
-                          <div className="flex gap-2 flex-wrap">
-                            {[0, PUNTOS_POR_CANJE, PUNTOS_POR_CANJE * 2, PUNTOS_POR_CANJE * 3, PUNTOS_POR_CANJE * 4].filter(n => n === 0 || n <= saldoCoins).map(n => (
-                              <button
-                                key={n}
-                                type="button"
-                                onClick={() => setPuntosACanjear(n)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-yellow-500' : 'border-border text-muted-foreground hover:border-yellow-500'}`}
-                                style={puntosACanjear === n ? { background: '#d97706' } : {}}
-                              >
-                                {n === 0 ? 'Sin descuento' : `-$${((n / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')}`}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-snug">
-                            Ganás puntos en cada pedido · no caducan ·{' '}
-                            <Link href="/cuenta?tab=coins" className="underline hover:text-foreground">Ver más →</Link>
-                          </p>
+                    {/* DDD Coins — toggle compacto. Al activarlo se aplica
+                        AUTOMÁTICAMENTE el máximo que alcanza (todos los bloques
+                        completos del saldo). El cliente puede refinar la
+                        cantidad con un <details> secundario si quiere elegir. */}
+                    {user && saldoCoins >= PUNTOS_POR_CANJE && checkoutStep === 'form' && (() => {
+                      const bloquesMax = Math.floor(saldoCoins / PUNTOS_POR_CANJE)
+                      const descuentoMax = bloquesMax * PESOS_POR_CANJE
+                      const usandoCoins = puntosACanjear > 0
+                      return (
+                        <div
+                          className={`rounded-xl border p-3 transition-colors ${usandoCoins ? 'border-amber-500/50' : 'border-border'}`}
+                          style={{ backgroundColor: usandoCoins ? 'rgba(217,119,6,0.08)' : undefined }}
+                        >
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            {/* Toggle switch accesible */}
+                            <span className="relative inline-block shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={usandoCoins}
+                                onChange={(e) => setPuntosACanjear(e.target.checked ? bloquesMax * PUNTOS_POR_CANJE : 0)}
+                                className="peer sr-only"
+                                aria-label="Usar mis DDD Coins en este pedido"
+                              />
+                              <span className="block w-11 h-6 rounded-full bg-secondary border border-border peer-checked:bg-amber-600 peer-checked:border-amber-600 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 transition-colors" />
+                              <span className="absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow peer-checked:translate-x-5 transition-transform" />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold flex items-center gap-1.5">
+                                <span aria-hidden="true">🪙</span>
+                                Usar mis DDD Coins
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Saldo: <strong className="text-foreground tabular-nums">{saldoCoins.toLocaleString('es-AR')} pts</strong>
+                                {' · '}
+                                {usandoCoins
+                                  ? <>Aplicás <strong className="text-amber-500">−{fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}</strong></>
+                                  : <>Descuento disponible: <strong className="text-amber-500">{fmtARS(descuentoMax)}</strong></>
+                                }
+                              </p>
+                            </div>
+                          </label>
+
+                          {usandoCoins && bloquesMax > 1 && (
+                            <details className="mt-2 pt-2 border-t border-border/60">
+                              <summary className="list-none cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
+                                Elegir cuántos usar ▾
+                              </summary>
+                              <div className="flex gap-2 flex-wrap pt-2">
+                                {Array.from({ length: bloquesMax }, (_, i) => (i + 1) * PUNTOS_POR_CANJE).map(n => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => setPuntosACanjear(n)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-amber-500' : 'border-border text-muted-foreground hover:border-amber-500'}`}
+                                    style={puntosACanjear === n ? { background: '#d97706' } : {}}
+                                  >
+                                    −${((n / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')}
+                                  </button>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
-                      </details>
-                    )}
+                      )
+                    })()}
 
                     {/* Retiro / Envío / Pago colapsados — para 1-2 kg el
                         cliente no necesita ver todo. Resumen visible, detalles
@@ -2604,7 +2635,7 @@ export default function FilamentosShop({
                         </div>
                         <div className="border-t border-border pt-2">
                           <p className="font-semibold text-foreground mb-0.5">⏰ Contacto</p>
-                          <p className="leading-snug"><strong>Nosotros te contactamos</strong> por WhatsApp para confirmar y coordinar, usualmente dentro de 24 h hábiles (lun-sáb 9-19). Si nos escribís vos primero, va más rápido.</p>
+                          <p className="leading-snug"><strong>Nosotros te contactamos</strong> por WhatsApp para confirmar y coordinar. Horario de atención: <strong>lun a vie 9:30 a 12:30</strong> · <strong>tardes a coordinar por WhatsApp</strong>. Si nos escribís vos primero, va más rápido.</p>
                         </div>
                       </div>
                     </details>
