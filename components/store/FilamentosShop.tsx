@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff, Pin, PinOff } from 'lucide-react'
 import { pinComparador, unpinComparador, isPinnedComparador } from '@/components/store/ColorComparador'
 import type { Filamento } from '@/lib/filamentos-helpers'
@@ -2106,34 +2107,18 @@ export default function FilamentosShop({
                   </div>
                 </div>
 
-                {/* Item 9 — Progreso de membresía en checkout */}
-                {user && (() => {
-                  const siguiente = [{ min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 }]
-                    .find(t => kgEfectivo < t.min)
-                  const faltan = siguiente ? siguiente.min - kgEfectivo : 0
-                  if (descuento > 0) return (
-                    <div className="px-6 pt-0">
-                      <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
-                        style={{ backgroundColor: 'oklch(0.22 0.04 145)', border: '1px solid #166534', color: '#4ade80' }}>
-                        <span>🏆</span>
-                        <span>
-                          {kgAcumulados > 0 ? `${kgAcumulados.toFixed(1)} kg acumulados + ` : ''}
-                          {totalKg} kg este pedido → descuento de <strong>−{fmtARS(descuento)}/kg</strong> aplicado
-                        </span>
-                      </div>
+                {/* Confirmación discreta del descuento ya aplicado. El banner
+                    "agregá X kg más y desbloqueás −$Y" fue removido del checkout
+                    para simplificar: la explicación de membresía vive en /cuenta. */}
+                {user && descuento > 0 && (
+                  <div className="px-6 pt-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
+                      style={{ backgroundColor: 'oklch(0.22 0.04 145)', border: '1px solid #166534', color: '#4ade80' }}>
+                      <span aria-hidden="true">🏆</span>
+                      <span>Descuento de <strong>−{fmtARS(descuento)}/kg</strong> aplicado</span>
                     </div>
-                  )
-                  if (siguiente && faltan > 0 && faltan <= 3) return (
-                    <div className="px-6 pt-0">
-                      <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
-                        style={{ backgroundColor: 'oklch(0.22 0.06 50)', border: '1px solid #78350f', color: '#fbbf24' }}>
-                        <span>⚡</span>
-                        <span>¡Agregá <strong>{faltan.toFixed(1)} kg más</strong> y desbloqueás −{fmtARS(siguiente.desc)}/kg en todo el pedido!</span>
-                      </div>
-                    </div>
-                  )
-                  return null
-                })()}
+                  </div>
+                )}
 
                 {/* Form único: guest o logueado. Guest ve una tarjeta de invitación */}
                 <div className="px-6 py-5 space-y-4">
@@ -2213,32 +2198,39 @@ export default function FilamentosShop({
 
                 <div className="px-6 pb-5 space-y-2">
 
-                    {/* DDD Coins — solo con user logueado */}
+                    {/* DDD Coins — colapsado por defecto. El 95% del flujo no
+                        usa coins, no debería ocupar espacio salvo que el user
+                        lo quiera. Si ya hay canje elegido lo dejamos abierto. */}
                     {user && saldoCoins >= PUNTOS_POR_CANJE && checkoutStep === 'form' && (
-                      <div className="rounded-xl border border-border p-4" style={{ background: 'oklch(0.18 0.02 60)' }}>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm font-bold">🪙 DDD Coins</p>
-                          <p className="text-xs text-muted-foreground">Saldo: <span style={{ color: '#f59e0b' }} className="font-bold">{saldoCoins} pts</span></p>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {[0, PUNTOS_POR_CANJE, PUNTOS_POR_CANJE * 2, PUNTOS_POR_CANJE * 3, PUNTOS_POR_CANJE * 4].filter(n => n === 0 || n <= saldoCoins).map(n => (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setPuntosACanjear(n)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-yellow-500' : 'border-border text-muted-foreground hover:border-yellow-500'}`}
-                              style={puntosACanjear === n ? { background: '#d97706' } : {}}
-                            >
-                              {n === 0 ? 'Sin descuento' : `-$${((n / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')}`}
-                            </button>
-                          ))}
-                        </div>
-                        {puntosACanjear > 0 && (
-                          <p className="text-xs mt-2" style={{ color: '#4ade80' }}>
-                            Descuento: -${((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')} ARS aplicado al total
+                      <details className="rounded-xl border border-border bg-muted/30" open={puntosACanjear > 0}>
+                        <summary className="list-none cursor-pointer px-4 py-3 flex items-center justify-between text-sm font-semibold">
+                          <span className="flex items-center gap-2">
+                            <span aria-hidden="true">🪙</span>
+                            Usar mis DDD Coins
+                            <span className="text-xs font-normal text-muted-foreground">({saldoCoins} pts)</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground">{puntosACanjear > 0 ? `-${fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}` : 'Ver opciones ▾'}</span>
+                        </summary>
+                        <div className="px-4 pb-4 pt-1 space-y-2">
+                          <div className="flex gap-2 flex-wrap">
+                            {[0, PUNTOS_POR_CANJE, PUNTOS_POR_CANJE * 2, PUNTOS_POR_CANJE * 3, PUNTOS_POR_CANJE * 4].filter(n => n === 0 || n <= saldoCoins).map(n => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => setPuntosACanjear(n)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${puntosACanjear === n ? 'text-white border-yellow-500' : 'border-border text-muted-foreground hover:border-yellow-500'}`}
+                                style={puntosACanjear === n ? { background: '#d97706' } : {}}
+                              >
+                                {n === 0 ? 'Sin descuento' : `-$${((n / PUNTOS_POR_CANJE) * PESOS_POR_CANJE).toLocaleString('es-AR')}`}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            ¿Qué son los DDD Coins?{' '}
+                            <Link href="/cuenta?tab=coins" className="underline hover:text-foreground">Ver en Mi cuenta →</Link>
                           </p>
-                        )}
-                      </div>
+                        </div>
+                      </details>
                     )}
 
                     <div className="bg-muted/50 rounded-xl p-3.5 text-xs text-muted-foreground space-y-2.5 mb-1">
