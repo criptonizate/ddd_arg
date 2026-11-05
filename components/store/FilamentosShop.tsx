@@ -1891,7 +1891,7 @@ export default function FilamentosShop({
 
       {/* ── Panel del carrito ── */}
       {showCart && (
-        <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title">
+        <div className="fixed inset-0 z-[70] flex" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title">
           <div className="flex-1 min-w-0 bg-black/40" onClick={() => setShowCart(false)} aria-hidden="true" />
           <div ref={cartDrawerRef} className="w-full sm:max-w-sm bg-background border-l border-border flex flex-col shadow-2xl" style={{ maxHeight: '100dvh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -2023,7 +2023,7 @@ export default function FilamentosShop({
 
       {/* ── Modal de checkout ── */}
       {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
           <div ref={checkoutPanelRef} className="relative w-full sm:max-w-md bg-background border border-border sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-y-auto" style={{ maxHeight: '92dvh' }}>
             {/* Drag handle — señala bottom-sheet mobile */}
             <div
