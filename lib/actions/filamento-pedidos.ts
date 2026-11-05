@@ -51,7 +51,8 @@ export async function crearPedidoFilamento(data: {
   cliente_telefono?: string
   items: FilamentoPedidoItem[]
   puntosACanjear?: number
-}): Promise<{ numero?: number; id?: string; error?: string }> {
+  idempotencyKey?: string
+}): Promise<{ numero?: number; id?: string; error?: string; duplicate?: boolean }> {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (data.cliente_nombre.trim().length > 100) return { error: 'El nombre es demasiado largo' }
   if (data.cliente_telefono && data.cliente_telefono.trim().length > 20) return { error: 'El teléfono es demasiado largo' }
@@ -63,18 +64,35 @@ export async function crearPedidoFilamento(data: {
     }
   }
 
-  // Login obligatorio para hacer un pedido
+  // Idempotency key: UUID v4-ish (36 chars). Si vino basura o algo gigante, lo ignoramos.
+  const idempotencyKey = (() => {
+    const k = (data.idempotencyKey ?? '').trim()
+    return k.length >= 20 && k.length <= 64 ? k : null
+  })()
+
+  // Guest checkout: permitido si vino nombre + teléfono. Sin login no se
+  // pueden canjear coins ni se gana nada. Sí se acepta el pedido y se coordina
+  // por WhatsApp.
   const { createClient } = await import('@/lib/supabase/server')
   const supabaseAuth = await createClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return { error: 'Necesitás iniciar sesión para hacer un pedido' }
 
-  // Rate limit: max 5 pedidos por hora por usuario. Evita que un script
-  // acapare stock con reservas de 3h.
-  const { checkRateLimit } = await import('@/lib/rate-limit')
-  const ok = await checkRateLimit(user.id, 'crear_pedido_filamento', 3600, 5)
-  if (!ok) {
-    return { error: 'Hiciste muchos pedidos en poco tiempo. Esperá un rato antes del próximo.' }
+  if (!user) {
+    const tel = (data.cliente_telefono ?? '').trim()
+    if (!tel) return { error: 'Necesitamos un teléfono para coordinar la entrega' }
+    if (data.puntosACanjear && data.puntosACanjear > 0) {
+      return { error: 'Para canjear DDD Coins necesitás iniciar sesión' }
+    }
+  }
+
+  // Rate limit solo cuando hay user (los guests no tienen user_id estable).
+  // Para abuso guest usamos el tope de 100 kg por pedido (más abajo).
+  if (user) {
+    const { checkRateLimit } = await import('@/lib/rate-limit')
+    const ok = await checkRateLimit(user.id, 'crear_pedido_filamento', 3600, 5)
+    if (!ok) {
+      return { error: 'Hiciste muchos pedidos en poco tiempo. Esperá un rato antes del próximo.' }
+    }
   }
 
   // Tope global de kg por pedido: 20 items × 50kg = 1000kg. Limitamos acá a
@@ -106,10 +124,11 @@ export async function crearPedidoFilamento(data: {
   const total_rollos = itemsValidados.reduce((s, i) => s + i.rollos, 0)
 
   // Calcular descuento server-side INCLUYENDO este pedido en el cálculo de membresía.
-  // Si Jonathan tiene 0 kg previos y pide 5 kg hoy, cruza el hito de Plata y le toca
-  // $2000/kg off. Si tenía 3 kg y pide 2 kg, también cruza. Idéntica lógica al
-  // preview del carrito en FilamentosShop para que el precio final coincida.
-  const descuento_por_rollo = await calcularDescuentoProyectado(user.id, total_rollos)
+  // Guests no tienen historial de membresía → descuento 0 (pueden lograrlo creando
+  // cuenta después: el post-pedido ofrece loguearse).
+  const descuento_por_rollo = user
+    ? await calcularDescuentoProyectado(user.id, total_rollos)
+    : 0
 
   // Subtotal post-descuento-por-rollo. `Math.max(0, ...)` por ítem evita que
   // un filamento en oferta (precio_unitario < descuento_por_rollo) aporte
@@ -121,9 +140,10 @@ export async function crearPedidoFilamento(data: {
 
   // Descuento DDD Coins — validamos saldo, múltiplo correcto y capamos al
   // subtotal para que el cliente no "queme" coins sin contrapartida.
+  // Solo con user — para guests ya validamos arriba que puntosACanjear sea 0.
   let descuento_coins = 0
   let puntosACanjearNormalizados = 0
-  if (data.puntosACanjear && data.puntosACanjear > 0) {
+  if (user && data.puntosACanjear && data.puntosACanjear > 0) {
     const { calcularDescuentoCoins, PUNTOS_POR_CANJE, PESOS_POR_CANJE } = await import('../ddd-coins-helpers')
     const { getSaldoCoins } = await import('./ddd-coins')
     if (data.puntosACanjear % PUNTOS_POR_CANJE !== 0) {
@@ -150,7 +170,7 @@ export async function crearPedidoFilamento(data: {
   const { data: rpcResult, error: rpcErr } = await supabase.rpc(
     'crear_pedido_filamento_atomico',
     {
-      p_user_id: user.id,
+      p_user_id: user?.id ?? null,
       p_cliente_nombre: data.cliente_nombre.trim(),
       p_cliente_telefono: data.cliente_telefono?.trim() || null,
       p_items: itemsValidados,
@@ -160,9 +180,10 @@ export async function crearPedidoFilamento(data: {
       p_total: total,
       p_puntos_a_canjear: puntosACanjearNormalizados,
       p_reservado_hasta: reservadoHasta,
+      p_idempotency_key: idempotencyKey,
     },
   )
-  const r = rpcResult as { ok?: boolean; id?: string; numero?: number; error?: string } | null
+  const r = rpcResult as { ok?: boolean; id?: string; numero?: number; error?: string; duplicate?: boolean } | null
   if (rpcErr || !r?.ok) {
     return { error: r?.error ?? rpcErr?.message ?? 'No se pudo crear el pedido' }
   }
@@ -170,22 +191,24 @@ export async function crearPedidoFilamento(data: {
   revalidatePath('/admin/filamentos'); updateTag('filamentos')
   revalidatePath('/cuenta')
 
-  // Emails — fire and forget, no bloqueamos la respuesta
-  const emailData = {
-    numero: r.numero!,
-    clienteNombre: data.cliente_nombre,
-    clienteEmail: user.email,
-    items: itemsValidados,
-    totalRollos: total_rollos,
-    descuentoPorRollo: descuento_por_rollo,
-    total,
-  }
-  void sendNuevoPedidoAdmin(emailData)
-  if (user.email) {
-    void sendPedidoRecibidoCliente({ ...emailData, clienteEmail: user.email })
+  // Emails — solo si no es duplicate (retry idempotente) y no bloqueamos la respuesta
+  if (!r.duplicate) {
+    const emailData = {
+      numero: r.numero!,
+      clienteNombre: data.cliente_nombre,
+      clienteEmail: user?.email,
+      items: itemsValidados,
+      totalRollos: total_rollos,
+      descuentoPorRollo: descuento_por_rollo,
+      total,
+    }
+    void sendNuevoPedidoAdmin(emailData)
+    if (user?.email) {
+      void sendPedidoRecibidoCliente({ ...emailData, clienteEmail: user.email })
+    }
   }
 
-  return { numero: r.numero, id: r.id }
+  return { numero: r.numero, id: r.id, duplicate: r.duplicate }
 }
 
 // ── Admin: listar pedidos ──────────────────────────────────────────────────
