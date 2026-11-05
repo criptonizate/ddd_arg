@@ -324,9 +324,10 @@ export default function StoreHeader() {
         </div>
       </div>
 
-      {/* ── Barra de marcas — marquee animado ── */}
+      {/* ── Barra de marcas — marquee animado. Oculto en mobile para no
+          distraer al comprador que busca por color en un espacio chico. ── */}
       <div
-        className="overflow-hidden border-b"
+        className="hidden md:block overflow-hidden border-b"
         style={{
           backgroundColor: 'oklch(0.17 0.005 264)',
           borderColor: 'oklch(1 0 0 / 8%)',
