@@ -61,9 +61,10 @@ jobs:
           path: test-results/
           retention-days: 7
 
-      # Notificación a Telegram SOLO si algún test falló.
-      # Requiere los secrets TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID
-      # (configurados en Settings → Secrets and variables → Actions).
+      # Notificación a Telegram SOLO si ESTE job falló (un job por viewport).
+      # Si fallan los 3, llegan 3 mensajes — útil porque sabés QUÉ viewport
+      # rompió. El "OK consolidado" se manda desde el job `notify-success`
+      # más abajo, una sola vez cuando los 3 pasaron.
       - name: Notify Telegram on failure
         if: failure()
         env:
@@ -80,4 +81,31 @@ jobs:
           curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -H "content-type: application/json" \
             -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":$(printf '%s' "$TEXT" | jq -Rsa .),\"parse_mode\":\"Markdown\",\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"Ver run\",\"url\":\"${RUN_URL}\"}]]}}" \
+            || echo "::warning::Telegram notification failed"
+
+  # Job final: corre SOLO si los 3 viewports pasaron todos sus tests.
+  # Manda un único mensaje "OK" a Telegram para dar tranquilidad diaria.
+  # Si algún job falló, GitHub salta este (needs + success()), y el mensaje
+  # de "OK" no se dispara — solo quedan los de "falló" por viewport.
+  notify-success:
+    name: Notify OK
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: success()
+    steps:
+      - name: Notify Telegram on success
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados"
+            exit 0
+          fi
+          FECHA=$(TZ='America/Argentina/Buenos_Aires' date '+%d/%m %H:%M')
+          TEXT=$'✅ *QA nocturno OK*\n\nLos 3 viewports pasaron (desktop · tablet · mobile).\n'"${FECHA} AR"
+          curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "content-type: application/json" \
+            -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":$(printf '%s' "$TEXT" | jq -Rsa .),\"parse_mode\":\"Markdown\",\"disable_notification\":true,\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"Ver run\",\"url\":\"${RUN_URL}\"}]]}}" \
             || echo "::warning::Telegram notification failed"
