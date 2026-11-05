@@ -2,17 +2,38 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCart } from './CartProvider'
 import { formatARS, buildWhatsAppMessage } from '@/lib/utils'
 import { createStoreOrder } from '@/lib/actions/orders'
 import { Trash2, ShoppingBag } from 'lucide-react'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 
 type EntregaType = 'retiro' | 'envio'
 
 export default function CartView() {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart()
+  const router = useRouter()
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart')
+  const [checkingFilamentos, setCheckingFilamentos] = useState(true)
+
+  // Si el carrito de productos está vacío pero el usuario tiene filamentos en
+  // su carrito (otro storage key), redirigir al shop con el drawer abierto para
+  // que no vea "vacío" cuando en realidad SÍ tiene cosas elegidas.
+  useEffect(() => {
+    if (items.length > 0) { setCheckingFilamentos(false); return }
+    try {
+      const raw = localStorage.getItem('ddd_cart_filamentos')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          router.replace('/filamentos?openCart=1')
+          return
+        }
+      }
+    } catch { /* noop */ }
+    setCheckingFilamentos(false)
+  }, [items.length, router])
   const [form, setForm] = useState({
     nombre: '',
     telefono: '',
@@ -24,6 +45,9 @@ export default function CartView() {
   const [isPending, startTransition] = useTransition()
 
   if (items.length === 0 && step !== 'success') {
+    if (checkingFilamentos) {
+      return <div className="py-16 text-center text-sm text-muted-foreground">Cargando tu carrito...</div>
+    }
     return (
       <div className="text-center py-16">
         <ShoppingBag size={40} className="text-muted-foreground mx-auto mb-3" />

@@ -982,6 +982,20 @@ export default function FilamentosShop({
   // Mantener una ref actualizada para que closures (auth listener) usen el valor vigente.
   const localFilamentosRef = useRef(localFilamentos)
   useEffect(() => { localFilamentosRef.current = localFilamentos }, [localFilamentos])
+
+  // Si la URL trae ?openCart=1 (viene del icono del header cuando hay filamentos),
+  // abrimos el drawer y limpiamos el query para que no se reabra al compartir el link.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('openCart') === '1') {
+      setShowCart(true)
+      params.delete('openCart')
+      const q = params.toString()
+      const url = window.location.pathname + (q ? `?${q}` : '') + window.location.hash
+      window.history.replaceState({}, '', url)
+    }
+  }, [])
   const cartRef = useRef(cart)
   useEffect(() => { cartRef.current = cart }, [cart])
 
@@ -1001,7 +1015,8 @@ export default function FilamentosShop({
   useEffect(() => {
     setFilamentCount(cart.reduce((s, i) => s + i.rollos, 0))
   }, [cart, setFilamentCount])
-  useEffect(() => () => setFilamentCount(0), [setFilamentCount])
+  // No reseteamos a 0 en unmount: cuando el usuario navega a /carrito u otra
+  // ruta, el carrito sigue vivo en localStorage/DB y el badge debe reflejarlo.
 
   // Persistir carrito anónimo en localStorage continuamente
   useEffect(() => {
@@ -1856,12 +1871,12 @@ export default function FilamentosShop({
       </div>
 
       {/* ── Botón flotante del carrito ── */}
-      {totalKg > 0 && (
+      {totalKg > 0 && !showCart && !showCheckout && (
         <button
           onClick={abrirCarrito}
           aria-label={`Abrir carrito: ${totalKg} kg, ${fmtARS(subtotal)}`}
-          className="fixed bottom-[env(safe-area-inset-bottom,0px)] mb-5 right-3 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
-          style={{ marginBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}
+          className="fixed right-3 sm:right-4 z-[60] flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
         >
           <ShoppingCart size={16} className="shrink-0" aria-hidden="true" />
           <span className="text-xs sm:text-sm font-bold">{totalKg} kg</span>

@@ -46,6 +46,18 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) setItems(JSON.parse(stored))
     } catch {}
+    // Hidratar contador de filamentos desde su propio storage para que el badge
+    // del header lo muestre incluso cuando estamos fuera de /filamentos.
+    try {
+      const rawFil = localStorage.getItem('ddd_cart_filamentos')
+      if (rawFil) {
+        const parsed = JSON.parse(rawFil)
+        if (Array.isArray(parsed)) {
+          const total = parsed.reduce((s: number, i: { rollos?: number }) => s + (Number(i?.rollos) || 0), 0)
+          if (total > 0) setFilamentCount(total)
+        }
+      }
+    } catch {}
     setHydrated(true)
   }, [])
 

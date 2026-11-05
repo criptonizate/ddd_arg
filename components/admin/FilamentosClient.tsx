@@ -99,9 +99,15 @@ function colorToCss(color: string): string {
   return '#94a3b8'
 }
 
+// Toda la UI de filamentos en admin se maneja en kg (nunca gramos).
+// Valores >= 1 kg se muestran sin decimales si son redondos; < 1 kg con 2 decimales.
 function fmtGr(gr: number): string {
-  if (gr >= 1000) return `${(gr / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg`
-  return `${Math.round(gr).toLocaleString('es-AR')} g`
+  const kg = gr / 1000
+  if (kg >= 1) {
+    const esRedondo = Math.abs(kg - Math.round(kg)) < 0.01
+    return `${kg.toLocaleString('es-AR', { maximumFractionDigits: esRedondo ? 0 : 2 })} kg`
+  }
+  return `${kg.toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg`
 }
 
 function fmtDate(d: string): string {
@@ -211,9 +217,14 @@ function NuevoFilamentoModal({
                 placeholder="0" onChange={(e) => set('rollos_cerrados', Number(e.target.value) || 0)} />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Gramos sueltos</label>
-              <input type="number" min="0" className={inputCls} value={form.gramos_sueltos || ''}
-                placeholder="0" onChange={(e) => set('gramos_sueltos', Number(e.target.value) || 0)} />
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Kg sueltos</label>
+              <input type="number" min="0" step="0.1" className={inputCls}
+                value={form.gramos_sueltos ? (form.gramos_sueltos / 1000) : ''}
+                placeholder="0"
+                onChange={(e) => {
+                  const kg = Number(e.target.value) || 0
+                  set('gramos_sueltos', Math.round(kg * 1000))
+                }} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">g por rollo</label>
@@ -453,7 +464,7 @@ function FilamentoCard({
 
   function handleRegistrarCompra() {
     if (compraForm.rollos <= 0 && compraForm.gramos <= 0) {
-      setCompraError('Ingresá al menos rollos o gramos')
+      setCompraError('Ingresá al menos rollos o kg sueltos')
       return
     }
     setCompraError('')
@@ -504,9 +515,10 @@ function FilamentoCard({
 
   function handleUsoPropioConfirmar() {
     if (submittingRef.current) return
-    const gr = parseFloat(usoPropioGr)
-    if (!gr || gr <= 0) { setUsoPropioError('Ingresá los gramos a descontar'); return }
-    if (gr > totalGr) { setUsoPropioError(`Stock insuficiente (${Math.round(totalGr)}g disponibles)`); return }
+    const kg = parseFloat(usoPropioGr)
+    if (!kg || kg <= 0) { setUsoPropioError('Ingresá los kg a descontar'); return }
+    const gr = Math.round(kg * 1000)
+    if (gr > totalGr) { setUsoPropioError(`Stock insuficiente (${(totalGr / 1000).toFixed(2)} kg disponibles)`); return }
     setUsoPropioError('')
     submittingRef.current = true
     startTransition(async () => {
@@ -731,22 +743,27 @@ function FilamentoCard({
             </div>
           </div>
 
-          {/* Gramos sueltos */}
+          {/* Kg sueltos */}
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-2">
-              Gramos sueltos (rollo abierto o restos)
+              Kg sueltos (rollo abierto o restos)
             </label>
             <div className="flex items-center gap-2">
               <input
-                type="number" min="0"
-                value={gramos}
-                onChange={(e) => setGramos(e.target.value)}
+                type="number" min="0" step="0.01"
+                value={gramos === '' ? '' : (Number(gramos) / 1000).toString()}
+                onChange={(e) => {
+                  const kg = e.target.value
+                  if (kg === '') { setGramos(''); return }
+                  const n = Number(kg)
+                  if (Number.isFinite(n)) setGramos(String(Math.round(n * 1000)))
+                }}
                 onBlur={saveGramos}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                 className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 tabular-nums"
                 placeholder="0"
               />
-              <span className="text-sm text-muted-foreground">g</span>
+              <span className="text-sm text-muted-foreground">kg</span>
             </div>
           </div>
 
@@ -854,14 +871,14 @@ function FilamentoCard({
               {usoPropioError && <p className="text-xs text-red-500">{usoPropioError}</p>}
               <div className="flex items-center gap-2">
                 <input
-                  type="number" min="1" max={totalGr} placeholder="0" autoFocus
+                  type="number" min="0.1" step="0.1" max={totalGr / 1000} placeholder="0" autoFocus
                   value={usoPropioGr}
                   onChange={(e) => setUsoPropioGr(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleUsoPropioConfirmar()}
                   className="w-32 text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
                 />
-                <span className="text-sm text-muted-foreground">g</span>
-                <span className="text-xs text-muted-foreground">(disponible: {fmtGr(totalGr)})</span>
+                <span className="text-sm text-muted-foreground">kg</span>
+                <span className="text-xs text-muted-foreground">(disponible: {(totalGr / 1000).toFixed(2)} kg)</span>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => { setShowUsoPropio(false); setUsoPropioError('') }}
@@ -1112,9 +1129,13 @@ function FilamentoCard({
                     className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Gramos sueltos</label>
-                  <input type="number" min="0" placeholder="0" value={compraForm.gramos || ''}
-                    onChange={(e) => setCompraForm((f) => ({ ...f, gramos: Number(e.target.value) || 0 }))}
+                  <label className="text-xs text-muted-foreground block mb-1">Kg sueltos</label>
+                  <input type="number" min="0" step="0.1" placeholder="0"
+                    value={compraForm.gramos ? (compraForm.gramos / 1000) : ''}
+                    onChange={(e) => {
+                      const kg = Number(e.target.value) || 0
+                      setCompraForm((f) => ({ ...f, gramos: Math.round(kg * 1000) }))
+                    }}
                     className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20" />
                 </div>
                 <div>

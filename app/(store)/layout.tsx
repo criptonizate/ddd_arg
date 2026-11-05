@@ -12,7 +12,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   if (isAnyAdmin(user?.email)) redirect(defaultAdminRoute(user?.email))
 
   return (
-    <div className="store-dark min-h-screen flex flex-col bg-background text-foreground">
+    <div className="store-dark min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden">
       <CartProvider>
         <StoreHeader />
         <main className="flex-1">{children}</main>

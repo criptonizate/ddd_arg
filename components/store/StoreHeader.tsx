@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from './CartProvider'
-import { ShoppingBag, User, LogOut, Package, Menu, X } from 'lucide-react'
+import { ShoppingCart, User, LogOut, Package, Menu, X } from 'lucide-react'
 import { signInWithGoogleCliente, signOutCliente } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -262,15 +262,15 @@ export default function StoreHeader() {
 
             {/* Carrito */}
             <Link
-              href="/carrito"
+              href={filamentCount > 0 ? '/filamentos?openCart=1' : '/carrito'}
               className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
-              aria-label="Carrito"
-              style={{ color: 'oklch(0.55 0.005 264)' }}
+              aria-label={totalCount > 0 ? `Carrito (${totalCount} items)` : 'Carrito'}
+              style={{ color: totalCount > 0 ? '#f97316' : 'oklch(0.55 0.005 264)' }}
             >
-              <ShoppingBag size={19} />
+              <ShoppingCart size={20} strokeWidth={2.25} />
               {totalCount > 0 && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#16a34a] text-white text-[9px] font-black"
+                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#f97316] text-white text-[9px] font-black ring-2 ring-[#1c1c1c]"
                   style={{
                     transform: popping ? 'scale(1.45)' : 'scale(1)',
                     transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
