@@ -196,11 +196,11 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
             <strong className="text-foreground">$1.000 de descuento</strong> en tu próximo pedido de filamentos.
             El descuento se aplica al momento de confirmar el pedido — vos elegís cuántos puntos querés usar.
           </p>
-          <div className="rounded-xl px-4 py-3 text-xs text-muted-foreground space-y-1" style={{ background: 'oklch(0.22 0.01 60)' }}>
-            <p>🪙 <strong className="text-foreground">Comprando</strong> — ganás 10 pts por cada kg de filamento</p>
+          <div className="rounded-xl px-4 py-3 text-xs text-muted-foreground space-y-1.5" style={{ background: 'oklch(0.22 0.01 60)' }}>
+            <p>🪙 <strong className="text-foreground">Comprando</strong> — 10 pts por cada kg · ≈ 15 kg para desbloquear tu primer $1.000</p>
             <p>📅 <strong className="text-foreground">Login diario</strong> — 5 pts por día, con bonos por racha</p>
-            <p>👑 <strong className="text-foreground">Membresía activa</strong> — 50 pts extra por mes</p>
-            <p>✅ <strong className="text-foreground">Perfil completo</strong> — 20 pts al completar tus datos</p>
+            <p>👑 <strong className="text-foreground">Membresía activa</strong> — +50 pts al cerrar cada período de 30 días con la membresía vigente</p>
+            <p>✅ <strong className="text-foreground">Perfil completo</strong> — +20 pts al cargar al menos teléfono, DNI o apodo (una sola vez)</p>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
             ⏳ Los puntos <strong className="text-foreground">vencen a los 12 meses</strong> de ser ganados,

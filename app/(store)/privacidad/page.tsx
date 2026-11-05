@@ -38,7 +38,7 @@ export default function PrivacidadPage() {
               <li>Gestionar y coordinar tus pedidos de filamentos.</li>
               <li>Enviarte notificaciones sobre el estado de tu pedido (por email y/o WhatsApp).</li>
               <li>Avisarte cuando un producto sin stock vuelva a estar disponible (si lo solicitaste).</li>
-              <li>Calcular descuentos por volumen y beneficios de membresía mayorista.</li>
+              <li>Calcular descuentos por cantidad y beneficios de la membresía.</li>
               <li>Mejorar nuestra tienda y atención al cliente.</li>
             </ul>
             <p className="text-muted-foreground mt-3">

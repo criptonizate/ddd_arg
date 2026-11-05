@@ -18,7 +18,7 @@ import CoinsToast from '@/components/store/CoinsToast'
 import InstallPWA from '@/components/store/InstallPWA'
 import TabLink from '@/components/store/TabLink'
 import Link from 'next/link'
-import { Package, Crown, User, Palette } from 'lucide-react'
+import { Package, Crown, User, Palette, Coins } from 'lucide-react'
 
 export const metadata = { title: 'Mi cuenta — DDD ARG' }
 export const dynamic = 'force-dynamic'
@@ -187,7 +187,7 @@ export default async function CuentaPage({
           >
             Membresía
             {membresia?.nivel && (
-              <span className={`hidden sm:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${styles?.badge}`}>
+              <span className={`hidden sm:inline-flex text-xs font-black px-2 py-0.5 rounded-full border ${styles?.badge}`}>
                 {TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji} {membresia.nivel}
               </span>
             )}
@@ -197,7 +197,7 @@ export default async function CuentaPage({
             active={tab === 'coins'}
             activeClasses="border-yellow-500 text-yellow-500"
             inactiveClasses="border-transparent text-muted-foreground hover:text-foreground"
-            icon={<span aria-hidden="true">🪙</span>}
+            icon={<Coins size={16} />}
           >
             Coins
             {saldoCoins > 0 && (
@@ -232,7 +232,7 @@ export default async function CuentaPage({
           email={user.email ?? ''}
           avatarUrl={user.user_metadata?.avatar_url ?? null}
           profile={profile}
-          fechaRegistroISO={user.created_at ?? new Date().toISOString()}
+          fechaRegistroISO={user.created_at ?? ''}
           nivelMembresia={membresia?.nivel ?? null}
           nivelEmoji={membresia?.nivel ? (TIERS_MEMBRESIA.find(t => t.label === membresia.nivel)?.emoji ?? null) : null}
         />

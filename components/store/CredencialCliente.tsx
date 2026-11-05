@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Camera, X, Loader2 } from 'lucide-react'
 import { uploadMyAvatar, removeMyAvatar } from '@/lib/actions/perfil'
 
@@ -64,10 +64,33 @@ export default function CredencialCliente({
   const [imgError, setImgError] = useState(false)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
+  // Flag optimistic para que al tocar "quitar foto" la UI se actualice al toque
+  // (sin esperar al revalidatePath del servidor, que tarda en 3G).
+  const [removed, setRemoved] = useState(false)
 
-  const avatarActual = preview ?? avatarCustom ?? avatarGoogle
-  const tieneCustom = !!avatarCustom
+  // Si el usuario acaba de tocar "quitar" (removed=true) ignoramos la custom
+  // aunque todavía venga por props (la revalidación tarda en red lenta).
+  const avatarActual = preview ?? (removed ? null : avatarCustom) ?? avatarGoogle
+  const tieneCustom = !!avatarCustom && !removed
   const inicial = (nombre?.trim()?.[0] ?? '?').toUpperCase()
+
+  // Reset local flags cuando llegan nuevos props (upload exitoso revalida).
+  // Evita que `removed=true` quede pegado tras un refresh.
+  const avatarCustomPrev = useRef(avatarCustom)
+  if (avatarCustomPrev.current !== avatarCustom) {
+    avatarCustomPrev.current = avatarCustom
+    if (removed && !avatarCustom) setRemoved(false)
+    if (preview && avatarCustom) setPreview(null)
+  }
+
+  // Después de 5 s de upload activo mostramos "Subiendo foto… (red lenta)"
+  // para que el usuario en 3G sepa que seguimos vivos.
+  const [slowUpload, setSlowUpload] = useState(false)
+  useEffect(() => {
+    if (!isPending) { setSlowUpload(false); return }
+    const t = setTimeout(() => setSlowUpload(true), 5000)
+    return () => clearTimeout(t)
+  }, [isPending])
 
   function abrirFilePicker() {
     fileInputRef.current?.click()
@@ -76,6 +99,7 @@ export default function CredencialCliente({
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (isPending) return   // defensa doble: el input ya está disabled, pero...
     setError('')
     // Preview inmediato para que el usuario vea que tocó bien.
     const reader = new FileReader()
@@ -85,30 +109,43 @@ export default function CredencialCliente({
     const fd = new FormData()
     fd.append('file', file)
     startTransition(async () => {
-      const result = await uploadMyAvatar(fd)
+      // Timeout: 45 s para redes muy lentas (3G). Si pasa, rechazamos con
+      // mensaje claro y dejamos al user volver a intentar.
+      const timeout = new Promise<{ error: string }>(res =>
+        setTimeout(() => res({ error: 'La red está muy lenta. Intentá de nuevo con mejor señal.' }), 45_000)
+      )
+      const result = await Promise.race([uploadMyAvatar(fd), timeout])
       if (result.error) {
         setError(result.error)
         setPreview(null)
       }
-      // Si fue exitoso, revalidatePath('/cuenta') refresca y avatarCustom
-      // llega por props con la URL final.
     })
-    // Reset del input para poder re-subir la misma imagen si quiere.
     e.target.value = ''
   }
 
+  // Confirmación antes de borrar: un tap accidental en el ❌ chico borraba
+  // la foto sin preguntar. Pedimos confirm nativo (simple y accesible).
   function quitarFoto() {
+    if (isPending) return
+    if (typeof window !== 'undefined' && !window.confirm('¿Volver a la foto de Google? Esto elimina la foto que subiste.')) {
+      return
+    }
     setError('')
     setPreview(null)
+    setRemoved(true)      // Optimistic: la UI deja de mostrar la custom al toque
     startTransition(async () => {
       const result = await removeMyAvatar()
-      if (result.error) setError(result.error)
+      if (result.error) {
+        setRemoved(false)
+        setError(result.error)
+      }
     })
   }
 
   return (
+    <>
     <div
-      className="relative rounded-2xl overflow-hidden shadow-xl"
+      className="relative rounded-2xl overflow-hidden shadow-xl w-full"
       style={{
         background: 'linear-gradient(135deg, #15803d 0%, #166534 45%, #14532d 100%)',
         border: '1px solid rgba(255,255,255,0.12)',
@@ -160,8 +197,10 @@ export default function CredencialCliente({
         }}
       />
 
-      {/* Cuerpo: avatar + datos */}
-      <div className="relative px-5 pt-14 pb-3 flex items-end gap-4">
+      {/* Cuerpo: avatar + datos. Responsive: avatar crece de 16 (mobile) a
+          20 (tablet+) para que la credencial se vea proporcional en dispositivos
+          grandes. */}
+      <div className="relative px-5 pt-14 pb-3 flex items-end gap-3 sm:gap-4">
         {/* Avatar clickeable */}
         <div className="relative shrink-0">
           <button
@@ -169,7 +208,8 @@ export default function CredencialCliente({
             onClick={abrirFilePicker}
             disabled={isPending}
             aria-label="Cambiar foto de perfil"
-            className="relative w-16 h-16 rounded-full overflow-hidden shadow-lg transition-transform active:scale-95 disabled:cursor-wait"
+            aria-busy={isPending}
+            className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-lg transition-transform active:scale-95 disabled:cursor-wait focus:outline-none focus:ring-2 focus:ring-white/80"
             style={{ border: '2px solid rgba(255,255,255,0.65)' }}
           >
             {avatarActual && !imgError ? (
@@ -183,77 +223,97 @@ export default function CredencialCliente({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
-                <span className="text-2xl font-black text-white">{inicial}</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">{inicial}</span>
               </div>
             )}
-            {/* Overlay "cámara" al hover */}
+            {/* Overlay "cámara" SIEMPRE visible al 25% en mobile (no hay hover)
+                y al 0%/100% con hover en desktop. Acompañado del chip debajo
+                para que no haya duda de que la foto es tocable. */}
             <span
-              className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+              className="absolute inset-0 flex items-center justify-center opacity-25 sm:opacity-0 sm:hover:opacity-100 transition-opacity"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
             >
-              {isPending ? <Loader2 size={18} className="text-white animate-spin" /> : <Camera size={18} className="text-white" />}
+              {isPending ? <Loader2 size={20} className="text-white animate-spin" /> : <Camera size={20} className="text-white" />}
             </span>
           </button>
-          {/* Botón X para quitar la foto custom — solo visible si hay una */}
+          {/* Botón X para quitar la foto custom — 44×44 con hit area + confirm */}
           {tieneCustom && !isPending && (
             <button
               type="button"
               onClick={quitarFoto}
               aria-label="Volver a la foto de Google"
-              className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow transition-transform active:scale-90"
-              style={{ backgroundColor: '#dc2626', color: 'white', border: '2px solid white' }}
+              className="absolute -top-2 -right-2 w-11 h-11 rounded-full flex items-center justify-center shadow transition-transform active:scale-90 focus:outline-none focus:ring-2 focus:ring-red-400"
+              style={{ backgroundColor: 'transparent' }}
             >
-              <X size={11} />
+              <span
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: '#dc2626', color: 'white', border: '2px solid white' }}
+                aria-hidden="true"
+              >
+                <X size={14} />
+              </span>
             </button>
           )}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={isPending}
             className="hidden"
             onChange={onFileChange}
           />
+          {/* Chip debajo del avatar que deja claro que es tocable */}
+          <p className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: 'rgba(255,255,255,0.9)' }}>
+            {isPending ? (slowUpload ? 'subiendo… (red lenta)' : 'subiendo…') : '✎ cambiar foto'}
+          </p>
         </div>
 
         {/* Nombre + info textual */}
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(240,253,244,0.55)' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(240,253,244,0.55)' }}>
             Titular
           </p>
-          <p className="font-black text-base sm:text-lg leading-tight truncate" style={{ color: '#f0fdf4' }}>
+          <p className="font-black text-base sm:text-lg md:text-xl leading-tight truncate" style={{ color: '#f0fdf4' }}>
             {nombre}
           </p>
-          <p className="text-[10px] truncate" style={{ color: 'rgba(240,253,244,0.7)' }}>
+          <p className="text-xs sm:text-sm truncate" style={{ color: 'rgba(240,253,244,0.75)' }}>
             {email}
           </p>
         </div>
       </div>
 
-      {/* Footer: N° + fecha registro + extras */}
+      {/* Footer: N° + fecha registro + extras — tamaños responsivos.
+          Si no hay fecha de registro válida, omitimos la línea en lugar de
+          inventar la fecha de hoy (el detallista notaría el truco). */}
       <div
         className="relative px-5 py-3 flex items-end justify-between gap-3"
         style={{ backgroundColor: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(240,253,244,0.55)' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(240,253,244,0.55)' }}>
             N° cliente
           </p>
-          <p className="font-black text-xl sm:text-2xl tabular-nums leading-none" style={{ color: '#f0fdf4', letterSpacing: '0.08em' }}>
+          <p className="font-black text-xl sm:text-2xl md:text-3xl tabular-nums leading-none" style={{ color: '#f0fdf4', letterSpacing: '0.08em' }}>
             {numeroCliente != null ? String(numeroCliente).padStart(5, '0') : '—'}
           </p>
         </div>
-        <div className="text-right text-[10px] leading-snug" style={{ color: 'rgba(240,253,244,0.7)' }}>
-          <p>Desde <strong style={{ color: '#f0fdf4' }}>{fmtFecha(fechaRegistroISO)}</strong></p>
+        <div className="text-right text-xs sm:text-sm leading-snug" style={{ color: 'rgba(240,253,244,0.75)' }}>
+          {fechaRegistroISO && (
+            <p>Desde <strong style={{ color: '#f0fdf4' }}>{fmtFecha(fechaRegistroISO)}</strong></p>
+          )}
           {fmtTel(telefono) && <p>Tel: <strong style={{ color: '#f0fdf4' }}>{fmtTel(telefono)}</strong></p>}
           {fmtDni(dni) && <p>DNI: <strong style={{ color: '#f0fdf4' }}>{fmtDni(dni)}</strong></p>}
         </div>
       </div>
-
-      {error && (
-        <p role="alert" className="absolute bottom-1 left-5 right-5 text-[11px] font-semibold text-red-200">
-          {error}
-        </p>
-      )}
     </div>
+
+    {/* Error de upload: FUERA de la credencial, legible, con tamaño real.
+        Antes estaba encima del footer de la credencial y era ilegible. */}
+    {error && (
+      <p role="alert" className="mt-2 text-sm font-bold text-red-500 text-center">
+        ⚠️ {error}
+      </p>
+    )}
+    </>
   )
 }

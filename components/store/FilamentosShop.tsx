@@ -176,7 +176,7 @@ function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => v
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { icon: '📦', text: 'Ver y repetir pedidos' },
-              { icon: '🪙', text: 'Puntos que no caducan' },
+              { icon: '🪙', text: 'Puntos válidos 12 meses' },
               { icon: '💰', text: 'Descuento por cantidad' },
             ].map((b, i) => (
               <div key={i} className="bg-secondary/60 rounded-xl p-3">
@@ -404,12 +404,13 @@ function Lightbox({ fotos, startIdx, onClose, managesHistory = true }: { fotos: 
 // ── Card del grupo (marca + material) ─────────────────────────────────────────
 
 function FilamentoGrupoCard({
-  grupo, cart, onOpen, onAddColor,
+  grupo, cart, onOpen, onAddColor, addCooldown,
 }: {
   grupo: { marca: string; material: string; filamentos: Filamento[] }
   cart: CartItem[]
   onOpen: () => void
   onAddColor: (f: Filamento) => void
+  addCooldown: Set<string>
 }) {
   // Representativo: el primer color con stock y con foto. Fallback: primero del grupo.
   const conFoto = grupo.filamentos.find(f => (f.imagen_url || f.imagen_url_2 || f.imagen_url_3) && maxKg(f) > 0)
@@ -511,6 +512,7 @@ function FilamentoGrupoCard({
         <div className="flex items-center gap-1 flex-wrap">
           {swatches.map(f => {
             const sinStock = maxKg(f) <= 0
+            const enCooldown = addCooldown.has(f.id)
             return (
               <button
                 key={f.id}
@@ -518,7 +520,8 @@ function FilamentoGrupoCard({
                 onClick={(e) => { e.stopPropagation(); if (!sinStock) onAddColor(f) }}
                 disabled={sinStock}
                 aria-label={sinStock ? `${colorEnEs(f.color)} — sin stock` : `Agregar 1 kg de ${colorEnEs(f.color)}`}
-                className={`group relative w-10 h-10 rounded-full border border-black/20 flex items-center justify-center text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-400 ${sinStock ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                aria-busy={enCooldown}
+                className={`group relative w-10 h-10 rounded-full border border-black/20 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-400 ${sinStock ? 'opacity-30 cursor-not-allowed' : enCooldown ? 'opacity-70 scale-90' : 'cursor-pointer'}`}
                 style={{ backgroundColor: colorToCss(f.color) }}
                 title={sinStock ? `${colorEnEs(f.color)} — sin stock` : `+1 kg ${colorEnEs(f.color)}`}
               >
@@ -1621,11 +1624,13 @@ export default function FilamentosShop({
       }
       return [...prev, { filamento: f, rollos: 1 }]
     })
-    // Feedback táctil: toast 2s.
+    // Feedback táctil: toast 1.5s. Si el usuario suma rápido al mismo color,
+    // actualizamos el mismo toast con la cantidad total (en vez de amontonar).
     const label = colorEnEs(f.color).split(' · ')[0]
-    setAddToast(`✓ Agregado: 1 kg ${label}`)
+    const totalEnCart = (cart.find(i => i.filamento.id === f.id)?.rollos ?? 0) + 1
+    setAddToast(totalEnCart > 1 ? `✓ ${totalEnCart} kg ${label}` : `✓ Agregado: 1 kg ${label}`)
     if (addToastTimerRef.current) clearTimeout(addToastTimerRef.current)
-    addToastTimerRef.current = setTimeout(() => setAddToast(null), 2000)
+    addToastTimerRef.current = setTimeout(() => setAddToast(null), 1500)
     // Feedback visual: el id queda en cooldown 350 ms (misma ventana que el
     // throttle). El botón/swatch puede leer `addCooldown.has(f.id)` para
     // bajarse la opacidad brevemente — así el usuario sabe que el tap llegó.
@@ -1736,7 +1741,7 @@ export default function FilamentosShop({
       ...itemLines,
       ``,
       `*Total: ${fmtARS(snap.subtotal)}*`,
-      snap.descuento > 0 ? `Descuento mayorista aplicado: -${fmtARS(snap.descuento)}/kg` : null,
+      snap.descuento > 0 ? `Descuento por volumen aplicado: -${fmtARS(snap.descuento)}/kg` : null,
       ``,
       `Quedo esperando confirmacion para coordinar el pago y la entrega.`,
     ].filter(Boolean).join('\n')
@@ -1746,6 +1751,10 @@ export default function FilamentosShop({
   // Primer tap del botón "Hacer el pedido": validamos y pasamos al paso de
   // confirmación con el resumen en grande (pensado para la abuela y para
   // cualquiera que quiera un último "¿estás seguro?" antes de enviar la RPC).
+  //
+  // Para pedidos simples de usuarios logueados (sin coins, <5 kg) saltamos
+  // el confirm: el apurado ya revisó el total en el drawer; otro paso solo
+  // repite la info y se siente redundante.
   function handleRevisarPedido() {
     if (!clienteNombre.trim()) { setCheckoutError('Tu nombre es requerido'); return }
     if (!user && !clienteTelefono.trim()) {
@@ -1753,7 +1762,12 @@ export default function FilamentosShop({
       return
     }
     setCheckoutError('')
-    setCheckoutStep('confirm')
+    const esSimple = !!user && totalKg < 5 && puntosACanjear === 0
+    if (esSimple) {
+      handleConfirmarPedido()
+    } else {
+      setCheckoutStep('confirm')
+    }
   }
 
   function handleConfirmarPedido() {
@@ -2120,7 +2134,7 @@ export default function FilamentosShop({
                 {normales.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {normales.map(g => (
-                      <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} />
+                      <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} addCooldown={addCooldown} />
                     ))}
                   </div>
                 )}
@@ -2136,7 +2150,7 @@ export default function FilamentosShop({
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                       {especiales.map(g => (
-                        <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} />
+                        <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} addCooldown={addCooldown} />
                       ))}
                     </div>
                   </div>
@@ -2346,7 +2360,7 @@ export default function FilamentosShop({
                       </span>
                     </div>
                     <button
-                      onClick={() => { setShowCart(false); abrirCheckout() }}
+                      onClick={() => { abrirCheckout(); setShowCart(false) }}
                       disabled={hayProblemas}
                       className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-secondary disabled:text-muted-foreground text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors disabled:cursor-not-allowed"
                     >
@@ -2397,8 +2411,8 @@ export default function FilamentosShop({
                         <span>{fmtARS(subtotal)}</span>
                       </div>
                       {descuento > 0 && (
-                        <p className="text-[10px] text-green-600 dark:text-green-400 flex justify-between">
-                          <span>Membresía {descLabel}</span>
+                        <p className="text-xs text-green-600 dark:text-green-400 flex justify-between">
+                          <span>{membresia?.esTrial ? 'Prueba Plata (5 días)' : `Membresía ${descLabel}`}</span>
                           <span>-{fmtARS(descuento)}/kg incluido</span>
                         </p>
                       )}
@@ -2424,7 +2438,11 @@ export default function FilamentosShop({
                     <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-xl"
                       style={{ backgroundColor: 'oklch(0.22 0.04 145)', border: '1px solid #166534', color: '#4ade80' }}>
                       <span aria-hidden="true">🏆</span>
-                      <span>Descuento de <strong>−{fmtARS(descuento)}/kg</strong> aplicado</span>
+                      <span>
+                        {membresia?.esTrial
+                          ? <>Prueba gratuita — <strong>−{fmtARS(descuento)}/kg</strong> aplicado (5 días)</>
+                          : <>Descuento de <strong>−{fmtARS(descuento)}/kg</strong> aplicado</>}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -2646,23 +2664,26 @@ export default function FilamentosShop({
                       >
                         <div className="text-center space-y-1">
                           <p className="text-sm font-semibold text-muted-foreground">¿Confirmás este pedido?</p>
-                          <p className="text-2xl font-black leading-tight">
+                          <p className="text-2xl sm:text-3xl font-black leading-tight">
                             {totalKg} kg · {fmtARS(Math.max(0, subtotal - (puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE))}
                           </p>
                           <p className="text-xs text-muted-foreground">Te contactamos por WhatsApp para coordinar.</p>
                         </div>
-                        <div className="grid grid-cols-5 gap-2">
+                        {/* Mobile: Sí ARRIBA grande + Volver abajo chico.
+                            Tablet/desktop: lado a lado (grid-cols-5) con el Sí
+                            dominante a la derecha. */}
+                        <div className="flex flex-col-reverse sm:grid sm:grid-cols-5 gap-2">
                           <button
                             type="button"
                             onClick={() => setCheckoutStep('form')}
-                            className="col-span-2 rounded-xl py-3 text-sm font-bold border border-border hover:bg-secondary"
+                            className="sm:col-span-2 rounded-xl py-3 text-sm font-semibold border border-border hover:bg-secondary active:scale-[0.98]"
                           >
                             ← Volver
                           </button>
                           <button
                             type="button"
                             onClick={handleConfirmarPedido}
-                            className="col-span-3 rounded-xl py-3 text-base font-black bg-orange-500 hover:bg-orange-600 text-white shadow-sm"
+                            className="sm:col-span-3 rounded-xl py-4 sm:py-3 text-base sm:text-base font-black bg-orange-500 hover:bg-orange-600 text-white shadow-sm active:scale-[0.98] min-h-[52px]"
                           >
                             Sí, hacer el pedido
                           </button>

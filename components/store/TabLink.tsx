@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useLinkStatus } from 'next/link'
 import { Loader2 } from 'lucide-react'
@@ -20,12 +21,24 @@ function TabLinkContent({
   inactiveClasses: string
 }) {
   const { pending } = useLinkStatus()
+  // Tras 4 s de pending seguimos considerando que la red está lenta (3G, etc)
+  // y damos un hint al lector de pantalla para que no quede en silencio.
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!pending) { setSlow(false); return }
+    const t = setTimeout(() => setSlow(true), 4000)
+    return () => clearTimeout(t)
+  }, [pending])
+
   return (
     <span
       className={`shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 -mb-px min-h-[48px] whitespace-nowrap transition-all active:scale-95 ${pending ? 'opacity-60' : 'opacity-100'} ${activeClasses || inactiveClasses}`}
+      aria-live={slow ? 'polite' : undefined}
+      title={slow ? 'Cargando… la red está lenta' : undefined}
     >
       {pending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : icon}
       {children}
+      {slow && <span className="sr-only">Cargando, la red está lenta</span>}
     </span>
   )
 }

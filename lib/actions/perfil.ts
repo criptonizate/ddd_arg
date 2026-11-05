@@ -78,12 +78,11 @@ export async function uploadMyAvatar(formData: FormData): Promise<{ url?: string
 
   const db = createServiceClient()
 
-  // Limpiamos avatares viejos del usuario — así el bucket no se infla.
-  const { data: oldList } = await db.storage.from('avatars').list(user.id, { limit: 100 })
-  if (oldList?.length) {
-    const paths = oldList.map((o: { name: string }) => `${user.id}/${o.name}`)
-    await db.storage.from('avatars').remove(paths).catch(() => { /* noop */ })
-  }
+  // Primero listamos los avatares viejos pero NO los borramos todavía — si
+  // borramos antes de subir el nuevo y la red cae en el medio, el usuario
+  // queda sin foto. El cleanup corre DESPUÉS del upload exitoso y, si falla,
+  // no bloquea el flow (quedan huérfanos recuperables por un cron).
+  const { data: oldList } = await db.storage.from('avatars').list(user.id, { limit: 100 }).catch(() => ({ data: null as { name: string }[] | null }))
 
   const ext = file.type === 'image/png' ? 'png'
     : file.type === 'image/webp' ? 'webp'
@@ -106,6 +105,21 @@ export async function uploadMyAvatar(formData: FormData): Promise<{ url?: string
     .from('user_profiles')
     .upsert({ user_id: user.id, avatar_url: urlWithVersion, updated_at: new Date().toISOString() })
   if (profErr) return { error: profErr.message }
+
+  // Cleanup DESPUÉS: borramos todo lo que no sea el archivo recién subido.
+  // Si falla, el upload ya se completó y el user queda feliz; los huérfanos
+  // no afectan la UI y pueden limpiarse de otra manera.
+  if (oldList?.length) {
+    const nuevoNombre = path.split('/')[1]
+    const paths = oldList
+      .filter((o: { name: string }) => o.name !== nuevoNombre)
+      .map((o: { name: string }) => `${user.id}/${o.name}`)
+    if (paths.length) {
+      await db.storage.from('avatars').remove(paths).catch((err: unknown) => {
+        console.warn('avatar cleanup failed (non-fatal):', err)
+      })
+    }
+  }
 
   revalidatePath('/cuenta')
   return { url: urlWithVersion }
