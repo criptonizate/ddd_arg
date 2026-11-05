@@ -1517,7 +1517,15 @@ function VentaGlobalModal({
   const totalKgVenta = items.reduce((s, i) => s + (i.kg || 0), 0)
   const kgMesTotal = (clienteKgMes ?? 0) + totalKgVenta
   const tier = tierPrecio(kgMesTotal)
-  const precioKg = precioOverride ?? tier
+  // Descuento por volumen: base PLA común = 22000; el "tier" es el precio PLA con descuento aplicado.
+  // Ese mismo descuento se aplica al precio_kg individual de CADA filamento (ej: SILK 26500 → 26500 - desc).
+  const descuentoVolumen = Math.max(0, 22000 - tier)
+  function precioParaItem(filId: string): number {
+    if (precioOverride !== null) return precioOverride
+    const f = filamentos.find(x => x.id === filId)
+    const base = f?.precio_kg ?? 22000
+    return Math.max(0, base - descuentoVolumen)
+  }
 
   async function onClienteSelect(c: ClienteBasic) {
     setClienteId(c.id)
@@ -1577,7 +1585,7 @@ function VentaGlobalModal({
       for (const item of validos) {
         const res = await registrarVentaFilamento(item.filamentoId, {
           gramos: item.kg * 1000,
-          precio_kg: precioKg,
+          precio_kg: precioParaItem(item.filamentoId),
           costo_kg: filamentos.find(f => f.id === item.filamentoId)?.costo_kg ?? 0,
           cliente: clienteNombre,
           cliente_id: clienteId,
@@ -1590,7 +1598,7 @@ function VentaGlobalModal({
     })
   }
 
-  const totalVenta = totalKgVenta * precioKg
+  const totalVenta = items.reduce((s, i) => s + (i.kg || 0) * (i.filamentoId ? precioParaItem(i.filamentoId) : 0), 0)
   const totalCosto = items.reduce((s, i) => {
     const f = filamentos.find(f => f.id === i.filamentoId)
     return s + (f?.costo_kg ?? 0) * i.kg
@@ -1757,20 +1765,41 @@ function VentaGlobalModal({
           {clienteId && clienteKgMes !== null && totalKgVenta > 0 && (
             <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2.5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Precio por escala mensual</p>
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Descuento por escala mensual</p>
                 <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">
                   {clienteKgMes.toFixed(0)} kg previos + {totalKgVenta} kg = {kgMesTotal.toFixed(0)} kg
                 </span>
               </div>
               <div className="flex gap-1.5 flex-wrap">
-                {[...PRECIO_TIERS].map(t => (
-                  <span key={t.min} className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
-                    tier === t.precio ? 'bg-blue-600 text-white border-blue-600' : 'text-muted-foreground border-border'
-                  }`}>
-                    {t.min === 0 ? '<5' : `${t.min}+`} kg → ${(t.precio / 1000).toFixed(0)}k
-                  </span>
-                ))}
+                {[...PRECIO_TIERS].map(t => {
+                  const desc = Math.max(0, 22000 - t.precio)
+                  return (
+                    <span key={t.min} className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
+                      tier === t.precio ? 'bg-blue-600 text-white border-blue-600' : 'text-muted-foreground border-border'
+                    }`}>
+                      {t.min === 0 ? '<5' : `${t.min}+`} kg → {desc === 0 ? 's/desc.' : `−$${(desc / 1000).toFixed(0)}k/kg`}
+                    </span>
+                  )
+                })}
               </div>
+              {precioOverride === null && items.some(i => i.filamentoId) && (
+                <div className="pt-1 border-t border-blue-200 dark:border-blue-800 space-y-0.5">
+                  {items.filter(i => i.filamentoId).map((i, idx) => {
+                    const f = filamentos.find(x => x.id === i.filamentoId)
+                    if (!f) return null
+                    const base = f.precio_kg ?? 22000
+                    const precio = precioParaItem(i.filamentoId)
+                    return (
+                      <p key={idx} className="text-[10px] font-mono text-blue-700 dark:text-blue-300 flex justify-between gap-2">
+                        <span className="truncate">{f.color} {shortNombre(f.nombre)}</span>
+                        <span className="shrink-0">
+                          ${(base / 1000).toFixed(1)}k {descuentoVolumen > 0 ? `− $${(descuentoVolumen / 1000).toFixed(0)}k` : ''} = <strong>${(precio / 1000).toFixed(1)}k/kg</strong>
+                        </span>
+                      </p>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1790,7 +1819,9 @@ function VentaGlobalModal({
             </div>
             {totalKgVenta > 0 && (
               <div className="bg-secondary/40 rounded-lg p-2.5 space-y-0.5 text-right">
-                <p className="text-[10px] text-muted-foreground">{totalKgVenta} kg · ${(precioKg / 1000).toFixed(0)}k/kg</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {totalKgVenta} kg · prom. ${((totalVenta / totalKgVenta) / 1000).toFixed(1)}k/kg
+                </p>
                 <p className="text-sm font-bold">{fmtARS(totalVenta)}</p>
                 <p className="text-[10px] text-green-600 dark:text-green-400">
                   Ganancia {fmtARS(totalVenta - totalCosto)}
@@ -1829,7 +1860,9 @@ function VentaGlobalModal({
                   }}
                   className="w-28 text-sm border border-orange-300 dark:border-orange-700 rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-400/40"
                 />
-                <span className="text-[10px] text-muted-foreground">(normal: ${(tier / 1000).toFixed(0)}k)</span>
+                <span className="text-[10px] text-muted-foreground">
+                  (reemplaza precio + descuento por filamento)
+                </span>
               </div>
             )}
           </div>
