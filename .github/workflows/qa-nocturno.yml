@@ -1,0 +1,62 @@
+name: QA nocturno (E2E Playwright)
+
+# Corre todos los días a las 03:00 UTC = 00:00 de Argentina sobre producción.
+# También se puede disparar manualmente desde la pestaña Actions de GitHub.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL contra la que correr los tests'
+        required: false
+        default: 'https://ddd-arg.vercel.app'
+
+jobs:
+  e2e:
+    name: E2E ${{ matrix.project }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, tablet, mobile]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run tests (${{ matrix.project }})
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://ddd-arg.vercel.app' }}
+          CI: '1'
+        run: npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload trace & videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.project }}
+          path: test-results/
+          retention-days: 7
