@@ -37,6 +37,42 @@ function getDescuento(total: number) {
   return DESCUENTOS.find(t => total >= t.min) ?? { descuento: 0, label: '' }
 }
 
+// Traducción de nombres de color (EN → ES) para que la abuela, el niño y el
+// comprador apurado vean algo que entienden. Si el color ya trae texto en
+// español, se deja pasar. Devuelve: "Rojo · Berry Red" cuando hay match y el
+// nombre crudo si no reconocemos ninguna palabra clave.
+const COLOR_ES: { keys: string[]; es: string }[] = [
+  { keys: ['black'],                                                 es: 'Negro' },
+  { keys: ['white'],                                                 es: 'Blanco' },
+  { keys: ['grey', 'gray'],                                          es: 'Gris' },
+  { keys: ['vermilion', 'ruby'],                                     es: 'Bermellón' },
+  { keys: ['berry', 'red'],                                          es: 'Rojo' },
+  { keys: ['blue'],                                                  es: 'Azul' },
+  { keys: ['teal'],                                                  es: 'Verde agua' },
+  { keys: ['olive'],                                                 es: 'Verde oliva' },
+  { keys: ['green'],                                                 es: 'Verde' },
+  { keys: ['yellow', 'sunshine'],                                    es: 'Amarillo' },
+  { keys: ['orange'],                                                es: 'Naranja' },
+  { keys: ['taro', 'purple', 'violet'],                              es: 'Violeta' },
+  { keys: ['pink'],                                                  es: 'Rosa' },
+  { keys: ['brown', 'madera'],                                       es: 'Marrón' },
+  { keys: ['gold'],                                                  es: 'Dorado' },
+  { keys: ['silver'],                                                es: 'Plateado' },
+]
+
+function colorEnEs(color: string): string {
+  const c = color.toLowerCase()
+  // Si ya tiene palabra en español, no tocamos.
+  const yaES = /negro|blanco|gris|rojo|azul|verde|amarillo|naranja|violeta|rosa|marrón|marron|dorado|plateado|bermell/i.test(color)
+  if (yaES) return color
+  const match = COLOR_ES.find(m => m.keys.some(k => c.includes(k)))
+  if (!match) return color
+  // Si el nombre original es solo la keyword (ej. "Gold"), mostramos solo el ES.
+  // Si es un nombre más largo (ej. "Berry Red"), mostramos "Rojo · Berry Red".
+  const soloKeyword = match.keys.some(k => c.trim() === k)
+  return soloKeyword ? match.es : `${match.es} · ${color}`
+}
+
 function colorToCss(color: string): string {
   const c = color.toLowerCase()
   if (c.includes('black'))                            return '#1a1a1a'
@@ -57,8 +93,21 @@ function colorToCss(color: string): string {
   return '#94a3b8'
 }
 
-function imgUrl(url: string, _width?: number, _quality?: number): string {
-  return url
+// Si la URL apunta a Supabase storage, añadimos params de resize/quality para
+// servir una versión optimizada (importante en 3G). Para otros hosts, pasamos
+// la URL tal cual.
+function imgUrl(url: string, width?: number, quality?: number): string {
+  if (!url) return url
+  if (!width && !quality) return url
+  const esSupabase = /\/storage\/v1\/object\//.test(url)
+  if (!esSupabase) return url
+  // Supabase Image Transformation: /render/image/public/... o params ?width=&quality=
+  const render = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+  const sep = render.includes('?') ? '&' : '?'
+  const params: string[] = []
+  if (width) params.push(`width=${Math.round(width)}`)
+  if (quality) params.push(`quality=${Math.round(quality)}`)
+  return render + sep + params.join('&')
 }
 
 function shortNombre(nombre: string): string {
@@ -119,20 +168,20 @@ function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => v
             <div className="text-4xl mb-3" aria-hidden="true">🔒</div>
             <h2 id="auth-modal-title" className="text-lg font-bold mb-2">Ingresá para hacer tu pedido</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Necesitamos tu cuenta para que puedas ver el estado de tu pedido, historial de compras y acceder a{' '}
-              <span className="font-semibold text-orange-600 dark:text-orange-400">precios mayoristas</span> exclusivos.
+              Con tu cuenta podés ver tus pedidos anteriores, repetirlos con un toque y acceder a{' '}
+              <span className="font-semibold text-orange-600 dark:text-orange-400">precios mayoristas</span> desde 5 kg/mes.
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { icon: '📦', text: 'Estado del pedido en tiempo real' },
-              { icon: '📋', text: 'Historial de compras' },
-              { icon: '💰', text: 'Precios mayoristas exclusivos' },
+              { icon: '📦', text: 'Ver y repetir pedidos anteriores' },
+              { icon: '🪙', text: 'Ganás puntos que no caducan' },
+              { icon: '💰', text: 'Mayorista desde 5 kg/mes' },
             ].map((b, i) => (
               <div key={i} className="bg-secondary/60 rounded-xl p-3">
                 <div className="text-2xl mb-1">{b.icon}</div>
-                <p className="text-[10px] text-muted-foreground leading-tight">{b.text}</p>
+                <p className="text-xs text-muted-foreground leading-tight">{b.text}</p>
               </div>
             ))}
           </div>
@@ -344,11 +393,12 @@ function Lightbox({ fotos, startIdx, onClose, managesHistory = true }: { fotos: 
 // ── Card del grupo (marca + material) ─────────────────────────────────────────
 
 function FilamentoGrupoCard({
-  grupo, cart, onOpen,
+  grupo, cart, onOpen, onAddColor,
 }: {
   grupo: { marca: string; material: string; filamentos: Filamento[] }
   cart: CartItem[]
   onOpen: () => void
+  onAddColor: (f: Filamento) => void
 }) {
   // Representativo: el primer color con stock y con foto. Fallback: primero del grupo.
   const conFoto = grupo.filamentos.find(f => (f.imagen_url || f.imagen_url_2 || f.imagen_url_3) && maxKg(f) > 0)
@@ -377,11 +427,17 @@ function FilamentoGrupoCard({
     ? fmtARS(precioMin)
     : `desde ${fmtARS(precioMin)}`
 
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className={`text-left rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border focus:outline-none focus:ring-2 focus:ring-orange-400 ${kgEnCart > 0 ? 'ring-1' : ''}`}
+      onKeyDown={handleKey}
+      className={`cursor-pointer text-left rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border focus:outline-none focus:ring-2 focus:ring-orange-400 ${kgEnCart > 0 ? 'ring-1' : ''}`}
       style={{
         backgroundColor: 'oklch(0.26 0.005 264)',
         borderColor: kgEnCart > 0 ? '#15803d' : 'oklch(1 0 0 / 10%)',
@@ -395,7 +451,14 @@ function FilamentoGrupoCard({
       >
         {foto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={foto} alt={`${grupo.marca} ${grupo.material}`} className="absolute inset-0 w-full h-full object-cover" />
+          <img
+            src={imgUrl(foto, 400, 70)}
+            alt={`${grupo.marca} ${grupo.material}`}
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { (e.target as HTMLImageElement).src = foto }}
+          />
         ) : (
           <span className="w-16 h-16 rounded-full border-4 border-white/30" style={{ backgroundColor: cssRepr }} />
         )}
@@ -419,7 +482,7 @@ function FilamentoGrupoCard({
 
         {/* Material badge arriba izq */}
         <span
-          className="absolute top-2.5 left-2.5 text-[10px] font-black px-2 py-0.5 rounded-full"
+          className="absolute top-2.5 left-2.5 text-xs font-black px-2 py-0.5 rounded-full"
           style={{ backgroundColor: MAT_COLORS[grupo.material] ?? '#94a3b8', color: '#fff' }}
         >
           {grupo.material}
@@ -429,35 +492,40 @@ function FilamentoGrupoCard({
       <div className="p-3.5 flex flex-col gap-2">
         <div>
           <p className="font-bold text-sm leading-tight">{grupo.marca}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">{grupo.material}</p>
+          <p className="text-xs text-muted-foreground leading-tight">{grupo.material}</p>
         </div>
 
-        {/* Swatches */}
+        {/* Swatches — tocables: +1 kg directo al color. El doble handler
+            (stopPropagation) evita que se dispare `onOpen` del card. */}
         <div className="flex items-center gap-1 flex-wrap">
           {swatches.map(f => {
             const sinStock = maxKg(f) <= 0
             return (
-              <span
+              <button
                 key={f.id}
-                className={`w-4 h-4 rounded-full border border-black/20 ${sinStock ? 'opacity-30' : ''}`}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (!sinStock) onAddColor(f) }}
+                disabled={sinStock}
+                aria-label={sinStock ? `${colorEnEs(f.color)} — sin stock` : `Agregar 1 kg de ${colorEnEs(f.color)}`}
+                className={`w-6 h-6 rounded-full border border-black/20 flex items-center justify-center text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-400 ${sinStock ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
                 style={{ backgroundColor: colorToCss(f.color) }}
-                title={sinStock ? `${f.color} — sin stock` : f.color}
+                title={sinStock ? `${colorEnEs(f.color)} — sin stock` : `+1 kg ${colorEnEs(f.color)}`}
               />
             )
           })}
           {grupo.filamentos.length > 8 && (
-            <span className="text-[10px] text-muted-foreground ml-0.5">+{grupo.filamentos.length - 8}</span>
+            <span className="text-xs text-muted-foreground ml-0.5">+{grupo.filamentos.length - 8}</span>
           )}
         </div>
 
         <div className="flex items-baseline justify-between gap-2 mt-0.5">
           <p className="text-base font-black leading-none">{precioLabel}</p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {coloresConStock} de {totalColores} disponibles
           </p>
         </div>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -465,7 +533,7 @@ function FilamentoGrupoCard({
 
 function GrupoColoresModal({
   grupo, onClose, cart, addToCart, setRollos, removeFromCart, precioParaFilamento, descuento,
-  misAlertas, alertando, handleAvisar,
+  misAlertas, alertando, handleAvisar, onPayNow,
 }: {
   grupo: { marca: string; material: string; filamentos: Filamento[] }
   onClose: () => void
@@ -478,7 +546,11 @@ function GrupoColoresModal({
   misAlertas: string[]
   alertando: string | null
   handleAvisar: (id: string) => void
+  onPayNow: () => void
 }) {
+  // Totales del carrito global para la barra sticky de "Pagar ahora".
+  const totalKgCart = cart.reduce((s, i) => s + i.rollos, 0)
+  const totalCart = cart.reduce((s, i) => s + i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento), 0)
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
   const [lightboxFotos, setLightboxFotos] = useState<string[] | null>(null)
@@ -566,7 +638,7 @@ function GrupoColoresModal({
           </button>
         </div>
 
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border pb-20 sm:pb-24">
           {grupo.filamentos.map(f => {
             const disponible = maxKg(f)
             const enCart = cart.find(i => i.filamento.id === f.id)?.rollos ?? 0
@@ -592,10 +664,12 @@ function GrupoColoresModal({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={fotoColor}
-                      alt={f.color}
+                      src={imgUrl(fotoColor, 120, 70)}
+                      alt={colorEnEs(f.color)}
                       className={`w-12 h-12 object-cover border border-black/10 shadow-sm cursor-zoom-in ${sinStock ? 'grayscale' : ''}`}
                       loading="lazy"
+                      decoding="async"
+                      onError={(e) => { (e.target as HTMLImageElement).src = fotoColor }}
                     />
                   </button>
                 ) : (
@@ -607,19 +681,19 @@ function GrupoColoresModal({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm leading-tight ${sinStock ? 'line-through text-muted-foreground' : ''}`}>
-                    {f.color}
+                    {colorEnEs(f.color)}
                   </p>
                   {sinStock ? (
-                    <p className="text-[10px] text-muted-foreground">Sin stock</p>
+                    <p className="text-xs text-muted-foreground">Sin stock</p>
                   ) : disponible <= 3 ? (
-                    <p className="text-[10px] font-semibold" style={{ color: '#ea580c' }}>🔥 Últimas unidades</p>
+                    <p className="text-xs font-semibold" style={{ color: '#ea580c' }}>🔥 Últimas unidades</p>
                   ) : descuento > 0 ? (
-                    <p className="text-[11px]">
+                    <p className="text-xs">
                       <span className="line-through text-muted-foreground mr-1">{fmtARS(precioBase)}</span>
                       <span className="font-semibold" style={{ color: '#4ade80' }}>{fmtARS(precio)}/kg</span>
                     </p>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">{fmtARS(precio)}/kg</p>
+                    <p className="text-xs text-muted-foreground">{fmtARS(precio)}/kg</p>
                   )}
                 </div>
 
@@ -646,36 +720,58 @@ function GrupoColoresModal({
                 ) : enCart === 0 ? (
                   <button
                     onClick={() => addToCart(f)}
-                    className="shrink-0 flex items-center gap-1 text-white text-xs font-bold px-3 py-2 min-h-[36px] rounded-xl"
+                    className="shrink-0 flex items-center gap-1 text-white text-sm font-bold px-4 py-2 min-h-[44px] rounded-xl"
                     style={{ backgroundColor: '#15803d' }}
                   >
-                    <Plus size={13} /> Agregar
+                    <Plus size={14} /> Agregar
                   </button>
                 ) : (
                   <div className="shrink-0 flex items-center gap-1">
                     <button
                       onClick={() => setRollos(f.id, enCart - 1)}
-                      className="w-9 h-9 flex items-center justify-center rounded-md border border-border hover:bg-secondary"
-                      aria-label={`Restar 1 kg de ${f.color}`}
-                    ><Minus size={13} /></button>
-                    <span className="text-xs font-bold w-9 text-center">{enCart} kg</span>
+                      className="w-11 h-11 flex items-center justify-center rounded-md border border-border hover:bg-secondary"
+                      aria-label={`Restar 1 kg de ${colorEnEs(f.color)}`}
+                    ><Minus size={14} /></button>
+                    <span className="text-sm font-bold w-9 text-center">{enCart} kg</span>
                     <button
                       onClick={() => setRollos(f.id, enCart + 1)}
                       disabled={enMax}
-                      className="w-9 h-9 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"
-                      aria-label={`Sumar 1 kg de ${f.color}`}
-                    ><Plus size={13} /></button>
+                      className="w-11 h-11 flex items-center justify-center rounded-md border border-border hover:bg-secondary disabled:opacity-30"
+                      aria-label={`Sumar 1 kg de ${colorEnEs(f.color)}`}
+                    ><Plus size={14} /></button>
                     <button
                       onClick={() => removeFromCart(f.id)}
-                      className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground"
-                      aria-label={`Quitar ${f.color} del carrito`}
-                    ><Trash2 size={13} /></button>
+                      className="w-11 h-11 ml-1 flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-600 text-muted-foreground"
+                      aria-label={`Quitar ${colorEnEs(f.color)} del carrito`}
+                    ><Trash2 size={14} /></button>
                   </div>
                 )}
               </div>
             )
           })}
         </div>
+
+        {/* Barra sticky inferior: shortcut al checkout sin cerrar y abrir el drawer.
+            Aparece solo si ya hay items en el carrito para no competir con el
+            botón "Agregar" del color cuando está vacío. */}
+        {totalKgCart > 0 && (
+          <div
+            className="sticky bottom-0 left-0 right-0 bg-background border-t border-border px-4 py-3 flex items-center gap-3 shadow-[0_-8px_20px_rgba(0,0,0,0.3)]"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground leading-none">{totalKgCart} kg en el carrito</p>
+              <p className="text-base font-black leading-tight">{fmtARS(totalCart)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); onPayNow() }}
+              className="shrink-0 flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-4 py-3 text-sm font-bold"
+            >
+              Pagar ahora →
+            </button>
+          </div>
+        )}
       </div>
     </div>
     </>
@@ -758,14 +854,26 @@ function FilamentoCard({
             <Image
               key={fotoActual}
               src={fotoActual}
-              alt={`${f.color} ${f.material} - foto ${fotoIdx + 1}`}
+              alt={`${colorEnEs(f.color)} ${f.material} - foto ${fotoIdx + 1}`}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className={`object-cover cursor-zoom-in transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
               priority={isPriority}
-              onClick={() => setLightbox(true)}
               onLoad={() => setImgLoaded(true)}
             />
+            {/* Lupa chica para abrir el lightbox — el tap sobre la imagen ya
+                NO abre el zoom (confundía a usuarios que querían agregar). */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightbox(true) }}
+              aria-label="Ver imagen grande"
+              className="absolute top-2 left-2 z-10 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
           </>
         ) : (
           <span
@@ -843,21 +951,21 @@ function FilamentoCard({
 
       {/* ── Información ── */}
       <div className="p-3.5 flex flex-col gap-2.5">
-        <p className="font-bold text-sm leading-tight">{f.color}</p>
-        <p className="text-[11px] text-muted-foreground leading-tight -mt-1.5">{f.nombre}</p>
+        <p className="font-bold text-sm leading-tight">{colorEnEs(f.color)}</p>
+        <p className="text-xs text-muted-foreground leading-tight -mt-1.5">{f.nombre}</p>
 
         <div className="flex items-center justify-between gap-2">
           <div>
             {descuento > 0 ? (
               <>
-                <p className="text-[11px] text-muted-foreground line-through leading-none">{fmtARS(f.precio_kg ?? PRECIO_BASE_DEFAULT)}</p>
-                <p className="text-base font-black leading-none" style={{ color: '#4ade80' }}>{fmtARS(precioUnitario)}</p>
-                <p className="text-[10px] font-semibold" style={{ color: '#4ade80' }}>−{fmtARS(descuento)}/kg</p>
+                <p className="text-xs text-muted-foreground line-through leading-none">{fmtARS(f.precio_kg ?? PRECIO_BASE_DEFAULT)}</p>
+                <p className="text-lg font-black leading-none" style={{ color: '#4ade80' }}>{fmtARS(precioUnitario)}</p>
+                <p className="text-xs font-semibold" style={{ color: '#4ade80' }}>−{fmtARS(descuento)}/kg</p>
               </>
             ) : (
               <>
-                <p className="text-base font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
-                <p className="text-[10px] text-muted-foreground">por kg · 1 rollo = 1 kg</p>
+                <p className="text-lg font-black text-foreground leading-none">{fmtARS(precioUnitario)}</p>
+                <p className="text-xs text-muted-foreground">1 kilo = 1 rollo entero</p>
               </>
             )}
           </div>
@@ -927,7 +1035,18 @@ function FilamentoCard({
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-type SortOption = 'stock' | 'az' | 'material' | 'precio'
+type SortOption = 'destacados' | 'stock' | 'az' | 'material' | 'precio'
+
+// Rank interno para el sort "destacados": los básicos (negro, blanco, gris)
+// primero, después el resto por stock. Pensado para el comprador apurado que
+// busca el color default de su impresora.
+function destacadosRank(color: string): number {
+  const c = color.toLowerCase()
+  if (c.includes('black') || c.includes('negro')) return 0
+  if (c.includes('white') || c.includes('blanco')) return 1
+  if (c.includes('grey') || c.includes('gray') || c.includes('gris')) return 2
+  return 10
+}
 
 export default function FilamentosShop({
   filamentos,
@@ -953,7 +1072,7 @@ export default function FilamentosShop({
   const [matFilter, setMatFilter] = useState<string>('')
   const [marcaFilter, setMarcaFilter] = useState<string>('')
   const [colorFilter, setColorFilter] = useState<string>('')
-  const [sortBy, setSortBy] = useState<SortOption>('stock')
+  const [sortBy, setSortBy] = useState<SortOption>('destacados')
   const [misAlertas, setMisAlertas] = useState<string[]>(alertasIniciales)
   const [alertando, setAlertando] = useState<string | null>(null)
   const [alertToast, setAlertToast] = useState(false)
@@ -970,6 +1089,18 @@ export default function FilamentosShop({
     initialUser?.user_metadata?.full_name ? String(initialUser.user_metadata.full_name) : ''
   )
   const [clienteTelefono, setClienteTelefono] = useState('')
+  // Pre-fill guest: si en una visita anterior ya cargó nombre/teléfono, los
+  // recuperamos de localStorage para que el apurado no los retipee.
+  useEffect(() => {
+    if (initialUser) return
+    try {
+      const n = localStorage.getItem('ddd_guest_nombre')
+      const t = localStorage.getItem('ddd_guest_telefono')
+      if (n && !clienteNombre) setClienteNombre(n)
+      if (t && !clienteTelefono) setClienteTelefono(t)
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
   // Idempotency key: UUID por intento de checkout. Se regenera cada vez que se
@@ -1016,6 +1147,16 @@ export default function FilamentosShop({
       const url = window.location.pathname + (q ? `?${q}` : '') + window.location.hash
       window.history.replaceState({}, '', url)
     }
+  }, [])
+
+  // El icono del header dispara este evento cuando estamos en /filamentos para
+  // abrir el drawer sin recargar la página. Si no estamos en /filamentos,
+  // el header navega a /filamentos?openCart=1 y el efecto de arriba lo abre.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    function onOpen() { setShowCart(true) }
+    window.addEventListener('ddd:openCart', onOpen)
+    return () => window.removeEventListener('ddd:openCart', onOpen)
   }, [])
   const cartRef = useRef(cart)
   useEffect(() => { cartRef.current = cart }, [cart])
@@ -1123,10 +1264,24 @@ export default function FilamentosShop({
     if (!user) return
     const flush = () => {
       if (cartSaveTimer.current) clearTimeout(cartSaveTimer.current)
-      // Fire-and-forget — pagehide no espera, pero el server-action sale.
-      import('@/lib/actions/filamentos').then(({ saveCarritoUsuario }) => {
-        saveCarritoUsuario(cartRef.current.map(i => ({ filamento_id: i.filamento.id, rollos: i.rollos })))
-      })
+      // sendBeacon / fetch keepalive: el browser garantiza que el request sale
+      // aunque la tab se cierre inmediatamente. Los server actions no lo hacen.
+      try {
+        const payload = JSON.stringify({
+          items: cartRef.current.map(i => ({ filamento_id: i.filamento.id, rollos: i.rollos })),
+        })
+        const blob = new Blob([payload], { type: 'application/json' })
+        const ok = typeof navigator.sendBeacon === 'function'
+          && navigator.sendBeacon('/api/carrito-save', blob)
+        if (!ok) {
+          fetch('/api/carrito-save', {
+            method: 'POST',
+            body: payload,
+            headers: { 'content-type': 'application/json' },
+            keepalive: true,
+          }).catch(() => { /* noop */ })
+        }
+      } catch { /* noop */ }
     }
     window.addEventListener('pagehide', flush)
     window.addEventListener('visibilitychange', () => {
@@ -1306,7 +1461,13 @@ export default function FilamentosShop({
     if (sortBy === 'az') list.sort((a, b) => a.color.localeCompare(b.color, 'es'))
     else if (sortBy === 'material') list.sort((a, b) => a.material.localeCompare(b.material, 'es') || a.color.localeCompare(b.color, 'es'))
     else if (sortBy === 'precio') list.sort((a, b) => (a.precio_kg ?? 0) - (b.precio_kg ?? 0))
-    else list.sort((a, b) => (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos))
+    else if (sortBy === 'stock') list.sort((a, b) => (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos))
+    else list.sort((a, b) => {
+      // destacados: básicos primero (ranking), después por stock disponible
+      const ra = destacadosRank(a.color), rb = destacadosRank(b.color)
+      if (ra !== rb) return ra - rb
+      return (b.rollos_cerrados * b.peso_rollo_gr + b.gramos_sueltos) - (a.rollos_cerrados * a.peso_rollo_gr + a.gramos_sueltos)
+    })
     return list
   }, [localFilamentos, matFilter, marcaFilter, colorFilter, search, sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1371,7 +1532,20 @@ export default function FilamentosShop({
     signInWithGoogleAndReturn('/filamentos')
   }
 
+  // Throttle para evitar que un doble-tap en 3G sume 2 kg sin querer.
+  const lastAddRef = useRef<{ id: string; ts: number } | null>(null)
+  // Toast local "✓ Agregado: 1 kg Negro" para dar feedback táctil visible,
+  // especialmente en el modal del grupo donde la card no cambia de posición.
+  const [addToast, setAddToast] = useState<string | null>(null)
+  const addToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (addToastTimerRef.current) clearTimeout(addToastTimerRef.current) }, [])
+
   function addToCart(f: Filamento) {
+    const now = Date.now()
+    const last = lastAddRef.current
+    if (last && last.id === f.id && now - last.ts < 350) return
+    lastAddRef.current = { id: f.id, ts: now }
+
     const fil = localFilamentos.find(fl => fl.id === f.id) ?? f
     const max = maxKg(fil)
     setCart(prev => {
@@ -1382,6 +1556,11 @@ export default function FilamentosShop({
       }
       return [...prev, { filamento: f, rollos: 1 }]
     })
+    // Feedback táctil: toast 2s.
+    const label = colorEnEs(f.color).split(' · ')[0]
+    setAddToast(`✓ Agregado: 1 kg ${label}`)
+    if (addToastTimerRef.current) clearTimeout(addToastTimerRef.current)
+    addToastTimerRef.current = setTimeout(() => setAddToast(null), 2000)
   }
 
   function setRollos(id: string, rollos: number) {
@@ -1489,6 +1668,13 @@ export default function FilamentosShop({
           const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
           sb.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
         }
+        // Guest: guardamos nombre/teléfono para la próxima compra.
+        if (!user) {
+          try {
+            if (clienteNombre.trim()) localStorage.setItem('ddd_guest_nombre', clienteNombre.trim())
+            if (clienteTelefono.trim()) localStorage.setItem('ddd_guest_telefono', clienteTelefono.trim())
+          } catch { /* noop */ }
+        }
         setPedidoSnapshot({ items: cart.map(i => ({ ...i, precioUnitario: (i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento })), kg: totalKg, subtotal, descuento, descLabel })
         setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
         // Item 5 — Limpiar carrito en DB
@@ -1513,7 +1699,7 @@ export default function FilamentosShop({
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar color..."
+          placeholder="Buscar por color (ej: azul, negro, dorado)..."
           className="w-full text-base border border-border rounded-xl pl-8 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
         />
       </div>
@@ -1815,7 +2001,7 @@ export default function FilamentosShop({
                 {normales.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {normales.map(g => (
-                      <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} />
+                      <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} />
                     ))}
                   </div>
                 )}
@@ -1831,7 +2017,7 @@ export default function FilamentosShop({
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                       {especiales.map(g => (
-                        <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} />
+                        <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} />
                       ))}
                     </div>
                   </div>
@@ -1860,6 +2046,7 @@ export default function FilamentosShop({
           misAlertas={misAlertas}
           alertando={alertando}
           handleAvisar={handleAvisar}
+          onPayNow={abrirCheckout}
         />
       )}
 
@@ -1944,7 +2131,7 @@ export default function FilamentosShop({
                       style={{ backgroundColor: colorToCss(item.filamento.color) }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className={`text-sm font-semibold truncate ${sinStock ? 'line-through text-muted-foreground' : ''}`}>{item.filamento.color}</p>
+                        <p className={`text-sm font-semibold truncate ${sinStock ? 'line-through text-muted-foreground' : ''}`}>{colorEnEs(item.filamento.color)}</p>
                         {ultimasUnidades && (
                           <span
                             className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
@@ -1980,7 +2167,10 @@ export default function FilamentosShop({
                     🏆 {kgAcumulados.toFixed(1)} kg acumulados + {totalKg} kg carrito = {kgEfectivo.toFixed(1)} kg total
                   </p>
                 )}
-                {[{ min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 }].map(t => {
+                {/* Tiers: solo mostramos si el total ya pasó de 3 kg o si ya hay
+                    algún descuento activo. Para 1 kg es ruido que le dice al
+                    cliente "estás comprando poco". */}
+                {(kgEfectivo >= 3 || descuento > 0) && [{ min: 5, desc: 2000 }, { min: 10, desc: 3000 }, { min: 15, desc: 4000 }].map(t => {
                   const activo = kgEfectivo >= t.min
                   const faltan = t.min - kgEfectivo
                   return (
@@ -2033,7 +2223,7 @@ export default function FilamentosShop({
                     >
                       <span aria-hidden="true">🔒</span>
                       <span>
-                        <strong>Al confirmar, reservamos tu pedido</strong> hasta que lo aprobemos. Nadie más puede comprar esos filamentos mientras tanto.
+                        <strong>Al confirmar, reservamos tu pedido 24 h.</strong> Avisanos por WhatsApp para coordinar — nadie más puede comprarlo mientras tanto.
                       </span>
                     </div>
                     <button
@@ -2041,7 +2231,7 @@ export default function FilamentosShop({
                       disabled={hayProblemas}
                       className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-secondary disabled:text-muted-foreground text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors disabled:cursor-not-allowed"
                     >
-                      {!user ? '🔒 Ingresá para confirmar' : 'Confirmar pedido →'}
+                      Confirmar pedido →
                     </button>
                   </>
                 )
@@ -2078,7 +2268,7 @@ export default function FilamentosShop({
                     {cart.map(i => (
                       <div key={i.filamento.id} className="flex items-center gap-2 text-sm">
                         <span className="w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: colorToCss(i.filamento.color) }} />
-                        <span className="flex-1 truncate text-xs">{i.rollos} kg {i.filamento.color} — {i.filamento.material}</span>
+                        <span className="flex-1 truncate text-xs">{i.rollos} kg {colorEnEs(i.filamento.color)} — {i.filamento.material}</span>
                         <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.rollos * ((i.filamento.precio_kg ?? PRECIO_BASE_DEFAULT) - descuento))}</span>
                       </div>
                     ))}
@@ -2099,8 +2289,8 @@ export default function FilamentosShop({
                           <span>-{fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-base font-bold pt-1 border-t border-border/60">
-                        <span>Total a pagar</span>
+                      <div className="flex justify-between items-baseline text-xl font-black pt-2 border-t border-border/60">
+                        <span className="text-sm font-bold text-muted-foreground">Total a pagar</span>
                         <span>{fmtARS(Math.max(0, subtotal - (puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE))}</span>
                       </div>
                     </div>
@@ -2181,11 +2371,16 @@ export default function FilamentosShop({
                         Teléfono {user ? '(opcional)' : '*'}
                       </label>
                       <input id="checkout-telefono" type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
-                        placeholder="Para coordinar la entrega por WhatsApp" disabled={checkoutStep === 'saving'}
+                        placeholder="Ej: 3804 55 99 09" disabled={checkoutStep === 'saving'}
                         maxLength={20}
                         required={!user} aria-required={!user}
                         inputMode="tel" autoComplete="tel" enterKeyHint="done"
                         className="w-full text-base border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
+                      {!user && (
+                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                          Puede ser el de un familiar · lo usamos solo para avisarte por WhatsApp.
+                        </p>
+                      )}
                     </div>
                   </div>
                   {checkoutError && <p id="checkout-error" role="alert" className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
@@ -2225,9 +2420,9 @@ export default function FilamentosShop({
                               </button>
                             ))}
                           </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            ¿Qué son los DDD Coins?{' '}
-                            <Link href="/cuenta?tab=coins" className="underline hover:text-foreground">Ver en Mi cuenta →</Link>
+                          <p className="text-xs text-muted-foreground leading-snug">
+                            Ganás puntos en cada pedido · no caducan ·{' '}
+                            <Link href="/cuenta?tab=coins" className="underline hover:text-foreground">Ver más →</Link>
                           </p>
                         </div>
                       </details>
@@ -2252,7 +2447,7 @@ export default function FilamentosShop({
                       </div>
                       <div className="border-t border-border pt-2">
                         <p className="font-semibold text-foreground mb-0.5">💳 Pago</p>
-                        <p className="leading-snug">Transferencia bancaria o efectivo al retirar.</p>
+                        <p className="leading-snug">Transferencia o efectivo al retirar. El CBU/alias te los pasamos por WhatsApp cuando confirmemos el pedido.</p>
                       </div>
                     </div>
                     <button onClick={handleConfirmarPedido}
@@ -2272,7 +2467,9 @@ export default function FilamentosShop({
                 <div>
                   <p className="text-xl font-bold mb-1">¡Pedido N° {pedidoNumero} registrado!</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Tu pedido está guardado en tu cuenta y te enviamos un mail de confirmación. 🎉
+                    {user
+                      ? 'Tu pedido quedó guardado en tu cuenta. 🎉'
+                      : <>Guardá tu <strong>N° de pedido</strong> para hacer el seguimiento. 🎉</>}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                     Avisanos por WhatsApp para confirmar más rápido — así te reservamos el stock de inmediato.
@@ -2294,6 +2491,20 @@ export default function FilamentosShop({
       )}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={loginConCarrito} />}
+
+      {/* Toast: agregado al carrito. Feedback táctil visible (2s). */}
+      {addToast && (
+        <div
+          role="status" aria-live="polite"
+          className="fixed left-1/2 -translate-x-1/2 z-[75] pointer-events-none"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)', width: 'min(92vw, 360px)' }}
+        >
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full shadow-xl text-sm font-semibold bg-green-600 text-white">
+            <span aria-hidden="true">🛒</span>
+            <span className="truncate">{addToast}</span>
+          </div>
+        </div>
+      )}
 
       {/* Toast: items quitados del carrito por falta de stock */}
       {stockRemovedNames.length > 0 && (

@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Gift, X } from 'lucide-react'
 
-// Modal de bienvenida que aparece UNA sola vez cuando un usuario logueado tiene
-// trial activo y nunca lo vio. Explica el regalo: 5 días de membresía Plata
-// con -$2.000/kg en todos los filamentos.
-//
-// No volvemos a mostrarlo (flag en localStorage).
+// Banner de bienvenida — reemplaza al modal bloqueante anterior. Aparece como
+// una barra sticky arriba, dismissible con X. Pensado para que el comprador
+// apurado NO tenga un modal opaco que cerrar antes de poder usar la tienda.
+// Flag en localStorage para no repetir en la próxima visita.
 export default function WelcomeTrialModal({
   active, diasRestantes,
 }: {
@@ -22,7 +21,6 @@ export default function WelcomeTrialModal({
     try {
       if (localStorage.getItem('ddd_welcome_shown') === '1') return
     } catch { /* storage bloqueado: mostramos igual */ }
-    // Pequeño delay para no pegar un modal en el mismo paint que la página.
     const t = setTimeout(() => setOpen(true), 400)
     return () => clearTimeout(t)
   }, [active])
@@ -36,61 +34,53 @@ export default function WelcomeTrialModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog" aria-modal="true" aria-labelledby="welcome-title"
-      onClick={close}
+      role="status"
+      aria-live="polite"
+      className="fixed left-1/2 -translate-x-1/2 z-[75] w-[calc(100vw-24px)] max-w-md"
+      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 72px)' }}
     >
       <div
-        className="relative w-full sm:max-w-md bg-background border border-amber-500/40 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-        style={{ boxShadow: '0 25px 60px -10px rgba(245, 158, 11, 0.4)' }}
+        className="rounded-2xl shadow-2xl border border-amber-500/40 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08))',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 20px 50px -10px rgba(245, 158, 11, 0.35)',
+        }}
       >
-        <button
-          onClick={close}
-          aria-label="Cerrar"
-          className="absolute top-3 right-3 p-2 rounded-lg hover:bg-white/10 text-muted-foreground"
-        >
-          <X size={16} />
-        </button>
-
-        <div className="px-6 pt-8 pb-6 text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full"
-               style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }}>
-            <Gift size={28} className="text-white" aria-hidden="true" />
+        <div className="flex items-start gap-3 px-4 py-3">
+          <div
+            className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full"
+            style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }}
+          >
+            <Gift size={18} className="text-white" aria-hidden="true" />
           </div>
 
-          <div className="space-y-1.5">
-            <h2 id="welcome-title" className="text-xl font-black">
-              ¡Bienvenido a DDD ARG! 🎉
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Te regalamos <strong className="text-amber-500">{diasRestantes} días de membresía Plata</strong> para que pruebes la tienda.
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <p className="text-sm font-black leading-tight">
+              🎁 Regalo de bienvenida
+            </p>
+            <p className="text-xs leading-snug">
+              <strong className="text-amber-500">{diasRestantes} días de prueba Plata</strong> ·
+              <strong className="text-amber-500"> −$2.000/kg</strong> en todos los filamentos.{' '}
+              <Link
+                href="/cuenta?tab=membresia"
+                onClick={close}
+                className="font-semibold text-blue-500 hover:underline whitespace-nowrap"
+              >
+                Ver más →
+              </Link>
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Nivel 1 de 3 — Plata · Oro · Platino
             </p>
           </div>
-
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
-            <p className="text-2xl font-black text-amber-500">−$2.000 / kg</p>
-            <p className="text-xs text-muted-foreground leading-snug">
-              de descuento en <strong className="text-foreground">TODOS</strong> los filamentos durante tu trial.
-            </p>
-          </div>
-
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Querés saber más sobre membresías y DDD Coins?{' '}
-            <Link
-              href="/cuenta?tab=membresia"
-              onClick={close}
-              className="font-semibold text-blue-500 hover:underline"
-            >
-              Ver en Mi cuenta →
-            </Link>
-          </p>
 
           <button
             onClick={close}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl py-3 text-sm transition-colors"
+            aria-label="Cerrar aviso de bienvenida"
+            className="shrink-0 p-1.5 min-w-[32px] min-h-[32px] rounded-lg hover:bg-white/10 text-muted-foreground"
           >
-            ¡Dale, empiezo a comprar!
+            <X size={16} />
           </button>
         </div>
       </div>

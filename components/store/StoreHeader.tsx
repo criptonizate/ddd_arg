@@ -46,6 +46,56 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   )
 }
 
+// Botón del carrito del header. Separado para poder usar hooks (router, callback)
+// sin complicar el render principal del header.
+function CartHeaderButton({
+  totalCount, filamentCount, popping, pathname,
+}: {
+  totalCount: number
+  filamentCount: number
+  popping: boolean
+  pathname: string | null
+}) {
+  const label = totalCount > 0 ? `Carrito (${totalCount} items)` : 'Carrito'
+  const color = totalCount > 0 ? '#f97316' : 'oklch(0.55 0.005 264)'
+  const enFilamentos = pathname === '/filamentos'
+
+  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    // Si ya estamos en /filamentos y hay filamentos en el carrito, abrimos el
+    // drawer con un evento custom (sin navegación). Evita el pseudo-reload que
+    // se veía al cambiar el query string estando en la misma ruta.
+    if (enFilamentos && filamentCount > 0) {
+      e.preventDefault()
+      window.dispatchEvent(new CustomEvent('ddd:openCart'))
+    }
+  }
+
+  const href = filamentCount > 0 ? '/filamentos?openCart=1' : '/carrito'
+
+  return (
+    <Link
+      href={href}
+      onClick={handleClick}
+      className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
+      aria-label={label}
+      style={{ color }}
+    >
+      <ShoppingCart size={20} strokeWidth={2.25} />
+      {totalCount > 0 && (
+        <span
+          className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#f97316] text-white text-[9px] font-black ring-2 ring-[#1c1c1c]"
+          style={{
+            transform: popping ? 'scale(1.45)' : 'scale(1)',
+            transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        >
+          {totalCount > 9 ? '9+' : totalCount}
+        </span>
+      )}
+    </Link>
+  )
+}
+
 function InstagramIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -260,26 +310,16 @@ export default function StoreHeader() {
               )
             )}
 
-            {/* Carrito */}
-            <Link
-              href={filamentCount > 0 ? '/filamentos?openCart=1' : '/carrito'}
-              className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
-              aria-label={totalCount > 0 ? `Carrito (${totalCount} items)` : 'Carrito'}
-              style={{ color: totalCount > 0 ? '#f97316' : 'oklch(0.55 0.005 264)' }}
-            >
-              <ShoppingCart size={20} strokeWidth={2.25} />
-              {totalCount > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#f97316] text-white text-[9px] font-black ring-2 ring-[#1c1c1c]"
-                  style={{
-                    transform: popping ? 'scale(1.45)' : 'scale(1)',
-                    transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  }}
-                >
-                  {totalCount > 9 ? '9+' : totalCount}
-                </span>
-              )}
-            </Link>
+            {/* Carrito — si estamos en /filamentos y hay filamentos en el carrito,
+                disparamos un evento custom que abre el drawer sin recargar la
+                página. Si estamos en otra ruta, navegamos con ?openCart=1 y
+                FilamentosShop lo detecta en el mount. */}
+            <CartHeaderButton
+              totalCount={totalCount}
+              filamentCount={filamentCount}
+              popping={popping}
+              pathname={pathname}
+            />
           </div>
         </div>
       </div>
