@@ -7,7 +7,7 @@ import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHor
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
-import { getFilamentosDisponibles, enviarSugerenciaFilamento } from '@/lib/actions/filamentos'
+import { getFilamentosDisponibles, enviarSugerenciaFilamento, avisarStockSinLogin } from '@/lib/actions/filamentos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { PUNTOS_POR_CANJE, PESOS_POR_CANJE } from '@/lib/ddd-coins-helpers'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
@@ -211,6 +211,112 @@ function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => v
           >
             Seguir viendo sin ingresar
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AvisarSinLoginModal({
+  filamento,
+  onClose,
+  onLogin,
+  onSaved,
+}: {
+  filamento: { id: string; color: string; material: string; marca: string }
+  onClose: () => void
+  onLogin: () => void
+  onSaved: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
+  const [tel, setTel] = useState('')
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function handleSave() {
+    setError('')
+    startTransition(async () => {
+      const r = await avisarStockSinLogin(filamento.id, tel)
+      if (r.error) { setError(r.error); return }
+      setDone(true)
+      setTimeout(onSaved, 1800)
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true"
+      onClick={onClose}
+    >
+      <div ref={panelRef} className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-7 space-y-5">
+
+          {done ? (
+            <div className="text-center py-4 space-y-2">
+              <div className="text-4xl">✅</div>
+              <p className="font-bold">¡Listo!</p>
+              <p className="text-sm text-muted-foreground">Te avisamos cuando vuelva a entrar el {filamento.color} {filamento.material}.</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="text-3xl mb-2">🔔</div>
+                <h2 className="text-base font-bold mb-1">Avisame cuando vuelva a entrar</h2>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">{filamento.color} — {filamento.material} {filamento.marca}</span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground block">Tu número de WhatsApp</label>
+                <input
+                  type="tel"
+                  value={tel}
+                  onChange={e => setTel(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  placeholder="Ej: 3834 123456"
+                  autoFocus
+                  className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+                {error && <p className="text-xs text-red-500">{error}</p>}
+              </div>
+
+              <button
+                onClick={handleSave}
+                disabled={isPending || !tel.trim()}
+                className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm disabled:opacity-50 transition-colors"
+              >
+                {isPending ? <Loader2 size={16} className="inline animate-spin mr-1" /> : null}
+                Anotarme
+              </button>
+
+              <div className="border-t border-border pt-4 space-y-2">
+                <p className="text-xs text-center text-muted-foreground">
+                  ¿Querés que te avise automáticamente y ver tus pedidos?
+                </p>
+                <button
+                  onClick={onLogin}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-secondary transition-colors text-sm font-medium"
+                >
+                  <GoogleIcon />
+                  Registrarme con Google
+                </button>
+              </div>
+
+              <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground py-1 text-center">
+                Cerrar
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1204,6 +1310,7 @@ export default function FilamentosShop({
 
   const [user, setUser] = useState<User | null>(initialUser ?? null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [avisarModal, setAvisarModal] = useState<{ id: string; color: string; material: string; marca: string } | null>(null)
   // Flag para colapsar la tarjeta "¿Entrar con Google?" del checkout si el
   // usuario ya la descartó antes. Persistido en localStorage.
   const [googleDismissed, setGoogleDismissed] = useState(false)
@@ -1655,7 +1762,11 @@ export default function FilamentosShop({
   }
 
   async function handleAvisar(filamentoId: string) {
-    if (!user) { setShowAuthModal(true); return }
+    if (!user) {
+      const fil = localFilamentos.find(f => f.id === filamentoId) ?? agotados.find(f => f.id === filamentoId)
+      setAvisarModal(fil ? { id: fil.id, color: fil.color, material: fil.material, marca: fil.marca } : null)
+      return
+    }
     setAlertando(filamentoId)
     const { suscribirAlertaStock } = await import('@/lib/actions/filamentos')
     const result = await suscribirAlertaStock(filamentoId)
@@ -2762,6 +2873,15 @@ export default function FilamentosShop({
       )}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={loginConCarrito} />}
+
+      {avisarModal && (
+        <AvisarSinLoginModal
+          filamento={avisarModal}
+          onClose={() => setAvisarModal(null)}
+          onLogin={() => { setAvisarModal(null); signInWithGoogleAndReturn('/filamentos') }}
+          onSaved={() => { setMisAlertas(prev => [...prev, avisarModal.id]); setAvisarModal(null) }}
+        />
+      )}
 
       {/* Toast: agregado al carrito. Posicionado ARRIBA para no tapar el FAB
           "Pagar ahora" del bottom-right durante los 2s. */}

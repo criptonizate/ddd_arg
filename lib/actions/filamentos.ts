@@ -598,6 +598,35 @@ export async function suscribirAlertaStock(filamentoId: string): Promise<{ error
   return {}
 }
 
+export async function avisarStockSinLogin(
+  filamentoId: string,
+  telefono: string,
+): Promise<{ error?: string }> {
+  const tel = telefono.trim()
+  if (!tel || tel.length < 6) return { error: 'Ingresá un teléfono válido' }
+
+  const db = createServiceClient()
+  const { data: fil } = await db
+    .from('filamentos')
+    .select('color, material, marca')
+    .eq('id', filamentoId)
+    .single()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
+  void notifyAdmin({
+    emoji: '🔔',
+    titulo: 'Alerta de stock — sin cuenta',
+    detalle: [
+      `Alguien dejó su teléfono para cuando vuelva a entrar:`,
+      '',
+      fil ? `${fil.color} — ${fil.material} ${fil.marca}` : `filamento ${filamentoId}`,
+      '',
+      `📞 ${tel}`,
+    ].join('\n'),
+    url: `${siteUrl}/admin/filamentos`,
+  })
+  return {}
+}
+
 export async function getMisAlertasStock(): Promise<string[]> {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
