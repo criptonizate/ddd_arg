@@ -1,7 +1,7 @@
 # QA automatizado — DDD ARG
 
 Tests E2E con [Playwright](https://playwright.dev/) que corren contra
-producción (`https://ddd-arg.vercel.app`) todas las noches a las **00:00 de
+producción (`https://dddarg.com.ar`) todas las noches a las **00:00 de
 Argentina** (03:00 UTC) y notifican si algo se rompió.
 
 Los tests son **solo de lectura**: no crean pedidos reales, no suben fotos
@@ -65,7 +65,7 @@ Pendiente. Cuando hagamos el flujo autenticado:
 
 ```bash
 # 1. Login manual con una cuenta de test
-npx playwright codegen https://ddd-arg.vercel.app --save-storage=tests/e2e/.auth/cliente.json
+npx playwright codegen https://dddarg.com.ar --save-storage=tests/e2e/.auth/cliente.json
 
 # 2. Referenciarlo desde un test
 # test.use({ storageState: 'tests/e2e/.auth/cliente.json' })

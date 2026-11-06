@@ -583,7 +583,7 @@ export async function suscribirAlertaStock(filamentoId: string): Promise<{ error
     .eq('id', filamentoId)
     .single()
   const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
   void notifyAdmin({
     emoji: '🔔',
     titulo: 'Alerta de stock solicitada',
@@ -803,7 +803,7 @@ export async function enviarSugerenciaFilamento(mensaje: string, color?: string)
   revalidatePath('/cuenta')
 
   // Notificación al admin con el contenido de la sugerencia.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
   void notifyAdmin({
     emoji: '💡',
     titulo: 'Sugerencia de filamento',

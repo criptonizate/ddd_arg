@@ -11,7 +11,7 @@ on:
       base_url:
         description: 'URL contra la que correr los tests'
         required: false
-        default: 'https://ddd-arg.vercel.app'
+        default: 'https://dddarg.com.ar'
 
 jobs:
   e2e:
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run tests (${{ matrix.project }})
         env:
-          BASE_URL: ${{ github.event.inputs.base_url || 'https://ddd-arg.vercel.app' }}
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://dddarg.com.ar' }}
           CI: '1'
         run: npx playwright test --project=${{ matrix.project }}
 

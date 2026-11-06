@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
   const ahora = new Date()
   const hace24h = new Date(ahora.getTime() - 24 * 60 * 60 * 1000)
   const hace48h = new Date(ahora.getTime() - 48 * 60 * 60 * 1000)

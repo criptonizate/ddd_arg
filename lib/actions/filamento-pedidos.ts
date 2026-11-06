@@ -216,7 +216,7 @@ export async function crearPedidoFilamento(data: {
     const itemsLinea = itemsValidados
       .map(i => `• ${i.rollos} kg ${i.color} (${i.material} ${i.marca})`)
       .join('\n')
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
     void notifyAdmin({
       emoji: esGuest ? '🚨' : '📦',
       titulo: esGuest

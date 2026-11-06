@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Playwright config para los tests E2E nocturnos contra producción.
-// Pensado para correr en GitHub Actions (cron) sobre https://ddd-arg.vercel.app
+// Pensado para correr en GitHub Actions (cron) sobre https://dddarg.com.ar
 // — los tests son SOLO de lectura: NO crean pedidos reales, NO suben fotos,
 // NO modifican la DB.
 //
@@ -10,7 +10,7 @@ import { defineConfig, devices } from '@playwright/test'
 //   npx playwright test --ui                             # modo visual local
 //   npx playwright test tests/e2e/home.spec.ts           # un solo archivo
 
-const BASE_URL = process.env.BASE_URL ?? 'https://ddd-arg.vercel.app'
+const BASE_URL = process.env.BASE_URL ?? 'https://dddarg.com.ar'
 
 export default defineConfig({
   testDir: './tests/e2e',

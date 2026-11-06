@@ -103,7 +103,7 @@ export async function registrarLoginDiario(): Promise<{ ganados: number; racha: 
     void (async () => {
       const { notifyAdmin } = await import('@/lib/telegram')
       const nombre = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Cliente'
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
       await notifyAdmin({
         emoji: '👤',
         titulo: 'Cliente nuevo registrado',

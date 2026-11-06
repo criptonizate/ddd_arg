@@ -70,7 +70,7 @@ export async function sendNuevoPedidoAdmin(data: PedidoEmailData) {
           </div>
         </div>
 
-        <a href="https://ddd-arg.vercel.app/admin/filamentos" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+        <a href="https://dddarg.com.ar/admin/filamentos" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
           Ver pedido en el panel →
         </a>
       </div>
@@ -114,7 +114,7 @@ export async function sendPedidoRecibidoCliente(data: PedidoEmailData & { client
           Te avisamos por este mail cuando confirmemos el pedido.</p>
         </div>
 
-        <a href="https://ddd-arg.vercel.app/cuenta?tab=pedidos" style="display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+        <a href="https://dddarg.com.ar/cuenta?tab=pedidos" style="display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
           Ver mis pedidos →
         </a>
       </div>
@@ -257,7 +257,7 @@ export async function sendColorDisponibleCliente(data: {
   clienteNombre: string
   color: string
 }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ddd-arg.vercel.app'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar'
   const { error } = await resend.emails.send({
     from: FROM,
     to: data.clienteEmail,
@@ -303,11 +303,11 @@ export async function sendMembresiaPorVencerCliente(data: {
           <p style="color:#86efac;margin:0;font-size:13px">Comprá <strong style="color:#f0fdf4">5 kg o más</strong> antes de que venza y tu membresía se renueva sola por 30 días más.</p>
         </div>
 
-        <a href="https://ddd-arg.vercel.app/filamentos" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-bottom:12px">
+        <a href="https://dddarg.com.ar/filamentos" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-bottom:12px">
           Ver filamentos y hacer un pedido →
         </a>
         <br>
-        <a href="https://ddd-arg.vercel.app/cuenta?tab=membresia" style="display:inline-block;color:#86efac;font-size:13px;margin-top:8px">
+        <a href="https://dddarg.com.ar/cuenta?tab=membresia" style="display:inline-block;color:#86efac;font-size:13px;margin-top:8px">
           Ver estado de membresía →
         </a>
       </div>
@@ -375,7 +375,7 @@ export async function sendExtensionSolicitadaAdmin(data: {
           </p>
         </div>
 
-        <a href="https://ddd-arg.vercel.app/admin/cuentas" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+        <a href="https://dddarg.com.ar/admin/cuentas" style="display:inline-block;background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
           Ver panel de Cuentas →
         </a>
       </div>
