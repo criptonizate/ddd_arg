@@ -75,21 +75,26 @@ function colorEnEs(color: string): string {
 
 function colorToCss(color: string): string {
   const c = color.toLowerCase()
-  if (c.includes('black'))                            return '#1a1a1a'
-  if (c.includes('white'))                            return '#f0f0f0'
-  if (c.includes('grey') || c.includes('gray'))       return '#9ca3af'
-  if (c.includes('vermilion') || c.includes('ruby'))  return '#c0392b'
-  if (c.includes('berry') || c.includes('red'))       return '#e53e3e'
-  if (c.includes('blue'))                             return '#3b82f6'
-  if (c.includes('teal'))                             return '#14b8a6'
-  if (c.includes('olive'))                            return '#84a830'
-  if (c.includes('green'))                            return '#22c55e'
-  if (c.includes('yellow') || c.includes('sunshine')) return '#eab308'
-  if (c.includes('orange'))                           return '#f97316'
-  if (c.includes('taro') || c.includes('purple'))     return '#a855f7'
-  if (c.includes('pink'))                             return '#ec4899'
-  if (c.includes('brown') || c.includes('madera'))    return '#92400e'
-  if (c.includes('silk') || c.includes('gold'))       return '#d97706'
+  // Más específicos primero (los compuestos tienen que matchear antes que
+  // los genéricos — "verde militar" antes que "verde", etc).
+  if (c.includes('negro')    || c.includes('black'))                     return '#1a1a1a'
+  if (c.includes('blanco')   || c.includes('white'))                     return '#f0f0f0'
+  if (c.includes('gris')     || c.includes('grey') || c.includes('gray')) return '#9ca3af'
+  if (c.includes('militar')  || c.includes('military'))                  return '#4b5320'
+  if (c.includes('oliva')    || c.includes('olive'))                     return '#84a830'
+  if (c.includes('chicle')   || c.includes('fucsia') || c.includes('fuchsia')) return '#e11d8f'
+  if (c.includes('rosa')     || c.includes('pink'))                      return '#ec4899'
+  if (c.includes('violeta')  || c.includes('violet') || c.includes('taro') || c.includes('purple')) return '#a855f7'
+  if (c.includes('vermilion') || c.includes('ruby'))                     return '#c0392b'
+  if (c.includes('berry')    || c.includes('rojo') || c.includes('red')) return '#e53e3e'
+  if (c.includes('azul')     || c.includes('blue'))                      return '#3b82f6'
+  if (c.includes('teal'))                                                return '#14b8a6'
+  if (c.includes('verde')    || c.includes('green'))                     return '#22c55e'
+  if (c.includes('amarillo') || c.includes('yellow') || c.includes('sunshine')) return '#eab308'
+  if (c.includes('naranja')  || c.includes('orange'))                    return '#f97316'
+  if (c.includes('almendra') || c.includes('almond'))                    return '#efdbb2'
+  if (c.includes('marrón')   || c.includes('marron') || c.includes('brown') || c.includes('madera')) return '#92400e'
+  if (c.includes('dorado')   || c.includes('silk') || c.includes('gold')) return '#d97706'
   return '#94a3b8'
 }
 
