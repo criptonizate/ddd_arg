@@ -77,11 +77,20 @@ jobs:
             echo "::warning::TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados"
             exit 0
           fi
-          TEXT=$'🧪 *QA nocturno falló*\n\nProyecto: '"$PROJECT"$'\nReporte y traces: descargables desde el run'
-          curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+          PAYLOAD=$(jq -n \
+            --arg chat_id "$CHAT_ID" \
+            --arg text "🧪 QA nocturno FALLÓ\\n\\nProyecto: ${PROJECT}\\nReporte y traces: descargables desde el run" \
+            --arg run_url "$RUN_URL" \
+            '{chat_id:$chat_id, text:$text,
+              reply_markup:{inline_keyboard:[[{text:"Ver run", url:$run_url}]]}}')
+          RESPONSE=$(curl -sS -w "\n__HTTP__:%{http_code}" -X POST \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -H "content-type: application/json" \
-            -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":$(printf '%s' "$TEXT" | jq -Rsa .),\"parse_mode\":\"Markdown\",\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"Ver run\",\"url\":\"${RUN_URL}\"}]]}}" \
-            || echo "::warning::Telegram notification failed"
+            -d "$PAYLOAD")
+          echo "$RESPONSE"
+          if echo "$RESPONSE" | grep -q '"ok":false'; then
+            echo "::warning::Telegram devolvió ok:false"
+          fi
 
   # Job final: corre SOLO si los 3 viewports pasaron todos sus tests.
   # Manda un único mensaje "OK" a Telegram para dar tranquilidad diaria.
@@ -100,12 +109,34 @@ jobs:
           RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-            echo "::warning::TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados"
-            exit 0
+            echo "::error::TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados"
+            exit 1
           fi
           FECHA=$(TZ='America/Argentina/Buenos_Aires' date '+%d/%m %H:%M')
-          TEXT=$'✅ *QA nocturno OK*\n\nLos 3 viewports pasaron (desktop · tablet · mobile).\n'"${FECHA} AR"
-          curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+          # Armamos el payload JSON con jq (safe quoting). Evitamos el $'...'
+          # de bash + expansión que podía romper en algunos runners.
+          PAYLOAD=$(jq -n \
+            --arg chat_id "$CHAT_ID" \
+            --arg text "✅ QA nocturno OK\\n\\nLos 3 viewports pasaron (desktop · tablet · mobile).\\n${FECHA} AR" \
+            --arg run_url "$RUN_URL" \
+            '{chat_id:$chat_id, text:$text, disable_notification:true,
+              reply_markup:{inline_keyboard:[[{text:"Ver run", url:$run_url}]]}}')
+          echo "Payload a enviar (sin token):"
+          echo "$PAYLOAD"
+          # -w graba el status HTTP después del body — así vemos ok:true/false.
+          RESPONSE=$(curl -sS -w "\n__HTTP__:%{http_code}" -X POST \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -H "content-type: application/json" \
-            -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":$(printf '%s' "$TEXT" | jq -Rsa .),\"parse_mode\":\"Markdown\",\"disable_notification\":true,\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"Ver run\",\"url\":\"${RUN_URL}\"}]]}}" \
-            || echo "::warning::Telegram notification failed"
+            -d "$PAYLOAD")
+          echo "Respuesta de Telegram:"
+          echo "$RESPONSE"
+          # Si el body indica ok:false, fallamos el step para que lo veamos.
+          if echo "$RESPONSE" | grep -q '"ok":false'; then
+            echo "::error::Telegram devolvió ok:false"
+            exit 1
+          fi
+          HTTP_CODE=$(echo "$RESPONSE" | grep -oE '__HTTP__:[0-9]+' | cut -d: -f2)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::HTTP $HTTP_CODE"
+            exit 1
+          fi
