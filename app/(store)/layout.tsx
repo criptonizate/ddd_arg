@@ -4,7 +4,6 @@ import { isAnyAdmin, defaultAdminRoute } from '@/lib/admin-roles'
 import StoreHeader from '@/components/store/StoreHeader'
 import StoreFooter from '@/components/store/StoreFooter'
 import CartProvider from '@/components/store/CartProvider'
-import ColorComparador from '@/components/store/ColorComparador'
 import WelcomeTrialModal from '@/components/store/WelcomeTrialModal'
 import { getMembresiaCliente } from '@/lib/actions/filamento-pedidos'
 
@@ -33,7 +32,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         <StoreHeader />
         <main className="flex-1">{children}</main>
         <StoreFooter />
-        <ColorComparador />
         <WelcomeTrialModal active={trialActivo} diasRestantes={trialDias} />
       </CartProvider>
     </div>

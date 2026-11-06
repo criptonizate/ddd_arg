@@ -3,8 +3,7 @@
 import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff, Pin, PinOff } from 'lucide-react'
-import { pinComparador, unpinComparador, isPinnedComparador } from '@/components/store/ColorComparador'
+import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
@@ -723,8 +722,6 @@ function GrupoColoresModal({
                     <p className="text-xs text-muted-foreground">{fmtARS(precio)}/kg</p>
                   )}
                 </div>
-
-                <PinComparadorButton f={f} fotoColor={fotoColor} />
 
                 {sinStock ? (
                   <button
@@ -2815,48 +2812,3 @@ export default function FilamentosShop({
   )
 }
 
-// ── Botón Pin para el comparador de colores ─────────────────────────────────
-function PinComparadorButton({ f, fotoColor }: { f: Filamento; fotoColor: string | null }) {
-  const [pinned, setPinned] = useState(false)
-  useEffect(() => {
-    const read = () => setPinned(isPinnedComparador(f.id))
-    read()
-    const onChange = () => read()
-    window.addEventListener('ddd:comparador-change', onChange)
-    return () => window.removeEventListener('ddd:comparador-change', onChange)
-  }, [f.id])
-
-  function toggle() {
-    if (pinned) {
-      unpinComparador(f.id)
-      return
-    }
-    const ok = pinComparador({
-      id: f.id,
-      color: f.color,
-      material: f.material,
-      marca: f.marca,
-      imagen: fotoColor,
-      precio_kg: f.precio_kg ?? PRECIO_BASE_DEFAULT,
-      stock_disp_kg: maxKg(f),
-    })
-    if (!ok) {
-      // Ya está lleno (3) o ya pineado; el estado se sincroniza vía event.
-    }
-  }
-
-  return (
-    <button
-      onClick={toggle}
-      className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center border transition-colors ${
-        pinned
-          ? 'bg-orange-500/20 border-orange-500/40 text-orange-500'
-          : 'border-border text-muted-foreground hover:bg-secondary'
-      }`}
-      aria-label={pinned ? `Quitar ${f.color} del comparador` : `Comparar ${f.color}`}
-      title={pinned ? 'Quitar del comparador' : 'Comparar (hasta 3)'}
-    >
-      {pinned ? <PinOff size={13} /> : <Pin size={13} />}
-    </button>
-  )
-}
