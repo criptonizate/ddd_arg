@@ -20,7 +20,7 @@ export default function RealtimeDashboardPanel() {
   const [loading, setLoading] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
 
-  const fetch = useCallback(async () => {
+  const loadData = useCallback(async () => {
     const d = await getRealtimePanelData()
     setData(d)
     setUpdatedAt(new Date())
@@ -28,10 +28,10 @@ export default function RealtimeDashboardPanel() {
   }, [])
 
   useEffect(() => {
-    fetch()
-    const id = setInterval(fetch, REFRESH_INTERVAL)
+    loadData()
+    const id = setInterval(loadData, REFRESH_INTERVAL)
     return () => clearInterval(id)
-  }, [fetch])
+  }, [loadData])
 
   function fmtAgo(date: Date | null) {
     if (!date) return ''
@@ -75,7 +75,7 @@ export default function RealtimeDashboardPanel() {
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-muted-foreground">{fmtAgo(updatedAt)}</span>
           <button
-            onClick={fetch}
+            onClick={loadData}
             className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
             title="Actualizar ahora"
           >

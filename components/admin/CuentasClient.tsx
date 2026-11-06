@@ -385,7 +385,7 @@ function PedidoDetalle({ pedido, onUpdated }: { pedido: FilamentoPedido; onUpdat
     startTransition(async () => {
       const r = await editarItemsPedidoFilamento(pedido.id, items)
       if (r.error) { setAccionError(r.error); return }
-      const nuevoTotal = items.reduce((s, i) => s + i.rollos * i.precio_unitario, 0)
+      const nuevoTotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - pedido.descuento_por_rollo), 0)
       const nuevosTotalRollos = items.reduce((s, i) => s + i.rollos, 0)
       refresh({ items, total: nuevoTotal, total_rollos: nuevosTotalRollos })
       setEditando(false)
