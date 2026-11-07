@@ -138,7 +138,10 @@ export default function PedirColorTab({ sugerencias: initial }: { sugerencias: F
               onChange={e => setColor(e.target.value)}
               placeholder="Ej: Violeta pastel, Negro mate, Verde flúor..."
               maxLength={120}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-violet-400"
+              autoCapitalize="words"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2 focus:ring-offset-background"
               disabled={pending}
             />
           </div>

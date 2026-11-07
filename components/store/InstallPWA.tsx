@@ -9,12 +9,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-// Dismissed vive solo en memoria del módulo. Así:
-//  - Si el usuario cierra el banner, no vuelve a aparecer durante esta carga.
-//  - Si refresca o cierra/reabre la pestaña, los módulos se re-ejecutan y
-//    puede volver a aparecer (una vez más).
-// Sin localStorage/sessionStorage: el usuario pidió explícitamente que sea
-// "una sola vez por sesión", no persistente.
+// Dismissed vive en memoria del módulo + backup en sessionStorage. Así:
+//  - Si el usuario cierra el banner, no vuelve durante esta carga.
+//  - Un pull-to-refresh accidental (iOS Safari) NO lo vuelve a mostrar en la
+//    misma pestaña gracias a sessionStorage.
+//  - Si cierra/reabre la pestaña o abre una nueva, puede volver a aparecer.
+// Sin localStorage: el usuario pidió "una sola vez por sesión", no persistente.
+const DISMISSED_SESSION_KEY = 'ddd_pwa_dismissed_session'
 let dismissedInThisLoad = false
 
 export default function InstallPWA() {
@@ -32,8 +33,14 @@ export default function InstallPWA() {
       (window.navigator as unknown as { standalone?: boolean }).standalone === true
     if (standalone) return
 
-    // Ya cerrado en esta carga — no volver a mostrar hasta refresh/reopen.
+    // Ya cerrado en esta carga o en esta sesión del tab — no volver a mostrar.
     if (dismissedInThisLoad) return
+    try {
+      if (sessionStorage.getItem(DISMISSED_SESSION_KEY) === '1') {
+        dismissedInThisLoad = true
+        return
+      }
+    } catch { /* storage bloqueado — seguimos con la memoria */ }
 
     // Diferimos la aparición 20s para que el usuario entienda la tienda primero
     // y no colisionemos con el flujo inicial de compra.
@@ -78,6 +85,7 @@ export default function InstallPWA() {
   function handleDismiss() {
     setVisible(false)
     dismissedInThisLoad = true
+    try { sessionStorage.setItem(DISMISSED_SESSION_KEY, '1') } catch { /* noop */ }
   }
 
   // No tapar el FAB del carrito cuando hay items — es la conversión principal.
@@ -131,7 +139,7 @@ export default function InstallPWA() {
           }}
         >
           <Download size={14} />
-          Instalar
+          {isIOS ? 'Cómo instalar' : 'Instalar'}
         </button>
         <button
           onClick={handleDismiss}
@@ -158,7 +166,9 @@ export default function InstallPWA() {
           onClick={() => setShowIOSHint(false)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999,
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '16px',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            padding: '16px',
+            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
           }}
         >
           <div

@@ -19,11 +19,11 @@ const MARCAS = [
   { label: 'GST3D - LITE',  emoji: '🔵', color: '#3b82f6' },
   { label: 'Filanova',      emoji: '🟠', color: '#16a34a' },
   { label: 'Toolbox',       emoji: '🟣', color: '#a855f7' },
-  { label: 'PLA+',          emoji: '✦',  color: '#16a34a' },
+  { label: 'PLA+',          emoji: '⭐', color: '#16a34a' },
   { label: 'Silk',          emoji: '✨', color: '#eab308' },
   { label: 'PETG',          emoji: '💧', color: '#38bdf8' },
   { label: 'TPU Flexible',  emoji: '🌀', color: '#34d399' },
-  { label: 'Matte',         emoji: '◆',  color: '#94a3b8' },
+  { label: 'Matte',         emoji: '⬛', color: '#94a3b8' },
 ]
 
 function GoogleIcon() {

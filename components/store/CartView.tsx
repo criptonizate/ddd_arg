@@ -276,18 +276,20 @@ export default function CartView() {
             <p className="text-sm font-semibold mt-0.5">{formatARS(item.precio)}</p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => updateQuantity(item.variant_id, item.cantidad - 1)}
-              className="w-7 h-7 rounded-lg border border-border hover:bg-secondary transition-colors flex items-center justify-center"
+              aria-label={`Restar 1 de ${item.nombre}`}
+              className="min-w-[40px] min-h-[40px] rounded-lg border border-border hover:bg-secondary active:scale-95 transition-all flex items-center justify-center text-base font-bold"
             >
               −
             </button>
-            <span className="w-6 text-center text-sm font-medium">{item.cantidad}</span>
+            <span className="w-8 text-center text-sm font-semibold tabular-nums">{item.cantidad}</span>
             <button
               onClick={() => updateQuantity(item.variant_id, item.cantidad + 1)}
               disabled={item.cantidad >= item.stock}
-              className="w-7 h-7 rounded-lg border border-border hover:bg-secondary disabled:opacity-40 transition-colors flex items-center justify-center"
+              aria-label={`Sumar 1 a ${item.nombre}`}
+              className="min-w-[40px] min-h-[40px] rounded-lg border border-border hover:bg-secondary active:scale-95 disabled:opacity-40 transition-all flex items-center justify-center text-base font-bold"
             >
               +
             </button>
@@ -297,9 +299,10 @@ export default function CartView() {
             <p className="font-semibold text-sm">{formatARS(item.precio * item.cantidad)}</p>
             <button
               onClick={() => removeItem(item.variant_id)}
-              className="mt-1 p-1 hover:bg-secondary rounded transition-colors"
+              aria-label={`Quitar ${item.nombre} del carrito`}
+              className="mt-1 min-w-[36px] min-h-[36px] hover:bg-secondary rounded transition-colors flex items-center justify-center"
             >
-              <Trash2 size={14} className="text-muted-foreground" />
+              <Trash2 size={16} className="text-muted-foreground" />
             </button>
           </div>
         </div>

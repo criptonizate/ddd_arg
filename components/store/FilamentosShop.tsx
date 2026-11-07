@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, SlidersHorizontal, Search, Bell, BellOff, Coins } from 'lucide-react'
 import type { Filamento } from '@/lib/filamentos-helpers'
 import { crearPedidoFilamento } from '@/lib/actions/filamento-pedidos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
@@ -179,12 +179,18 @@ function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => v
 
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { icon: '📦', text: 'Ver y repetir pedidos' },
-              { icon: '🪙', text: 'Puntos válidos 12 meses' },
-              { icon: '💰', text: 'Descuento por cantidad' },
+              { icon: '📦', text: 'Ver y repetir pedidos', isCoin: false },
+              { icon: '🪙', text: 'Puntos válidos 12 meses', isCoin: true },
+              { icon: '💰', text: 'Descuento por cantidad', isCoin: false },
             ].map((b, i) => (
               <div key={i} className="bg-secondary/60 rounded-xl p-3">
-                <div className="text-2xl mb-1">{b.icon}</div>
+                <div className="mb-1 flex justify-center h-7 items-center">
+                  {b.isCoin ? (
+                    <Coins size={22} className="text-amber-500" aria-hidden="true" />
+                  ) : (
+                    <span className="text-2xl">{b.icon}</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground leading-tight">{b.text}</p>
               </div>
             ))}
@@ -597,7 +603,7 @@ function FilamentoGrupoCard({
 
         {/* Indicador en carrito */}
         {kgEnCart > 0 && (
-          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#15803d' }}>
+          <span className="absolute bottom-2 right-2 text-white text-xs font-black px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#15803d' }}>
             {kgEnCart} kg
           </span>
         )}
@@ -833,7 +839,7 @@ function GrupoColoresModal({
                   <button
                     onClick={() => handleAvisar(f.id)}
                     disabled={yaAlertado || cargandoAlerta}
-                    className="shrink-0 flex items-center justify-center gap-1 text-[11px] font-semibold px-3 py-2 min-h-[36px] rounded-xl border transition-colors disabled:cursor-default"
+                    className="shrink-0 flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-[44px] rounded-xl border transition-colors disabled:cursor-default"
                     style={yaAlertado
                       ? { backgroundColor: 'oklch(0.26 0.04 145)', borderColor: '#166534', color: '#4ade80' }
                       : cargandoAlerta
@@ -842,10 +848,10 @@ function GrupoColoresModal({
                     }
                   >
                     {yaAlertado
-                      ? <><BellOff size={11} /> Anotado</>
+                      ? <><BellOff size={13} /> Anotado</>
                       : cargandoAlerta
-                        ? <><Loader2 size={11} className="animate-spin" /> Guardando</>
-                        : <><Bell size={11} /> Avisame</>}
+                        ? <><Loader2 size={13} className="animate-spin" /> Guardando</>
+                        : <><Bell size={13} /> Avisame</>}
                   </button>
                 ) : enCart === 0 ? (
                   <button
@@ -1055,7 +1061,7 @@ function FilamentoCard({
             Cuando no hay stock, marcamos "sin stock" claro. */}
         {disponible <= 0 ? (
           <span
-            className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 bg-red-700 text-white"
+            className="absolute top-2.5 right-2.5 text-xs font-bold px-2 py-0.5 rounded-full z-10 bg-red-700 text-white"
             aria-label="Sin stock"
           >
             sin stock
@@ -1073,7 +1079,7 @@ function FilamentoCard({
 
         {/* Indicador en carrito */}
         {enCart > 0 && (
-          <span className="absolute bottom-2 right-2 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full z-10" style={{ backgroundColor: '#15803d' }}>
+          <span className="absolute bottom-2 right-2 text-white text-xs font-black px-1.5 py-0.5 rounded-full z-10" style={{ backgroundColor: '#15803d' }}>
             {enCart} kg
           </span>
         )}
@@ -1690,6 +1696,14 @@ export default function FilamentosShop({
 
   const [grupoAbierto, setGrupoAbierto] = useState<FilamentoGrupo | null>(null)
 
+  // Escape cierra el modal del grupo (el resto se maneja arriba con el otro listener).
+  useEffect(() => {
+    if (!grupoAbierto) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setGrupoAbierto(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [grupoAbierto])
+
   const totalKg = cart.reduce((s, i) => s + i.rollos, 0)
   // kg ya acumulados en el período activo de membresía (0 si no hay membresía o venció)
   const kgAcumulados = membresia?.kgPeriodo ?? 0
@@ -2245,7 +2259,7 @@ export default function FilamentosShop({
             return (
               <div className="space-y-6">
                 {normales.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                     {normales.map(g => (
                       <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} addCooldown={addCooldown} />
                     ))}
@@ -2261,7 +2275,7 @@ export default function FilamentosShop({
                       </span>
                       <div className="h-px flex-1 bg-border" />
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                       {especiales.map(g => (
                         <FilamentoGrupoCard key={g.key} grupo={g} cart={cart} onOpen={() => setGrupoAbierto(g)} onAddColor={addToCart} addCooldown={addCooldown} />
                       ))}
@@ -2338,7 +2352,7 @@ export default function FilamentosShop({
         <button
           onClick={abrirCarrito}
           aria-label={`Ver carrito y pagar: ${totalKg} kg, ${fmtARS(subtotal)}`}
-          className="fixed right-3 sm:right-4 z-[60] flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
+          className="fixed right-3 sm:right-4 z-[60] flex items-center gap-2 sm:gap-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl transition-colors max-w-[calc(100vw-24px)] sm:max-w-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
         >
           <ShoppingCart size={16} className="shrink-0" aria-hidden="true" />
@@ -2531,7 +2545,7 @@ export default function FilamentosShop({
                       )}
                       {puntosACanjear > 0 && (
                         <div className="flex justify-between text-xs" style={{ color: '#f59e0b' }}>
-                          <span>🪙 DDD Coins</span>
+                          <span className="flex items-center gap-1"><Coins size={12} aria-hidden="true" /> DDD Coins</span>
                           <span>-{fmtARS((puntosACanjear / PUNTOS_POR_CANJE) * PESOS_POR_CANJE)}</span>
                         </div>
                       )}
@@ -2574,7 +2588,7 @@ export default function FilamentosShop({
                       )}
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-green-800 dark:text-green-300 truncate">{user.user_metadata?.full_name ?? user.email}</p>
-                        <p className="text-[10px] text-green-600 dark:text-green-400 truncate">{user.email}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 truncate">{user.email}</p>
                       </div>
                     </div>
                   ) : googleDismissed || totalKg < 3 ? (
@@ -2586,7 +2600,7 @@ export default function FilamentosShop({
                       onClick={() => setGoogleDismissed(false)}
                       className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded-lg"
                     >
-                      <span aria-hidden="true">🪙</span>
+                      <Coins size={14} className="text-amber-500" aria-hidden="true" />
                       <span>¿Entrar con Google? (opcional)</span>
                     </button>
                   ) : (
@@ -2603,7 +2617,7 @@ export default function FilamentosShop({
                         <X size={14} />
                       </button>
                       <div className="flex items-start gap-2 pr-5">
-                        <span className="text-xl leading-none">🪙</span>
+                        <Coins size={20} className="text-amber-500 shrink-0" aria-hidden="true" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-amber-700 dark:text-amber-400">¿Querés ganar puntos y descuentos por cantidad?</p>
                           <p className="text-xs text-muted-foreground leading-snug mt-0.5">
@@ -2694,7 +2708,7 @@ export default function FilamentosShop({
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold flex items-center gap-1.5">
-                                <span aria-hidden="true">🪙</span>
+                                <Coins size={14} className="text-amber-500" aria-hidden="true" />
                                 Usar mis DDD Coins
                               </p>
                               <p className="text-xs text-muted-foreground">
