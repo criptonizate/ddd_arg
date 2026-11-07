@@ -110,8 +110,9 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div style={{ minWidth: 0, flex: 1 }}>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Tus DDD Coins</p>
-            <p className="text-3xl font-black leading-none" style={{ color: '#f59e0b' }}>
-              {saldo.toLocaleString('es-AR')} <span className="text-2xl">🪙</span>
+            <p className="text-3xl font-black leading-none flex items-center gap-2" style={{ color: '#f59e0b' }}>
+              <span>{saldo.toLocaleString('es-AR')}</span>
+              <Coins size={28} strokeWidth={2.4} aria-hidden="true" />
             </p>
             {descuentoDisponible > 0 ? (
               <div className="mt-2 inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl" style={{ background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
@@ -197,7 +198,7 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
             El descuento se aplica al momento de confirmar el pedido — vos elegís cuántos puntos querés usar.
           </p>
           <div className="rounded-xl px-4 py-3 text-xs text-muted-foreground space-y-1.5" style={{ background: 'oklch(0.22 0.01 60)' }}>
-            <p>🪙 <strong className="text-foreground">Comprando</strong> — 10 pts por cada kg · ≈ 15 kg para desbloquear tu primer $1.000</p>
+            <p className="flex items-center gap-1.5"><Coins size={14} className="text-amber-500 shrink-0" aria-hidden="true" /> <span><strong className="text-foreground">Comprando</strong> — 10 pts por cada kg · ≈ 15 kg para desbloquear tu primer $1.000</span></p>
             <p>📅 <strong className="text-foreground">Login diario</strong> — 5 pts por día, con bonos por racha</p>
             <p>👑 <strong className="text-foreground">Membresía activa</strong> — +50 pts al cerrar cada período de 30 días con la membresía vigente</p>
             <p>✅ <strong className="text-foreground">Perfil completo</strong> — +20 pts al cargar al menos teléfono, DNI o apodo (una sola vez)</p>
@@ -331,7 +332,7 @@ export default function DDDCoinsTab({ saldo, historial, racha }: Props) {
 
       {historial.length === 0 && (
         <div className="rounded-2xl border border-border px-5 py-8 text-center">
-          <p className="text-3xl mb-2">🪙</p>
+          <div className="flex justify-center mb-2"><Coins size={32} className="text-amber-500" aria-hidden="true" /></div>
           <p className="text-sm font-semibold mb-1">Todavía no tenés movimientos</p>
           <p className="text-xs text-muted-foreground">Comprá filamentos o iniciá sesión cada día para empezar a acumular.</p>
         </div>

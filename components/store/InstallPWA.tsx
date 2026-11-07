@@ -9,8 +9,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-const DISMISSED_KEY = 'ddd_arg_pwa_dismissed'
-const DISMISSED_DAYS = 30
+// Dismissed vive solo en memoria del módulo. Así:
+//  - Si el usuario cierra el banner, no vuelve a aparecer durante esta carga.
+//  - Si refresca o cierra/reabre la pestaña, los módulos se re-ejecutan y
+//    puede volver a aparecer (una vez más).
+// Sin localStorage/sessionStorage: el usuario pidió explícitamente que sea
+// "una sola vez por sesión", no persistente.
+let dismissedInThisLoad = false
 
 export default function InstallPWA() {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null)
@@ -27,11 +32,8 @@ export default function InstallPWA() {
       (window.navigator as unknown as { standalone?: boolean }).standalone === true
     if (standalone) return
 
-    // Dismissed hace menos de 30 días — más tiempo entre reapariciones
-    try {
-      const dismissed = localStorage.getItem(DISMISSED_KEY)
-      if (dismissed && Date.now() - Number(dismissed) < DISMISSED_DAYS * 86400000) return
-    } catch {}
+    // Ya cerrado en esta carga — no volver a mostrar hasta refresh/reopen.
+    if (dismissedInThisLoad) return
 
     // Diferimos la aparición 20s para que el usuario entienda la tienda primero
     // y no colisionemos con el flujo inicial de compra.
@@ -75,7 +77,7 @@ export default function InstallPWA() {
 
   function handleDismiss() {
     setVisible(false)
-    try { localStorage.setItem(DISMISSED_KEY, String(Date.now())) } catch {}
+    dismissedInThisLoad = true
   }
 
   // No tapar el FAB del carrito cuando hay items — es la conversión principal.

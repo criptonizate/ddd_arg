@@ -114,7 +114,8 @@ export default async function CuentaPage({
                 className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full border transition-all hover:scale-105 active:scale-95 shrink-0"
                 style={{ background: 'oklch(0.22 0.04 60)', borderColor: '#d97706', color: '#f59e0b' }}
               >
-                🪙 {saldoCoins.toLocaleString('es-AR')} pts
+                <Coins size={12} strokeWidth={2.4} aria-hidden="true" />
+                {saldoCoins.toLocaleString('es-AR')} pts
               </Link>
             )}
           </div>
