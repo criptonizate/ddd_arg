@@ -13,10 +13,15 @@
 
 const TELEGRAM_API = 'https://api.telegram.org'
 
-function escapeMarkdownV2(text: string): string {
-  // Lista oficial de caracteres a escapar en MarkdownV2.
-  // Ver: https://core.telegram.org/bots/api#markdownv2-style
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, (c) => `\\${c}`)
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+async function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms))
 }
 
 export interface NotifyPayload {
@@ -45,16 +50,16 @@ export async function notifyAdmin(payload: NotifyPayload): Promise<{ ok: boolean
     return { ok: false, skipped: true }
   }
 
-  const titulo = escapeMarkdownV2(payload.titulo)
-  const detalle = escapeMarkdownV2(payload.detalle)
+  const titulo = escapeHtml(payload.titulo)
+  const detalle = escapeHtml(payload.detalle)
   const emoji = payload.emoji ?? ''
 
-  const text = `${emoji} *${titulo}*\n\n${detalle}`
+  const text = `${emoji} <b>${titulo}</b>\n\n${detalle}`
 
   const body: Record<string, unknown> = {
     chat_id: chatId,
     text,
-    parse_mode: 'MarkdownV2',
+    parse_mode: 'HTML',
     disable_web_page_preview: true,
   }
   if (payload.url) {
@@ -63,27 +68,41 @@ export async function notifyAdmin(payload: NotifyPayload): Promise<{ ok: boolean
     }
   }
 
-  try {
-    // Timeout 5s para que el server action no se trabe si Telegram está lento.
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 5000)
-    const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    })
-    clearTimeout(t)
-    if (!res.ok) {
+  // Reintento con backoff si Telegram devuelve 429 (rate limit) o 5xx.
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 5000)
+      const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      })
+      clearTimeout(t)
+      if (res.ok) return { ok: true }
+
+      const retryable = res.status === 429 || res.status >= 500
       const errText = await res.text().catch(() => '')
-      console.error('[telegram] sendMessage non-OK:', res.status, errText)
-      return { ok: false }
+      console.error(`[telegram] sendMessage non-OK (intento ${attempt}/${MAX_ATTEMPTS}):`, res.status, errText)
+
+      if (!retryable || attempt === MAX_ATTEMPTS) return { ok: false }
+
+      // Respeto `retry_after` si Telegram lo manda; sino backoff exponencial.
+      let waitMs = 500 * Math.pow(2, attempt - 1)
+      try {
+        const parsed = JSON.parse(errText) as { parameters?: { retry_after?: number } }
+        if (parsed?.parameters?.retry_after) waitMs = parsed.parameters.retry_after * 1000
+      } catch { /* body no es JSON — usamos backoff */ }
+      await sleep(Math.min(waitMs, 5000))
+    } catch (err) {
+      console.error(`[telegram] fetch failed (intento ${attempt}/${MAX_ATTEMPTS}):`, err)
+      if (attempt === MAX_ATTEMPTS) return { ok: false }
+      await sleep(500 * Math.pow(2, attempt - 1))
     }
-    return { ok: true }
-  } catch (err) {
-    console.error('[telegram] fetch failed:', err)
-    return { ok: false }
   }
+  return { ok: false }
 }
 
 /**

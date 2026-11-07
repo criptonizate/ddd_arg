@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { getRealtimePanelData, type RealtimePanelData } from '@/lib/actions/realtime-dashboard'
 
-const REFRESH_INTERVAL = 15000
+const REFRESH_INTERVAL_ACTIVE = 15000
+const REFRESH_INTERVAL_HIDDEN = 60000
 
 function Tile({ label, value, color, pulse }: { label: string; value: number; color: string; pulse?: boolean }) {
   return (
@@ -29,8 +30,22 @@ export default function RealtimeDashboardPanel() {
 
   useEffect(() => {
     loadData()
-    const id = setInterval(loadData, REFRESH_INTERVAL)
-    return () => clearInterval(id)
+    let id: ReturnType<typeof setInterval>
+    const start = () => {
+      clearInterval(id)
+      const delay = document.hidden ? REFRESH_INTERVAL_HIDDEN : REFRESH_INTERVAL_ACTIVE
+      id = setInterval(loadData, delay)
+    }
+    start()
+    const onVisibility = () => {
+      if (!document.hidden) loadData()
+      start()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [loadData])
 
   function fmtAgo(date: Date | null) {
@@ -40,13 +55,6 @@ export default function RealtimeDashboardPanel() {
     if (s < 60) return `hace ${s}s`
     return `hace ${Math.round(s / 60)}min`
   }
-
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 5000)
-    return () => clearInterval(id)
-  }, [])
-  void tick
 
   if (loading) {
     return (

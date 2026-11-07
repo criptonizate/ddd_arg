@@ -8,14 +8,17 @@ const geist = Geist({
   variable: '--font-geist-sans',
 })
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dddarg.com.ar').replace(/\/$/, '')
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'DDD ARG — Impresión 3D',
     template: '%s | DDD ARG',
   },
   description:
     'Productos únicos impresos en 3D. Diseños originales, calidad premium. Argentina.',
-  keywords: ['impresión 3D', 'productos 3D', 'Argentina', 'DDD ARG'],
+  keywords: ['impresión 3D', 'productos 3D', 'filamentos', 'PLA', 'PETG', 'Argentina', 'DDD ARG'],
   applicationName: 'DDD ARG',
   appleWebApp: {
     capable: true,
@@ -28,14 +31,29 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_AR',
     siteName: 'DDD ARG',
+    url: SITE_URL,
+    images: [
+      {
+        url: '/LogoDDDARG.png',
+        width: 512,
+        height: 512,
+        alt: 'DDD ARG — Impresión 3D',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'DDD ARG — Impresión 3D',
+    description: 'Productos únicos impresos en 3D. Argentina.',
+    images: ['/LogoDDDARG.png'],
   },
   icons: {
     icon: '/LogoDDDARG.png',
     apple: '/LogoDDDARG.png',
+    shortcut: '/LogoDDDARG.png',
+  },
+  alternates: {
+    canonical: SITE_URL,
   },
 }
 

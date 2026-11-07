@@ -5,6 +5,7 @@ import { Plus, Package } from 'lucide-react'
 import HistorialProductosClient from '@/components/admin/HistorialProductosClient'
 import ProductosTablaClient from '@/components/admin/ProductosTablaClient'
 import CategoriasManager from '@/components/admin/CategoriasManager'
+import InsumosAdminTab from '@/components/admin/InsumosAdminTab'
 
 export const metadata = { title: 'Productos' }
 export const dynamic = 'force-dynamic'
@@ -79,6 +80,16 @@ export default async function ProductosPage({ searchParams }: PageProps) {
             {categorias.length}
           </span>
         </Link>
+        <Link
+          href="/admin/productos?tab=insumos"
+          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            tab === 'insumos'
+              ? 'bg-foreground text-primary-foreground border-foreground'
+              : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+          }`}
+        >
+          🧪 Insumos
+        </Link>
       </div>
 
       {/* ── Tab: Catálogo ── */}
@@ -111,6 +122,11 @@ export default async function ProductosPage({ searchParams }: PageProps) {
       {/* ── Tab: Categorías ── */}
       {tab === 'categorias' && (
         <CategoriasManager categorias={categorias} />
+      )}
+
+      {/* ── Tab: Insumos (compartido con /insumos público) ── */}
+      {tab === 'insumos' && (
+        <InsumosAdminTab />
       )}
     </div>
   )

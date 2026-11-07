@@ -1,7 +1,9 @@
 import { getDashboardStats, getCajaSnapshot } from '@/lib/actions/finance'
+import { getDashboardInsights } from '@/lib/actions/admin-insights'
 import { formatARS } from '@/lib/utils'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import RealtimeDashboardPanel from '@/components/admin/RealtimeDashboardPanel'
+import DashboardInsightsPanel from '@/components/admin/DashboardInsights'
 import { TrendingUp, ShoppingCart, Users, DollarSign, Clock, Inbox } from 'lucide-react'
 
 export const metadata = { title: 'Dashboard' }
@@ -42,9 +44,12 @@ export default async function DashboardPage({
 }) {
   const { periodo, desde, hasta } = await searchParams
   const range = getPeriodo(periodo, desde, hasta)
-  const [stats, caja] = await Promise.all([
+  const hoy = new Date().toISOString().split('T')[0]
+  const primerDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const [stats, caja, insights] = await Promise.all([
     getDashboardStats({ desde: range.desde, hasta: range.hasta }),
     getCajaSnapshot(),
+    getDashboardInsights({ desde: range.desde ?? primerDiaMes, hasta: range.hasta ?? hoy }),
   ])
   const activePeriodo = periodo ?? 'mes'
 
@@ -174,6 +179,9 @@ export default async function DashboardPage({
           ))}
         </div>
       </div>
+
+      {/* Insights del período (ticket promedio, carritos abandonados, ROI coins, top colores) */}
+      <DashboardInsightsPanel insights={insights} />
 
       {/* Gráfico ingresos */}
       <DashboardCharts ventasPorDia={stats.ventasPorDia} />

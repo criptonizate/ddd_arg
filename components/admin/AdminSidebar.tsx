@@ -20,15 +20,13 @@ function fmtARS(v: number) {
 const NAV_ITEMS = [
   { href: '/admin/dashboard',   icon: '🚀', label: 'Dashboard' },
   { href: '/admin/ventas',      icon: '📦', label: 'Pedidos',     badge: 'pedidos' as const },
+  { href: '/admin/presupuesto', icon: '📋', label: 'Presupuesto' },
+  { href: '/admin/cuentas',     icon: '🧑‍💻', label: 'Cuentas',     badge: 'extensiones' as const },
+  { href: '/admin/filamentos',  icon: '🧵', label: 'Filamentos',  badge: 'filamentos' as const },
   { href: '/admin/finanzas',    icon: '💰', label: 'Finanzas' },
   { href: '/admin/negocios',    icon: '🏪', label: 'Negocios' },
   { href: '/admin/clientes',    icon: '👥', label: 'Clientes' },
-  { href: '/admin/cuentas',     icon: '🧑‍💻', label: 'Cuentas',     badge: 'extensiones' as const },
-  { href: '/admin/presupuesto', icon: '📋', label: 'Presupuesto' },
-  { href: '/admin/calculadora', icon: '🧮', label: 'Calculadora' },
   { href: '/admin/productos',   icon: '🛍️', label: 'Productos' },
-  { href: '/admin/produccion',  icon: '🏭', label: 'Producción' },
-  { href: '/admin/filamentos',  icon: '🧵', label: 'Filamentos',  badge: 'filamentos' as const },
   { href: '/admin/gastos',      icon: '💸', label: 'Mis gastos' },
 ]
 

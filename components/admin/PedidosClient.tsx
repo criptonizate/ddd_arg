@@ -14,6 +14,7 @@ import type { OrderEstado } from '@/lib/supabase/types'
 
 interface Order {
   id: string
+  numero?: number
   estado: OrderEstado
   origen: string
   metodo_pago?: string
@@ -53,7 +54,14 @@ function OrderCard({ order }: { order: Order }) {
             <span className="text-xs text-muted-foreground">{METODO_PAGO_LABELS[order.metodo_pago] ?? order.metodo_pago}</span>
           )}
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(order.created_at)}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {order.numero != null && (
+            <span className="text-xs font-bold tabular-nums text-foreground bg-secondary border border-border rounded-md px-1.5 py-0.5">
+              N° {order.numero}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</span>
+        </div>
       </div>
 
       <div className="flex items-start gap-6 flex-wrap">
@@ -140,12 +148,15 @@ export default function PedidosClient({ orders }: { orders: Order[] }) {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return orders
-    const q = search.toLowerCase()
+    const q = search.toLowerCase().trim()
+    const qDigits = q.replace(/\D/g, '')
     return orders.filter(
       (o) =>
         o.cliente_nombre.toLowerCase().includes(q) ||
         o.cliente_telefono?.toLowerCase().includes(q) ||
         o.nota?.toLowerCase().includes(q) ||
+        (qDigits && o.numero != null && String(o.numero).includes(qDigits)) ||
+        o.id.toLowerCase().includes(q) ||
         o.order_items?.some((i) => (i.products?.nombre ?? i.nombre_producto).toLowerCase().includes(q))
     )
   }, [orders, search])
@@ -162,7 +173,7 @@ export default function PedidosClient({ orders }: { orders: Order[] }) {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar cliente, producto..."
+            placeholder="Buscar N°, cliente, producto..."
             className="w-full pl-8 pr-8 py-2 text-sm rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {search && (
