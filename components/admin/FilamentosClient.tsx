@@ -2610,7 +2610,13 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     const r = await editarItemsPedidoFilamento(editModal.pedido.id, editModal.items)
                     if (r.error) { setEditError(r.error); return }
                     setPedidos(prev => prev.map(p => p.id === editModal.pedido.id
-                      ? { ...p, items: editModal.items, total_rollos: editModal.items.reduce((s, i) => s + i.rollos, 0) }
+                      ? {
+                          ...p,
+                          items: editModal.items,
+                          total_rollos: r.total_rollos ?? editModal.items.reduce((s, i) => s + i.rollos, 0),
+                          descuento_por_rollo: r.descuento_por_rollo ?? p.descuento_por_rollo,
+                          total: r.total ?? p.total,
+                        }
                       : p
                     ))
                     setEditModal(null)

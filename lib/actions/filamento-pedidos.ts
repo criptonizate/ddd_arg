@@ -553,7 +553,7 @@ async function _confirmarPedidoYDescontarStockLegacy(
 export async function editarItemsPedidoFilamento(
   pedidoId: string,
   items: FilamentoPedidoItem[]
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; total?: number; descuento_por_rollo?: number; total_rollos?: number }> {
   await getAdminUser()
   if (!items.length) return { error: 'El pedido debe tener al menos un ítem' }
   for (const item of items) {
@@ -601,7 +601,7 @@ export async function editarItemsPedidoFilamento(
 
   if (error) return { error: error.message }
   revalidatePath('/admin/filamentos'); updateTag('filamentos')
-  return {}
+  return { total, descuento_por_rollo, total_rollos }
 }
 
 // Admin: recalcula el descuento de un pedido ya creado según la membresía
