@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/admin/presupuesto', icon: '📋', label: 'Presupuesto' },
   { href: '/admin/cuentas',     icon: '🧑‍💻', label: 'Cuentas',     badge: 'extensiones' as const },
   { href: '/admin/filamentos',  icon: '🧵', label: 'Filamentos',  badge: 'filamentos' as const },
+  { href: '/admin/insumos',     icon: '🔧', label: 'Insumos' },
   { href: '/admin/finanzas',    icon: '💰', label: 'Finanzas' },
   { href: '/admin/negocios',    icon: '🏪', label: 'Negocios' },
   { href: '/admin/clientes',    icon: '👥', label: 'Clientes' },

@@ -345,15 +345,30 @@ export default function InsumosShop({
                     style={{ borderColor: 'oklch(1 0 0 / 10%)' }}
                   >
                     {/* Imagen o placeholder */}
-                    {insumo.imagen_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={insumo.imagen_url} alt={insumo.nombre} className="w-full h-32 object-cover" />
-                    ) : (
-                      <div className="h-32 flex items-center justify-center text-4xl"
-                        style={{ backgroundColor: 'oklch(0.22 0.005 264)' }}>
-                        📦
-                      </div>
-                    )}
+                    <div className="relative">
+                      {insumo.imagen_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={insumo.imagen_url} alt={insumo.nombre} className="w-full h-32 object-cover" />
+                      ) : (
+                        <div className="h-32 flex items-center justify-center text-4xl"
+                          style={{ backgroundColor: 'oklch(0.22 0.005 264)' }}>
+                          📦
+                        </div>
+                      )}
+                      {/* Fotos extra */}
+                      {(insumo.imagen_url_2 || insumo.imagen_url_3) && (
+                        <div className="absolute bottom-1.5 right-1.5 flex gap-1">
+                          {insumo.imagen_url_2 && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={insumo.imagen_url_2} alt="" className="w-9 h-9 rounded-lg object-cover border-2 border-background shadow-sm" />
+                          )}
+                          {insumo.imagen_url_3 && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={insumo.imagen_url_3} alt="" className="w-9 h-9 rounded-lg object-cover border-2 border-background shadow-sm" />
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 mb-0.5">{insumo.nombre}</p>
                       <p className="text-[10px] text-muted-foreground mb-1">{insumo.categoria}</p>

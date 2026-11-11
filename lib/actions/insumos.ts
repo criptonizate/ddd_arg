@@ -11,7 +11,10 @@ export interface Insumo {
   categoria: string
   precio_unitario: number
   stock: number
+  unidad: 'unidad' | 'kg' | 'gramos'
   imagen_url: string | null
+  imagen_url_2: string | null
+  imagen_url_3: string | null
   activo: boolean
   created_at: string
   updated_at: string
@@ -45,7 +48,7 @@ export async function getInsumosDisponibles(): Promise<Insumo[]> {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('insumos')
-    .select('id, nombre, descripcion, categoria, precio_unitario, stock, imagen_url, activo')
+    .select('id, nombre, descripcion, categoria, precio_unitario, stock, unidad, imagen_url, imagen_url_2, imagen_url_3, activo')
     .eq('activo', true)
     .gt('stock', 0)
     .order('categoria')
@@ -86,7 +89,7 @@ export async function crearPedidoInsumo(data: {
   if (error) return { error: error.message }
 
   revalidatePath('/cuenta')
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/insumos')
   return { numero: row.numero, id: row.id }
 }
 
@@ -109,7 +112,10 @@ export async function createInsumo(data: {
   categoria: string
   precio_unitario: number
   stock: number
+  unidad?: 'unidad' | 'kg' | 'gramos'
   imagen_url?: string | null
+  imagen_url_2?: string | null
+  imagen_url_3?: string | null
 }): Promise<{ insumo?: Insumo; error?: string }> {
   await getAdminUser()
   if (!data.nombre.trim()) return { error: 'El nombre es requerido' }
@@ -123,12 +129,16 @@ export async function createInsumo(data: {
       categoria: data.categoria.trim() || 'General',
       precio_unitario: data.precio_unitario,
       stock: data.stock,
+      unidad: data.unidad ?? 'unidad',
       imagen_url: data.imagen_url?.trim() || null,
+      imagen_url_2: data.imagen_url_2?.trim() || null,
+      imagen_url_3: data.imagen_url_3?.trim() || null,
     })
     .select()
     .single()
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/insumos')
+  revalidatePath('/insumos')
   return { insumo: row as Insumo }
 }
 
@@ -140,7 +150,10 @@ export async function updateInsumo(
     categoria: string
     precio_unitario: number
     stock: number
+    unidad: 'unidad' | 'kg' | 'gramos'
     imagen_url: string | null
+    imagen_url_2: string | null
+    imagen_url_3: string | null
     activo: boolean
   }>
 ): Promise<{ error?: string }> {
@@ -151,7 +164,8 @@ export async function updateInsumo(
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/insumos')
+  revalidatePath('/insumos')
   return {}
 }
 
@@ -160,7 +174,8 @@ export async function deleteInsumo(id: string): Promise<{ error?: string }> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('insumos').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/insumos')
+  revalidatePath('/insumos')
   return {}
 }
 
@@ -189,7 +204,7 @@ export async function updateEstadoPedidoInsumo(
   if (nota !== undefined) upd.nota = nota
   const { error } = await supabase.from('insumo_pedidos').update(upd).eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/filamentos')
+  revalidatePath('/admin/insumos')
   revalidatePath('/cuenta')
   return {}
 }
