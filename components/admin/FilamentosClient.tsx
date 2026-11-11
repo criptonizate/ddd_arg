@@ -284,6 +284,8 @@ function FilamentoCard({
   const [costoKgStr, setCostoKgStr] = useState(String(initial.costo_kg || ''))
   const [marcaInput, setMarcaInput] = useState(initial.marca || '')
   const [tipoInput, setTipoInput] = useState(initial.tipo || 'Común')
+  const [nombreInput, setNombreInput] = useState(initial.nombre || '')
+  const [colorInput, setColorInput] = useState(initial.color || '')
   const [showMarcaSugs, setShowMarcaSugs] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -446,6 +448,30 @@ function FilamentoCard({
     startTransition(async () => {
       await updateFilamento(fil.id, { marca: m })
       const updated = { ...fil, marca: m }
+      setFil(updated)
+      onUpdate(updated)
+    })
+  }
+
+  function saveNombre() {
+    const n = nombreInput.trim()
+    if (n === fil.nombre) return
+    if (!n) { setNombreInput(fil.nombre); return }
+    startTransition(async () => {
+      await updateFilamento(fil.id, { nombre: n })
+      const updated = { ...fil, nombre: n }
+      setFil(updated)
+      onUpdate(updated)
+    })
+  }
+
+  function saveColor() {
+    const c = colorInput.trim()
+    if (c === fil.color) return
+    if (!c) { setColorInput(fil.color); return }
+    startTransition(async () => {
+      await updateFilamento(fil.id, { color: c })
+      const updated = { ...fil, color: c }
       setFil(updated)
       onUpdate(updated)
     })
@@ -764,6 +790,35 @@ function FilamentoCard({
                 placeholder="0"
               />
               <span className="text-sm text-muted-foreground">kg</span>
+            </div>
+          </div>
+
+          {/* Nombre y Color */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Nombre</label>
+              <input
+                value={nombreInput}
+                onChange={(e) => setNombreInput(e.target.value)}
+                onBlur={saveNombre}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                placeholder="PLA Qelqa, PETG Fremover..."
+                maxLength={120}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Color</label>
+              <input
+                value={colorInput}
+                onChange={(e) => setColorInput(e.target.value)}
+                onBlur={saveColor}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                placeholder="Rojo, Violeta pastel..."
+                maxLength={80}
+                autoCapitalize="words"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+              />
             </div>
           </div>
 
