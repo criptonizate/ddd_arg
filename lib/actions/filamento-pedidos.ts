@@ -163,7 +163,7 @@ export async function crearPedidoFilamento(data: {
   }
 
   const total = Math.max(0, subtotal - descuento_coins)
-  const reservadoHasta = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
+  const reservadoHasta = new Date('2099-12-31T23:59:59Z').toISOString()
 
   // Una sola RPC atómica: insert pedido + reserva stock + canje coins. Si
   // cualquier paso falla, rollback de toda la tx — no quedan pedidos fantasma
