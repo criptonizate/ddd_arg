@@ -69,6 +69,70 @@ export async function getHistorialCoins(userId: string) {
   return data ?? []
 }
 
+// ── Admin: listado de clientes con saldo alto ─────────────────────────────────
+
+export interface ClienteConCoins {
+  userId: string
+  nombre: string
+  apodo: string | null
+  email: string
+  saldo: number
+}
+
+/**
+ * Devuelve todos los clientes con saldo >= minSaldo (default 150, que es el
+ * mínimo para un canje). Ordenados por saldo descendente.
+ */
+export async function getClientesConCoinsAltos(
+  minSaldo: number = 150,
+): Promise<ClienteConCoins[]> {
+  await requireAdmin()
+  const db = createServiceClient()
+
+  const { data: coinsRows } = await db.from('ddd_coins').select('user_id, puntos')
+  const saldoPorUser: Record<string, number> = {}
+  for (const row of coinsRows ?? []) {
+    const uid = row.user_id as string | null
+    if (!uid) continue
+    saldoPorUser[uid] = (saldoPorUser[uid] ?? 0) + Number(row.puntos ?? 0)
+  }
+
+  const userIds = Object.entries(saldoPorUser)
+    .filter(([, saldo]) => saldo >= minSaldo)
+    .map(([uid]) => uid)
+
+  if (!userIds.length) return []
+
+  const [{ data: profiles }, authResults] = await Promise.all([
+    db.from('user_profiles').select('user_id, admin_apodo').in('user_id', userIds),
+    Promise.all(userIds.map(id => db.auth.admin.getUserById(id))),
+  ])
+
+  const profileMap: Record<string, string | null> = {}
+  for (const p of profiles ?? []) profileMap[p.user_id] = (p.admin_apodo ?? null) as string | null
+
+  const nombreMap: Record<string, { nombre: string; email: string }> = {}
+  for (const r of authResults) {
+    const u = r.data?.user
+    if (!u) continue
+    const meta = (u.user_metadata ?? {}) as { full_name?: string; name?: string }
+    nombreMap[u.id] = {
+      nombre: meta.full_name ?? meta.name ?? (u.email?.split('@')[0] ?? 'Cliente'),
+      email: u.email ?? '',
+    }
+  }
+
+  return userIds
+    .map(uid => ({
+      userId: uid,
+      nombre: nombreMap[uid]?.nombre ?? 'Cliente',
+      apodo: profileMap[uid] ?? null,
+      email: nombreMap[uid]?.email ?? '',
+      saldo: saldoPorUser[uid],
+    }))
+    .sort((a, b) => b.saldo - a.saldo)
+}
+
 // ─── Login diario ───────────────────────────────────────────────────────────
 
 // Devuelve la fecha ('YYYY-MM-DD') en zona horaria Argentina para un Date dado.

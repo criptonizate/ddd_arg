@@ -6,7 +6,7 @@ import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuar
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
 import { getAdminUserNotes, saveAdminUserNotes, getAdminApodoMap, type AdminUserNotes } from '@/lib/actions/perfil'
-import { getSaldoCoins } from '@/lib/actions/ddd-coins'
+import { getSaldoCoins, getClientesConCoinsAltos, getHistorialCoins, type ClienteConCoins } from '@/lib/actions/ddd-coins'
 import { TIERS_MEMBRESIA } from '@/lib/membresia-helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -900,12 +900,24 @@ export default function CuentasClient({
   const [membresias, setMembresias] = useState<MembresiaAdminRow[] | null>(null)
   const [extensiones, setExtensiones] = useState<ExtensionPendiente[] | null>(null)
   const [resolviendoExt, setResolviendoExt] = useState<string | null>(null)
+  const [clientesCoins, setClientesCoins] = useState<ClienteConCoins[] | null>(null)
+  const [historialCoinsUser, setHistorialCoinsUser] = useState<{ cliente: ClienteConCoins; rows: { id: string; puntos: number; motivo: string; created_at: string }[] } | null>(null)
+  const [cargandoHistorial, setCargandoHistorial] = useState(false)
 
   useEffect(() => {
     getAdminApodoMap().then(setApodoMap)
     getMembresiasAdmin().then(setMembresias)
     getExtensionesAdmin().then(setExtensiones)
+    getClientesConCoinsAltos(150).then(setClientesCoins)
   }, [])
+
+  async function abrirHistorialCoins(cliente: ClienteConCoins) {
+    setHistorialCoinsUser({ cliente, rows: [] })
+    setCargandoHistorial(true)
+    const rows = await getHistorialCoins(cliente.userId)
+    setHistorialCoinsUser({ cliente, rows: rows as { id: string; puntos: number; motivo: string; created_at: string }[] })
+    setCargandoHistorial(false)
+  }
 
   const filtrados = usuarios.filter(u => {
     if (!busqueda) return true
@@ -1097,7 +1109,7 @@ export default function CuentasClient({
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">Ningún cliente tiene membresía activa en este momento.</div>
         ) : (
           <div className="divide-y divide-border">
-            {membresias.map(m => {
+            {membresias.map((m) => {
               const tier = TIERS_MEMBRESIA.find(t => t.label === m.nivel)
               const pct = Math.min(100, Math.round((m.diasRestantes / 30) * 100))
               return (
@@ -1148,6 +1160,160 @@ export default function CuentasClient({
           </div>
         )}
       </div>
+
+      {/* Dashboard DDD Coins — clientes con saldo >= 150 pts (un canje) */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Coins size={18} className="text-amber-500" aria-hidden="true" />
+            <div>
+              <p className="font-bold">DDD Coins — saldo &ge; 150 pts</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {clientesCoins === null
+                  ? 'Cargando...'
+                  : `${clientesCoins.length} cliente${clientesCoins.length !== 1 ? 's' : ''} ya puede canjear al menos 1 descuento`}
+              </p>
+            </div>
+          </div>
+          {clientesCoins && clientesCoins.length > 0 && (
+            <div className="text-right">
+              <p className="text-lg font-black tabular-nums" style={{ color: '#f59e0b' }}>
+                {clientesCoins.reduce((s, c) => s + c.saldo, 0).toLocaleString('es-AR')}
+              </p>
+              <p className="text-[10px] text-muted-foreground">pts totales acumulados</p>
+            </div>
+          )}
+        </div>
+
+        {clientesCoins === null ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Cargando saldos...</div>
+        ) : clientesCoins.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+            Ningún cliente tiene 150 o más puntos todavía.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {clientesCoins.map(c => {
+              const canjesPosibles = Math.floor(c.saldo / 150)
+              const pesosCanjeables = canjesPosibles * 1000
+              return (
+                <button
+                  key={c.userId}
+                  onClick={() => abrirHistorialCoins(c)}
+                  className="w-full flex items-center gap-4 px-5 py-3 text-left hover:bg-secondary/40 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-amber-100 dark:bg-amber-900/30">
+                    <Coins size={14} className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold truncate">
+                        {c.apodo ?? c.nombre}
+                      </span>
+                      {c.apodo && (
+                        <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">
+                          {c.nombre}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{c.email}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-black tabular-nums" style={{ color: '#f59e0b' }}>
+                      {c.saldo.toLocaleString('es-AR')} pts
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      = {canjesPosibles} canje{canjesPosibles !== 1 ? 's' : ''} (${pesosCanjeables.toLocaleString('es-AR')})
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modal: historial de coins de un cliente */}
+      {historialCoinsUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setHistorialCoinsUser(null)}>
+          <div
+            className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base flex items-center gap-1.5">
+                  <Coins size={16} className="text-amber-500" aria-hidden="true" />
+                  Historial de {historialCoinsUser.cliente.apodo ?? historialCoinsUser.cliente.nombre}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{historialCoinsUser.cliente.email}</p>
+                <p className="text-sm font-bold mt-1" style={{ color: '#f59e0b' }}>
+                  Saldo actual: {historialCoinsUser.cliente.saldo.toLocaleString('es-AR')} pts
+                </p>
+              </div>
+              <button
+                onClick={() => setHistorialCoinsUser(null)}
+                aria-label="Cerrar"
+                className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {cargandoHistorial ? (
+                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  <Loader2 size={18} className="mx-auto mb-2 animate-spin" />
+                  Cargando historial...
+                </div>
+              ) : historialCoinsUser.rows.length === 0 ? (
+                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  Sin movimientos registrados.
+                </div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {historialCoinsUser.rows.map(r => {
+                    const positivo = r.puntos > 0
+                    return (
+                      <li key={r.id} className="px-5 py-3 flex items-center gap-3">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                            positivo
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          }`}
+                        >
+                          {positivo ? '+' : '−'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium capitalize truncate">
+                            {r.motivo.replace(/_/g, ' ')}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-black tabular-nums shrink-0 ${positivo ? 'text-green-600' : 'text-red-600'}`}>
+                          {positivo ? '+' : ''}{r.puntos.toLocaleString('es-AR')} pts
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-border text-right">
+              <button
+                onClick={() => { setHistorialCoinsUser(null); setSelId(historialCoinsUser.cliente.userId) }}
+                className="text-xs text-foreground/80 hover:text-foreground underline"
+              >
+                Ver cuenta completa →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
