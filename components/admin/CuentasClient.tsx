@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil } from 'lucide-react'
+import { Search, X, ChevronDown, ChevronUp, Package, Clock, CheckCircle2, Truck, Ban, ShoppingBag, Loader2, AlertCircle, Plus, Pencil, Coins } from 'lucide-react'
 import { getVentasDeUsuario, registrarVentaFilamento, getVentasAgrupadasSinUsuario, asignarUserAVentas, editarClienteVenta, type UsuarioRegistrado, type GrupoVentasSinUsuario } from '@/lib/actions/filamentos'
 import type { VentaFilamento, Filamento } from '@/lib/filamentos-helpers'
 import { getPedidosByUser, getMembresiasAdmin, getExtensionesAdmin, resolverExtensionMembresia, updateEstadoPedidoFilamento, confirmarPedidoYDescontarStock, editarItemsPedidoFilamento, anularPedidoConfirmado, type FilamentoPedido, type FilamentoPedidoItem, type MembresiaAdminRow, type ExtensionPendiente } from '@/lib/actions/filamento-pedidos'
@@ -693,8 +693,9 @@ function UserDetail({
             <p className="text-[10px] text-muted-foreground">gastado</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold" style={{ color: '#f59e0b' }}>
-              {saldoCoins ?? '—'} 🪙
+            <p className="text-lg font-bold flex items-center justify-center gap-1" style={{ color: '#f59e0b' }}>
+              <span>{saldoCoins ?? '—'}</span>
+              <Coins size={16} aria-hidden="true" />
             </p>
             <p className="text-[10px] text-muted-foreground">DDD Coins</p>
           </div>

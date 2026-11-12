@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef } from 'react'
-import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2, Eye, EyeOff, MessageSquare, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, X, ChevronDown, ChevronUp, Minus, PackagePlus, ShoppingBag, TrendingUp, Pencil, Image as ImageIcon, CheckCircle2, Clock, Package, Phone, Loader2, AlertCircle, Link2, Eye, EyeOff, MessageSquare, RefreshCw, Coins } from 'lucide-react'
 import { MATERIALES, TIPOS_FILAMENTO, MARCAS_SUGERIDAS, tierPrecio, PRECIO_TIERS, type Filamento, type FilamentoMovimiento, type VentaFilamento, type Material } from '@/lib/filamentos-helpers'
 import {
   createFilamento,
@@ -2329,7 +2329,10 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                       <span className="text-orange-600 dark:text-orange-400">-${p.descuento_por_rollo.toLocaleString('es-AR')}/kg</span>
                     )}
                     {p.descuento_coins > 0 && (
-                      <span style={{ color: '#f59e0b' }}>🪙 -${p.descuento_coins.toLocaleString('es-AR')}</span>
+                      <span className="flex items-center gap-1" style={{ color: '#f59e0b' }}>
+                        <Coins size={12} aria-hidden="true" />
+                        -${p.descuento_coins.toLocaleString('es-AR')}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -2435,13 +2438,26 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                           )}
                           {p.descuento_por_rollo > 0 && p.descuento_coins > 0 && <span className="mx-1">·</span>}
                           {p.descuento_coins > 0 && (
-                            <span style={{ color: '#f59e0b' }}>
-                              🪙 -${p.descuento_coins.toLocaleString('es-AR')}
+                            <span className="inline-flex items-center gap-1" style={{ color: '#f59e0b' }}>
+                              <Coins size={11} aria-hidden="true" />
+                              -${p.descuento_coins.toLocaleString('es-AR')}
                             </span>
                           )}
                         </span>
                       )}
                     </div>
+                    {p.descuento_coins > 0 && p.user_id && (
+                      <div className="mt-2 pt-2 border-t border-green-700/30 flex items-center justify-between gap-2 text-[11px]">
+                        <span className="flex items-center gap-1.5 text-amber-200/90">
+                          <Coins size={12} aria-hidden="true" />
+                          Canjeó <strong className="tabular-nums">{(p.coins_canjeados_en_pedido ?? 0).toLocaleString('es-AR')} pts</strong>
+                          <span className="opacity-70">(= −${p.descuento_coins.toLocaleString('es-AR')})</span>
+                        </span>
+                        <span className="text-amber-200/90">
+                          Saldo del cliente: <strong className="tabular-nums">{(p.coins_saldo_actual ?? 0).toLocaleString('es-AR')} pts</strong>
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {p.nota && (
@@ -2648,7 +2664,7 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     <div className="text-[11px] text-muted-foreground mt-1">
                       {totalKg} kg
                       {descKg > 0 && <span className="text-orange-600 dark:text-orange-400 ml-2">Membresía: -${descKg.toLocaleString('es-AR')}/kg</span>}
-                      {descCoins > 0 && <span className="ml-2" style={{ color: '#f59e0b' }}>🪙 -${descCoins.toLocaleString('es-AR')}</span>}
+                      {descCoins > 0 && <span className="ml-2 inline-flex items-center gap-1" style={{ color: '#f59e0b' }}><Coins size={11} aria-hidden="true" /> -${descCoins.toLocaleString('es-AR')}</span>}
                     </div>
                   </div>
                 )

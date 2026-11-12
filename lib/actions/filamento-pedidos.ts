@@ -43,6 +43,10 @@ export interface FilamentoPedido {
     esTrial: boolean
     kgParaProximoTier: number | null
   } | null
+  // Enriched en el admin: saldo actual de DDD Coins del cliente.
+  coins_saldo_actual?: number
+  // Enriched en el admin: pts canjeados en este pedido (derivado de descuento_coins).
+  coins_canjeados_en_pedido?: number
 }
 
 // ── Público: crear pedido (requiere login) ─────────────────────────────────
@@ -255,7 +259,7 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
   const userIds = [...new Set(pedidos.filter(p => p.user_id).map(p => p.user_id!))]
   if (userIds.length) {
     // numero_cliente + membresía actual del cliente (bulk, para no hacer N+1)
-    const [{ data: profiles }, { data: pedidosHistorial }, { data: ventasHistorial }, { data: trials }, { data: extensionesData }] = await Promise.all([
+    const [{ data: profiles }, { data: pedidosHistorial }, { data: ventasHistorial }, { data: trials }, { data: extensionesData }, { data: coinsRows }] = await Promise.all([
       supabase.from('user_profiles').select('user_id, numero_cliente').in('user_id', userIds),
       supabase.from('filamento_pedidos').select('user_id, updated_at, total_rollos').in('user_id', userIds).in('estado', ['confirmado', 'entregado']),
       // IMPORTANTE: excluir ventas con pedido_id — esas son copia de un pedido web
@@ -263,7 +267,15 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
       supabase.from('filamento_ventas').select('user_id, fecha, gramos').in('user_id', userIds).is('pedido_id', null),
       supabase.from('membresia_trial').select('user_id, trial_fin').in('user_id', userIds),
       supabase.from('membresia_extensiones').select('user_id, dias, estado').in('user_id', userIds),
+      // Saldo actual de DDD Coins por usuario (puntos vigentes, sin vencer).
+      // Sumamos positivos y negativos; el RLS de ddd_coins permite lectura con service role.
+      supabase.from('ddd_coins').select('user_id, puntos').in('user_id', userIds),
     ])
+
+    const saldoCoinsMap: Record<string, number> = {}
+    for (const row of coinsRows ?? []) {
+      saldoCoinsMap[row.user_id] = (saldoCoinsMap[row.user_id] ?? 0) + Number(row.puntos ?? 0)
+    }
 
     const numeroMap: Record<string, number> = {}
     for (const p of profiles ?? []) numeroMap[p.user_id] = p.numero_cliente
@@ -321,6 +333,12 @@ export async function getFilamentoPedidos(estado?: string): Promise<FilamentoPed
     for (const p of pedidos) {
       p.numero_cliente = p.user_id ? (numeroMap[p.user_id] ?? null) : null
       p.cliente_membresia = p.user_id ? (membresiaMap[p.user_id] ?? null) : null
+      p.coins_saldo_actual = p.user_id ? (saldoCoinsMap[p.user_id] ?? 0) : undefined
+      // descuento_coins está en pesos; pts canjeados = pesos / (PESOS/PUNTOS)
+      // 1 pt = $1000/150. No importamos helpers para no acoplar; usamos la ratio directa.
+      p.coins_canjeados_en_pedido = p.descuento_coins > 0
+        ? Math.round((p.descuento_coins * 150) / 1000)
+        : 0
     }
   }
   return pedidos
