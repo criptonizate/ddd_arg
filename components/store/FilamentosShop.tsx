@@ -19,6 +19,10 @@ import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 const PRECIO_BASE_DEFAULT = 22000
 
+// Mercado Pago aún no está probado end-to-end, lo dejamos oculto hasta
+// validar en preview. Cuando esté listo: poner true.
+const MOSTRAR_MERCADOPAGO = false
+
 // Dirección del local para retiro en persona. EDITAR cuando cambie el domicilio.
 // La query de Google Maps es la dirección tal cual: Maps la geocodifica.
 const RETIRO_LOCAL = {
@@ -2762,6 +2766,7 @@ export default function FilamentosShop({
                     {/* Selector de método de pago. Mercado Pago cobra en el momento
                         (tarjeta, saldo MP, transferencia). Pago en el local coordina
                         por WhatsApp (transferencia o efectivo al retirar). */}
+                    {MOSTRAR_MERCADOPAGO && (
                     <div className="rounded-2xl border border-border overflow-hidden">
                       <p className="text-xs font-semibold text-muted-foreground px-3.5 pt-3 pb-1.5">
                         💳 ¿Cómo querés pagar?
@@ -2821,6 +2826,7 @@ export default function FilamentosShop({
                         </p>
                       )}
                     </div>
+                    )}
 
                     {/* Retiro / Envío / Pago colapsados — para 1-2 kg el
                         cliente no necesita ver todo. Resumen visible, detalles
