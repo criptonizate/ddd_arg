@@ -1,6 +1,22 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy init: en previews / entornos sin RESEND_API_KEY no explota al importar
+// este módulo. Las funciones de envío chequean la key y si falta, no-opean
+// (devuelven { data: null, error: null } como fallback seguro).
+let _resend: Resend | null = null
+const resend = {
+  emails: {
+    send: async (...args: Parameters<Resend['emails']['send']>) => {
+      const key = process.env.RESEND_API_KEY
+      if (!key) {
+        console.warn('[email] RESEND_API_KEY no configurada — envío salteado:', args[0]?.subject)
+        return { data: null, error: null } as const
+      }
+      if (!_resend) _resend = new Resend(key)
+      return _resend.emails.send(...args)
+    },
+  },
+}
 
 const ADMIN_EMAIL = 'iarnaudojuanpablo@gmail.com'
 const FROM = process.env.RESEND_FROM_EMAIL || 'DDD ARG <onboarding@resend.dev>'
