@@ -1232,6 +1232,7 @@ export default function FilamentosShop({
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('form')
   useFocusTrap(checkoutPanelRef, showCheckout)
   const [puntosACanjear, setPuntosACanjear] = useState(0)
+  const [metodoPago, setMetodoPago] = useState<'local' | 'mercadopago'>('local')
   const [clienteNombre, setClienteNombre] = useState(
     initialUser?.user_metadata?.full_name ? String(initialUser.user_metadata.full_name) : ''
   )
@@ -1918,8 +1919,20 @@ export default function FilamentosShop({
           })),
           puntosACanjear: puntosACanjear > 0 ? puntosACanjear : undefined,
           idempotencyKey,
+          metodo_pago: metodoPago,
         })
         if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
+        // Si eligió Mercado Pago y se generó la Preference, redirigimos al
+        // Checkout Pro. El pedido ya quedó creado (estado pendiente) y el
+        // webhook lo confirmará cuando MP apruebe.
+        if (metodoPago === 'mercadopago' && result.init_point) {
+          try { if (user && clienteTelefono.trim()) {
+            const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+            sb.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
+          } } catch { /* noop */ }
+          window.location.href = result.init_point
+          return
+        }
         // Guardar teléfono en el perfil del usuario si lo ingresó
         if (user && clienteTelefono.trim()) {
           const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -2746,6 +2759,69 @@ export default function FilamentosShop({
                       )
                     })()}
 
+                    {/* Selector de método de pago. Mercado Pago cobra en el momento
+                        (tarjeta, saldo MP, transferencia). Pago en el local coordina
+                        por WhatsApp (transferencia o efectivo al retirar). */}
+                    <div className="rounded-2xl border border-border overflow-hidden">
+                      <p className="text-xs font-semibold text-muted-foreground px-3.5 pt-3 pb-1.5">
+                        💳 ¿Cómo querés pagar?
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 pt-1">
+                        <label
+                          className={`flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer transition-colors ${
+                            metodoPago === 'local'
+                              ? 'border-green-500 bg-green-500/10'
+                              : 'border-border hover:border-foreground/30'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="metodo_pago"
+                            value="local"
+                            checked={metodoPago === 'local'}
+                            onChange={() => setMetodoPago('local')}
+                            className="mt-0.5 shrink-0"
+                            aria-label="Pago al retirar"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold">🤝 Al retirar / coordinar</span>
+                            <span className="block text-xs text-muted-foreground leading-snug mt-0.5">
+                              Te paso CBU / alias por WhatsApp o pagás en efectivo al retirar.
+                            </span>
+                          </span>
+                        </label>
+                        <label
+                          className={`flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer transition-colors ${
+                            metodoPago === 'mercadopago'
+                              ? 'border-sky-500 bg-sky-500/10'
+                              : 'border-border hover:border-foreground/30'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="metodo_pago"
+                            value="mercadopago"
+                            checked={metodoPago === 'mercadopago'}
+                            onChange={() => setMetodoPago('mercadopago')}
+                            className="mt-0.5 shrink-0"
+                            aria-label="Pago con Mercado Pago"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold">💳 Mercado Pago</span>
+                            <span className="block text-xs text-muted-foreground leading-snug mt-0.5">
+                              Tarjeta, saldo MP o transferencia. El pedido se confirma al recibir el pago.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                      {metodoPago === 'mercadopago' && (
+                        <p className="text-[11px] text-muted-foreground px-3.5 pb-3 leading-snug">
+                          Al tocar <strong>Pagar ahora</strong> te llevamos al checkout seguro de Mercado Pago.
+                          El stock queda reservado mientras se procesa el pago.
+                        </p>
+                      )}
+                    </div>
+
                     {/* Retiro / Envío / Pago colapsados — para 1-2 kg el
                         cliente no necesita ver todo. Resumen visible, detalles
                         tras el summary. */}
@@ -2820,7 +2896,9 @@ export default function FilamentosShop({
                       <button onClick={handleRevisarPedido}
                         disabled={checkoutStep === 'saving' || isPending || !clienteNombre.trim() || (!user && !clienteTelefono.trim())}
                         className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-base font-bold transition-colors">
-                        {checkoutStep === 'saving' || isPending ? <><Loader2 size={15} className="animate-spin" /> {submitSlow ? 'Guardando… (la red está lenta)' : 'Guardando pedido…'}</> : 'Pedir ahora →'}
+                        {checkoutStep === 'saving' || isPending
+                          ? <><Loader2 size={15} className="animate-spin" /> {submitSlow ? 'Guardando… (la red está lenta)' : (metodoPago === 'mercadopago' ? 'Yendo a Mercado Pago…' : 'Guardando pedido…')}</>
+                          : (metodoPago === 'mercadopago' ? 'Pagar ahora con Mercado Pago →' : 'Pedir ahora →')}
                       </button>
                     )}
                     <p className="text-xs text-muted-foreground text-center">

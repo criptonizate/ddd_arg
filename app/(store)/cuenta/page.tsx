@@ -40,7 +40,7 @@ const NIVEL_STYLES = {
 export default async function CuentaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; mp?: string; pedido?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -64,7 +64,7 @@ export default async function CuentaPage({
   const pedidos = pedidosResult.data
   const sugerenciasNuevas = sugerencias.filter(s => s.estado === 'notificado' && !s.visto_por_cliente).length
 
-  const { tab: tabParam } = await searchParams
+  const { tab: tabParam, mp: mpParam, pedido: pedidoParam } = await searchParams
   // Default: pedidos si el usuario ya tiene actividad (es el tab más usado),
   // perfil si recién se registra (para completar sus datos de contacto).
   const tienePedidos = (pedidos?.length ?? 0) > 0 || ventasHistoricas.length > 0
@@ -121,6 +121,42 @@ export default async function CuentaPage({
           </div>
         </div>
       </div>
+
+      {/* Banner feedback Mercado Pago (viene de ?mp=success|pending|failure) */}
+      {mpParam && (
+        <div
+          className={`mb-6 rounded-2xl border p-4 ${
+            mpParam === 'success' ? 'bg-green-500/10 border-green-500/40 text-green-200'
+            : mpParam === 'pending' ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
+            : 'bg-red-500/10 border-red-500/40 text-red-200'
+          }`}
+        >
+          {mpParam === 'success' && (
+            <>
+              <p className="font-bold flex items-center gap-2">✅ ¡Pago aprobado!</p>
+              <p className="text-sm mt-1 opacity-90">
+                Tu pedido {pedidoParam ? <strong>N° {pedidoParam}</strong> : ''} está confirmado. Te vamos a avisar por WhatsApp cuando esté listo para retirar o coordinar la entrega.
+              </p>
+            </>
+          )}
+          {mpParam === 'pending' && (
+            <>
+              <p className="font-bold flex items-center gap-2">⏳ Pago en proceso</p>
+              <p className="text-sm mt-1 opacity-90">
+                Mercado Pago está procesando tu pago (transferencia o débito en revisión). En cuanto se acredite, confirmamos el pedido {pedidoParam ? <strong>N° {pedidoParam}</strong> : ''} automáticamente y te escribimos.
+              </p>
+            </>
+          )}
+          {mpParam === 'failure' && (
+            <>
+              <p className="font-bold flex items-center gap-2">❌ No pudimos cobrar el pago</p>
+              <p className="text-sm mt-1 opacity-90">
+                El pedido {pedidoParam ? <strong>N° {pedidoParam}</strong> : ''} quedó pendiente. Podés reintentar el pago desde "Mis pedidos" o coordinar con nosotros por WhatsApp.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Banner sticky de vencimiento — se muestra ARRIBA si queda poco */}
       {mostrarAvisoMembresia && (

@@ -57,7 +57,8 @@ export async function crearPedidoFilamento(data: {
   items: FilamentoPedidoItem[]
   puntosACanjear?: number
   idempotencyKey?: string
-}): Promise<{ numero?: number; id?: string; error?: string; duplicate?: boolean }> {
+  metodo_pago?: 'local' | 'mercadopago'
+}): Promise<{ numero?: number; id?: string; error?: string; duplicate?: boolean; init_point?: string }> {
   if (!data.cliente_nombre.trim()) return { error: 'El nombre es requerido' }
   if (data.cliente_nombre.trim().length > 100) return { error: 'El nombre es demasiado largo' }
   if (data.cliente_telefono && data.cliente_telefono.trim().length > 20) return { error: 'El teléfono es demasiado largo' }
@@ -240,7 +241,47 @@ export async function crearPedidoFilamento(data: {
     })
   }
 
-  return { numero: r.numero, id: r.id, duplicate: r.duplicate }
+  // Si pidió pagar con Mercado Pago, marcamos el pedido y generamos la
+  // Preference. Devolvemos el init_point para que el cliente redirija.
+  let initPoint: string | undefined
+  if (data.metodo_pago === 'mercadopago' && r.id && !r.duplicate) {
+    try {
+      await supabase
+        .from('filamento_pedidos')
+        .update({ metodo_pago: 'mercadopago' })
+        .eq('id', r.id)
+
+      const { crearPreferenciaFilamento } = await import('@/lib/mercadopago')
+      const pref = await crearPreferenciaFilamento({
+        pedidoId: r.id,
+        numero: r.numero!,
+        items: itemsValidados,
+        total,
+        cliente_nombre: data.cliente_nombre,
+        cliente_email: user?.email ?? null,
+        cliente_telefono: data.cliente_telefono ?? null,
+      })
+      await supabase
+        .from('filamento_pedidos')
+        .update({
+          mp_preference_id: pref.id,
+          mp_init_point: pref.init_point,
+          mp_status: 'pending',
+        })
+        .eq('id', r.id)
+      initPoint = pref.init_point
+    } catch (err) {
+      console.error('[crearPedidoFilamento] no se pudo crear preferencia MP:', err)
+      // El pedido ya está creado; dejamos metodo_pago='local' como fallback
+      // para que el cliente coordine por WhatsApp.
+      await supabase
+        .from('filamento_pedidos')
+        .update({ metodo_pago: 'local' })
+        .eq('id', r.id)
+    }
+  }
+
+  return { numero: r.numero, id: r.id, duplicate: r.duplicate, init_point: initPoint }
 }
 
 // ── Admin: listar pedidos ──────────────────────────────────────────────────
@@ -1138,3 +1179,67 @@ export async function getExtensionesAdmin(): Promise<ExtensionPendiente[]> {
       createdAt: r.created_at,
     }))
 }
+
+// ── Mercado Pago ────────────────────────────────────────────────────────────
+
+/**
+ * Crea una Preference en MP para un pedido ya persistido y guarda el
+ * init_point y el preference_id en la fila. Devuelve el init_point.
+ *
+ * Autorizado para el dueño del pedido (cliente logueado) o admin.
+ */
+export async function crearPreferenciaPagoFilamento(
+  pedidoId: string,
+): Promise<{ init_point?: string; error?: string }> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const auth = await createClient()
+  const { data: { user } } = await auth.auth.getUser()
+
+  const db = createServiceClient()
+  const { data: pedido } = await db
+    .from('filamento_pedidos')
+    .select('id, numero, user_id, items, total, cliente_nombre, cliente_telefono, estado, metodo_pago, mp_init_point')
+    .eq('id', pedidoId)
+    .single()
+  if (!pedido) return { error: 'Pedido no encontrado' }
+
+  const { isAnyAdmin } = await import('@/lib/admin-roles')
+  const esDueño = user && pedido.user_id && user.id === pedido.user_id
+  const esAdmin = user && isAnyAdmin(user.email)
+  if (!esDueño && !esAdmin) return { error: 'No autorizado' }
+
+  if (pedido.estado !== 'pendiente') return { error: 'El pedido ya no está pendiente' }
+  if (pedido.metodo_pago !== 'mercadopago') return { error: 'Este pedido no es por Mercado Pago' }
+
+  // Si ya hay init_point, reusarlo (idempotencia).
+  if (pedido.mp_init_point) return { init_point: pedido.mp_init_point }
+
+  const email = user?.email ?? null
+  const { crearPreferenciaFilamento } = await import('@/lib/mercadopago')
+
+  try {
+    const pref = await crearPreferenciaFilamento({
+      pedidoId: pedido.id,
+      numero: pedido.numero,
+      items: pedido.items as FilamentoPedidoItem[],
+      total: pedido.total,
+      cliente_nombre: pedido.cliente_nombre,
+      cliente_email: email,
+      cliente_telefono: pedido.cliente_telefono,
+    })
+    await db
+      .from('filamento_pedidos')
+      .update({
+        mp_preference_id: pref.id,
+        mp_init_point: pref.init_point,
+        mp_status: 'pending',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pedidoId)
+    return { init_point: pref.init_point }
+  } catch (err) {
+    console.error('[crearPreferenciaPagoFilamento]', err)
+    return { error: 'No se pudo generar el link de pago. Probá de nuevo o elegí pago en el local.' }
+  }
+}
+
