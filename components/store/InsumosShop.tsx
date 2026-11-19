@@ -5,52 +5,12 @@ import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, Search } f
 import type { Insumo, InsumoPedidoItem } from '@/lib/actions/insumos'
 import { crearPedidoInsumo } from '@/lib/actions/insumos'
 import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
-import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
 
-const DESCUENTOS_INSUMOS = [
-  { min: 15, pct: 15, label: 'Elite 15%' },
-  { min: 10, pct: 10, label: 'Plus 10%' },
-  { min:  5, pct:  5, label: 'Mayorista 5%' },
-  { min:  0, pct:  0, label: '' },
-] as const
-
-function getDescuentoInsumo(kgPeriodo: number) {
-  return DESCUENTOS_INSUMOS.find(t => kgPeriodo >= t.min) ?? { pct: 0, label: '' }
-}
-
 function fmtARS(n: number) { return `$${n.toLocaleString('es-AR')}` }
-
-function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden">
-        <div className="px-6 py-7 space-y-5">
-          <div className="text-center">
-            <p className="text-lg font-bold mb-1">Iniciar sesión</p>
-            <p className="text-sm text-muted-foreground">Necesitás estar logueado para hacer un pedido</p>
-          </div>
-          <button
-            onClick={onLogin}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl py-3 text-sm font-semibold shadow-sm transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-              <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-            </svg>
-            Continuar con Google
-          </button>
-          <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground underline">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 interface CartItem { insumo: Insumo; cantidad: number }
 
@@ -74,7 +34,6 @@ export default function InsumosShop({
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
   const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: CartItem[]; subtotal: number; descuento: number; pct: number } | null>(null)
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const [user, setUser] = useState<User | null>(initialUser)
   const [membresiaState, setMembresiaState] = useState<MembresiaStatus | null>(membresia)
   const [, startTransition] = useTransition()
@@ -103,8 +62,9 @@ export default function InsumosShop({
     if (user) setClienteNombre(prev => prev || (user.user_metadata?.full_name ?? ''))
   }, [user])
 
-  const kgPeriodo = membresiaState?.kgPeriodo ?? 0
-  const { pct, label: descLabel } = getDescuentoInsumo(kgPeriodo)
+  // Insumos sin descuento por membresía — precio real siempre.
+  const pct = 0
+  const descLabel = ''
 
   const categorias = useMemo(() => Array.from(new Set(insumos.map(i => i.categoria))).sort(), [insumos])
 
@@ -127,12 +87,7 @@ export default function InsumosShop({
   const total = subtotalSin - descuentoARS
   const totalUnidades = cart.reduce((s, i) => s + i.cantidad, 0)
 
-  function loginConCarrito() {
-    signInWithGoogleAndReturn('/insumos')
-  }
-
   function addToCart(insumo: Insumo) {
-    if (!user) { setShowAuthModal(true); return }
     setCart(prev => {
       const existing = prev.find(i => i.insumo.id === insumo.id)
       if (existing) {
@@ -155,12 +110,27 @@ export default function InsumosShop({
 
   function abrirCheckout() {
     if (!cart.length) return
-    if (!user) { setShowCart(false); setShowAuthModal(true); return }
+    // Rehidratar nombre/teléfono del guest desde localStorage (mismo patrón que filamentos).
+    if (!user) {
+      try {
+        const n = localStorage.getItem('ddd_guest_nombre')
+        const t = localStorage.getItem('ddd_guest_telefono')
+        if (n && !clienteNombre.trim()) setClienteNombre(n)
+        if (t && !clienteTelefono.trim()) setClienteTelefono(t)
+      } catch { /* noop */ }
+    }
     setShowCheckout(true); setCheckoutStep('form'); setCheckoutError(''); setPedidoNumero(null)
   }
 
   function handleConfirmarPedido() {
     if (!clienteNombre.trim()) { setCheckoutError('Tu nombre es requerido'); return }
+    if (!user && !clienteTelefono.trim()) { setCheckoutError('Tu teléfono es requerido para coordinar la entrega'); return }
+    if (!user) {
+      try {
+        localStorage.setItem('ddd_guest_nombre', clienteNombre.trim())
+        localStorage.setItem('ddd_guest_telefono', clienteTelefono.trim())
+      } catch { /* noop */ }
+    }
     setCheckoutError(''); setCheckoutStep('saving')
     startTransition(async () => {
       const result = await crearPedidoInsumo({
@@ -239,38 +209,6 @@ export default function InsumosShop({
               </div>
             </div>
 
-            {/* Descuentos mayoristas */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#22c55e' }}>💰 Descuento mayorista</p>
-              {kgPeriodo > 0 && (
-                <div className="mb-2 text-[10px] px-2.5 py-1.5 rounded-lg border font-semibold"
-                  style={{ backgroundColor: 'oklch(0.22 0.04 145)', borderColor: '#166534', color: '#4ade80' }}>
-                  🏆 {kgPeriodo.toFixed(1)} kg filamentos comprados
-                </div>
-              )}
-              <div className="space-y-1.5">
-                {[
-                  { min: 5,  pct: 5,  label: 'Plata' },
-                  { min: 10, pct: 10, label: 'Oro' },
-                  { min: 15, pct: 15, label: 'Platino' },
-                ].map(t => {
-                  const activo = kgPeriodo >= t.min
-                  return (
-                    <div
-                      key={t.min}
-                      className="flex items-center justify-between text-xs rounded-lg px-3 py-2 font-semibold border"
-                      style={activo
-                        ? { backgroundColor: '#166534', color: '#bbf7d0', borderColor: '#16a34a' }
-                        : { backgroundColor: 'oklch(0.22 0.005 264)', color: 'oklch(0.50 0.006 264)', borderColor: 'oklch(1 0 0 / 8%)' }
-                      }
-                    >
-                      <span>{activo ? '✓ ' : ''}{t.label} {t.min}+ kg</span>
-                      <span>−{t.pct}%</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </aside>
         )}
 
@@ -483,7 +421,7 @@ export default function InsumosShop({
                 onClick={() => { setShowCart(false); abrirCheckout() }}
                 className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm transition-colors"
               >
-                {!user ? '🔒 Ingresá para confirmar' : 'Confirmar pedido →'}
+                Confirmar pedido →
               </button>
             </div>
           </div>
@@ -531,48 +469,38 @@ export default function InsumosShop({
                   </div>
                 </div>
 
-                {/* Formulario */}
-                {!user ? (
-                  <div className="px-6 py-6 space-y-4">
-                    <div className="text-center space-y-2">
-                      <p className="text-sm font-semibold">Iniciá sesión para continuar</p>
+                {/* Formulario — guest y logueado usan el mismo flow (como filamentos) */}
+                <div className="px-6 py-5 space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
+                      <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
+                        placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
+                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                     </div>
-                    <button onClick={loginConCarrito}
-                      className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl py-3 text-sm font-semibold shadow-sm transition-colors">
-                      Continuar con Google
-                    </button>
-                  </div>
-                ) : (
-                  <div className="px-6 py-5 space-y-4">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Tu nombre *</label>
-                        <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
-                          placeholder="¿Cómo te llamás?" disabled={checkoutStep === 'saving'}
-                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Teléfono (opcional)</label>
-                        <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
-                          placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
-                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
-                      </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                        Teléfono {!user ? '*' : '(opcional)'}
+                      </label>
+                      <input type="tel" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)}
+                        placeholder="Para coordinar la entrega" disabled={checkoutStep === 'saving'}
+                        required={!user} aria-required={!user}
+                        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50" />
                     </div>
-                    {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Una vez confirmado el pedido, revisamos el stock y te avisamos por WhatsApp para coordinar el pago y la entrega.
-                    </p>
                   </div>
-                )}
+                  {checkoutError && <p className="text-xs text-red-600 dark:text-red-400">{checkoutError}</p>}
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Una vez confirmado el pedido, revisamos el stock y te avisamos por WhatsApp para coordinar el pago y la entrega.
+                  </p>
+                </div>
 
-                {user && (
-                  <div className="px-6 pb-5">
-                    <button onClick={handleConfirmarPedido} disabled={checkoutStep === 'saving' || !clienteNombre.trim()}
-                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
-                      {checkoutStep === 'saving' ? <><Loader2 size={15} className="animate-spin" /> Guardando...</> : 'Hacer el pedido'}
-                    </button>
-                  </div>
-                )}
+                <div className="px-6 pb-5">
+                  <button onClick={handleConfirmarPedido}
+                    disabled={checkoutStep === 'saving' || !clienteNombre.trim() || (!user && !clienteTelefono.trim())}
+                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 rounded-xl py-3 text-sm font-bold transition-colors">
+                    {checkoutStep === 'saving' ? <><Loader2 size={15} className="animate-spin" /> Guardando...</> : 'Hacer el pedido'}
+                  </button>
+                </div>
               </>
             ) : (
               <div className="px-6 py-8 text-center space-y-4">
@@ -598,7 +526,6 @@ export default function InsumosShop({
         </div>
       )}
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={loginConCarrito} />}
     </div>
   )
 }

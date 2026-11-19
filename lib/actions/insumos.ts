@@ -69,18 +69,47 @@ export async function crearPedidoInsumo(data: {
   const { createClient } = await import('@/lib/supabase/server')
   const supabaseAuth = await createClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return { error: 'Necesitás iniciar sesión para hacer un pedido' }
 
+  const telefono = data.cliente_telefono?.trim() || null
+  if (!user && !telefono) return { error: 'El teléfono es requerido para pedidos sin cuenta' }
+
+  // Precio real: recalculamos el total server-side a partir de los precios
+  // reales de catálogo. Ignoramos `data.total` y `data.descuento_pct` del
+  // cliente para que no se puedan tunear desde el browser.
   const supabase = createServiceClient()
+  const ids = data.items.map(i => i.insumo_id)
+  type CatRow = { id: string; nombre: string; precio_unitario: number; stock: number; activo: boolean }
+  const { data: catalogoRaw, error: catErr } = await supabase
+    .from('insumos')
+    .select('id, nombre, precio_unitario, stock, activo')
+    .in('id', ids)
+  if (catErr) return { error: catErr.message }
+  const catalogo = (catalogoRaw ?? []) as unknown as CatRow[]
+
+  const itemsValidados: InsumoPedidoItem[] = []
+  for (const i of data.items) {
+    const ins = catalogo.find((c: CatRow) => c.id === i.insumo_id)
+    if (!ins || !ins.activo) return { error: `El insumo "${i.nombre}" ya no está disponible` }
+    if (i.cantidad <= 0) return { error: `Cantidad inválida para "${ins.nombre}"` }
+    if (i.cantidad > ins.stock) return { error: `Stock insuficiente de "${ins.nombre}"` }
+    itemsValidados.push({
+      insumo_id: ins.id,
+      nombre: ins.nombre,
+      cantidad: i.cantidad,
+      precio_unitario: ins.precio_unitario,
+    })
+  }
+  const total = itemsValidados.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+
   const { data: row, error } = await supabase
     .from('insumo_pedidos')
     .insert({
-      user_id: user.id,
+      user_id: user?.id ?? null,
       cliente_nombre: data.cliente_nombre.trim(),
-      cliente_telefono: data.cliente_telefono?.trim() || null,
-      items: data.items,
-      total: data.total,
-      descuento_pct: data.descuento_pct,
+      cliente_telefono: telefono,
+      items: itemsValidados,
+      total,
+      descuento_pct: 0,
       estado: 'pendiente',
     })
     .select('id, numero')
