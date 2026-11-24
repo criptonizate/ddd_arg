@@ -2130,6 +2130,7 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
   const [error, setError] = useState('')
   const [editModal, setEditModal] = useState<{ pedido: FilamentoPedido; items: FilamentoPedidoItem[] } | null>(null)
   const [editError, setEditError] = useState('')
+  const [filSearch, setFilSearch] = useState<Record<number, string | undefined>>({})
   const [anularModal, setAnularModal] = useState<{ id: string; numero: number } | null>(null)
   const [anularNota, setAnularNota] = useState('')
   const [, startTransition] = useTransition()
@@ -2481,7 +2482,7 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     {p.estado === 'pendiente' && (
                       <>
                         <button
-                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError('') }}
+                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError(''); setFilSearch({}) }}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-secondary text-sm font-medium transition-colors"
                         >
                           <Pencil size={13} />
@@ -2518,7 +2519,7 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                     {p.estado === 'confirmado' && (
                       <>
                         <button
-                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError('') }}
+                          onClick={() => { setEditModal({ pedido: p, items: p.items.map(i => ({ ...i })) }); setEditError(''); setFilSearch({}) }}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-secondary text-sm font-medium transition-colors"
                         >
                           <Pencil size={13} />
@@ -2573,39 +2574,65 @@ function PedidosPendientesTab({ filamentosDisponibles }: { filamentosDisponibles
                 {editModal.items.map((item, idx) => (
                   <div key={idx} className="flex gap-2 items-start bg-secondary/30 rounded-xl p-3">
                     <div className="flex-1 space-y-2 min-w-0">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground block mb-1">Color</label>
+                      {/* Filamento con búsqueda */}
+                      <div>
+                        <label className="text-[10px] font-medium text-muted-foreground block mb-1">Filamento</label>
+                        <div className="relative">
                           <input
                             type="text"
-                            value={item.color}
-                            onChange={e => {
-                              const newItems = [...editModal.items]
-                              newItems[idx] = { ...newItems[idx], color: e.target.value }
-                              setEditModal({ ...editModal, items: newItems })
-                            }}
+                            value={filSearch[idx] !== undefined ? filSearch[idx]! : `${item.color} — ${item.material} · ${item.marca}`}
+                            placeholder="Buscar color, material, marca..."
+                            onFocus={() => setFilSearch(prev => ({ ...prev, [idx]: '' }))}
+                            onChange={e => setFilSearch(prev => ({ ...prev, [idx]: e.target.value }))}
+                            onBlur={() => setTimeout(() => setFilSearch(prev => { const n = { ...prev }; delete n[idx]; return n }), 180)}
                             className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
                           />
+                          {filSearch[idx] !== undefined && (() => {
+                            const q = (filSearch[idx] ?? '').toLowerCase()
+                            const matches = filamentosDisponibles.filter(f =>
+                              !q ||
+                              f.color.toLowerCase().includes(q) ||
+                              f.material.toLowerCase().includes(q) ||
+                              f.marca.toLowerCase().includes(q)
+                            ).slice(0, 25)
+                            return matches.length > 0 ? (
+                              <div className="absolute z-50 top-full mt-1 w-full bg-background border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                                {matches.map(f => (
+                                  <button
+                                    key={f.id}
+                                    type="button"
+                                    onMouseDown={e => e.preventDefault()}
+                                    onClick={() => {
+                                      const newItems = [...editModal.items]
+                                      newItems[idx] = { ...newItems[idx], filamento_id: f.id, color: f.color, material: f.material, marca: f.marca, nombre: f.nombre, precio_unitario: f.precio_kg ?? newItems[idx].precio_unitario }
+                                      setEditModal({ ...editModal, items: newItems })
+                                      setFilSearch(prev => { const n = { ...prev }; delete n[idx]; return n })
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-xs hover:bg-secondary transition-colors flex items-center justify-between ${f.id === item.filamento_id ? 'bg-secondary/60' : ''}`}
+                                  >
+                                    <span><span className="font-semibold">{f.color}</span><span className="text-muted-foreground ml-1.5">{f.material} · {f.marca}</span></span>
+                                    {f.id === item.filamento_id && <span className="text-[10px] text-muted-foreground">actual</span>}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : <div className="absolute z-50 top-full mt-1 w-full bg-background border border-border rounded-xl shadow-xl px-3 py-2 text-xs text-muted-foreground">Sin resultados</div>
+                          })()}
                         </div>
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground block mb-1">Filamento</label>
-                          <select
-                            value={item.filamento_id}
-                            onChange={e => {
-                              const fil = filamentosDisponibles.find(f => f.id === e.target.value)
-                              if (!fil) return
-                              const newItems = [...editModal.items]
-                              newItems[idx] = { ...newItems[idx], filamento_id: fil.id, color: fil.color, material: fil.material, marca: fil.marca, nombre: fil.nombre }
-                              setEditModal({ ...editModal, items: newItems })
-                            }}
-                            className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
-                          >
-                            <option value={item.filamento_id}>{item.color} — {item.material}</option>
-                            {filamentosDisponibles.filter(f => f.id !== item.filamento_id).map(f => (
-                              <option key={f.id} value={f.id}>{f.color} — {f.material} · {f.marca}</option>
-                            ))}
-                          </select>
-                        </div>
+                      </div>
+                      {/* Precio unitario editable */}
+                      <div>
+                        <label className="text-[10px] font-medium text-muted-foreground block mb-1">Precio por kg ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.precio_unitario}
+                          onChange={e => {
+                            const newItems = [...editModal.items]
+                            newItems[idx] = { ...newItems[idx], precio_unitario: Number(e.target.value) }
+                            setEditModal({ ...editModal, items: newItems })
+                          }}
+                          className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                        />
                       </div>
                       <div>
                         <label className="text-[10px] font-medium text-muted-foreground block mb-1">Cantidad (kg)</label>
