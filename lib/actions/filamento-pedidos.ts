@@ -581,45 +581,46 @@ export async function editarItemsPedidoFilamento(
   }
 
   const total_rollos = items.reduce((s, i) => s + i.rollos, 0)
-
   const supabase = createServiceClient()
 
-  // Obtener pedido para validar estado y recalcular descuento INCLUYENDO este pedido
   const { data: pedidoRow } = await supabase
     .from('filamento_pedidos')
     .select('user_id, descuento_coins, estado')
     .eq('id', pedidoId)
     .single()
   if (!pedidoRow) return { error: 'Pedido no encontrado' }
-  // Si ya está confirmado o entregado, el stock está descontado y las ventas registradas.
-  // Editar los items dejaría todo inconsistente. Para modificar, hay que anular y crear uno nuevo.
-  if (pedidoRow.estado !== 'pendiente') {
-    return { error: `Solo se pueden editar pedidos pendientes. Este está "${pedidoRow.estado}" — para modificarlo, anulá y creá uno nuevo.` }
+
+  if (!['pendiente', 'confirmado'].includes(pedidoRow.estado)) {
+    return { error: `No se puede editar un pedido en estado "${pedidoRow.estado}"` }
   }
+
   const descuento_por_rollo = pedidoRow.user_id
     ? await calcularDescuentoProyectado(pedidoRow.user_id, total_rollos, pedidoId)
     : 0
   const descuento_coins = pedidoRow.descuento_coins ?? 0
-
   const subtotal = items.reduce((s, i) => s + i.rollos * Math.max(0, i.precio_unitario - descuento_por_rollo), 0)
-  // Si el nuevo subtotal es menor al descuento_coins ya canjeado, bloqueamos la
-  // edición: significaría quemar coins sin que el cliente reciba su contrapartida.
-  // El admin debe anular el pedido (que revierte los coins) y crear uno nuevo.
+
   if (descuento_coins > subtotal) {
     return {
-      error:
-        `El nuevo subtotal ($${subtotal.toLocaleString('es-AR')}) es menor al canje de coins ya aplicado ($${descuento_coins.toLocaleString('es-AR')}). Para reducir el pedido, anulalo y crealo de nuevo (los coins se devuelven).`,
+      error: `El nuevo subtotal ($${subtotal.toLocaleString('es-AR')}) es menor al canje de coins ya aplicado ($${descuento_coins.toLocaleString('es-AR')}). Para reducir el pedido, anulalo y crealo de nuevo (los coins se devuelven).`,
     }
   }
-  const total = Math.max(0, subtotal - descuento_coins)
-  const { error } = await supabase
-    .from('filamento_pedidos')
-    .update({ items, total_rollos, descuento_por_rollo, total, updated_at: new Date().toISOString() })
-    .eq('id', pedidoId)
 
-  if (error) return { error: error.message }
+  // Llama al RPC que ajusta stock/reservas/ventas + actualiza el pedido en una transacción
+  const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+    'editar_pedido_filamento_con_stock',
+    {
+      p_pedido_id: pedidoId,
+      p_items: items as unknown as Record<string, unknown>[],
+      p_descuento_por_rollo: descuento_por_rollo,
+    }
+  )
+  const r = rpcResult as { ok?: boolean; error?: string; total?: number; total_rollos?: number; descuento_por_rollo?: number } | null
+  if (rpcErr || !r?.ok) return { error: r?.error ?? rpcErr?.message ?? 'Error al editar el pedido' }
+
   revalidatePath('/admin/filamentos'); updateTag('filamentos')
-  return { total, descuento_por_rollo, total_rollos }
+  revalidatePath('/filamentos')
+  return { total: r.total, descuento_por_rollo: r.descuento_por_rollo, total_rollos: r.total_rollos }
 }
 
 // Admin: recalcula el descuento de un pedido ya creado según la membresía
