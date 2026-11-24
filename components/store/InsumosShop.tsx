@@ -4,23 +4,11 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { ShoppingCart, Plus, Minus, X, Trash2, CheckCircle2, Loader2, Search } from 'lucide-react'
 import type { Insumo, InsumoPedidoItem } from '@/lib/actions/insumos'
 import { crearPedidoInsumo } from '@/lib/actions/insumos'
-import type { MembresiaStatus } from '@/lib/actions/filamento-pedidos'
 import { signInWithGoogleAndReturn } from '@/lib/actions/auth'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '543804559909'
-
-const DESCUENTOS_INSUMOS = [
-  { min: 15, pct: 15, label: 'Elite 15%' },
-  { min: 10, pct: 10, label: 'Plus 10%' },
-  { min:  5, pct:  5, label: 'Mayorista 5%' },
-  { min:  0, pct:  0, label: '' },
-] as const
-
-function getDescuentoInsumo(kgPeriodo: number) {
-  return DESCUENTOS_INSUMOS.find(t => kgPeriodo >= t.min) ?? { pct: 0, label: '' }
-}
 
 function fmtARS(n: number) { return `$${n.toLocaleString('es-AR')}` }
 
@@ -57,11 +45,9 @@ interface CartItem { insumo: Insumo; cantidad: number }
 export default function InsumosShop({
   insumos,
   initialUser,
-  membresia,
 }: {
   insumos: Insumo[]
   initialUser: User | null
-  membresia: MembresiaStatus | null
 }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [search, setSearch] = useState('')
@@ -73,10 +59,9 @@ export default function InsumosShop({
   const [clienteNombre, setClienteNombre] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
-  const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: CartItem[]; subtotal: number; descuento: number; pct: number } | null>(null)
+  const [pedidoSnapshot, setPedidoSnapshot] = useState<{ items: CartItem[]; total: number } | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [user, setUser] = useState<User | null>(initialUser)
-  const [membresiaState, setMembresiaState] = useState<MembresiaStatus | null>(membresia)
   const [, startTransition] = useTransition()
 
   useEffect(() => {
@@ -87,14 +72,6 @@ export default function InsumosShop({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) {
-        setClienteNombre(u.user_metadata?.full_name ?? '')
-        import('@/lib/actions/filamento-pedidos').then(({ getMembresiaCliente }) => {
-          getMembresiaCliente(u.id).then(setMembresiaState)
-        })
-      } else {
-        setMembresiaState(null)
-      }
     })
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,9 +79,6 @@ export default function InsumosShop({
   useEffect(() => {
     if (user) setClienteNombre(prev => prev || (user.user_metadata?.full_name ?? ''))
   }, [user])
-
-  const kgPeriodo = membresiaState?.kgPeriodo ?? 0
-  const { pct, label: descLabel } = getDescuentoInsumo(kgPeriodo)
 
   const categorias = useMemo(() => Array.from(new Set(insumos.map(i => i.categoria))).sort(), [insumos])
 
@@ -122,9 +96,7 @@ export default function InsumosShop({
     return list
   }, [insumos, catFilter, search])
 
-  const subtotalSin = cart.reduce((s, i) => s + i.cantidad * i.insumo.precio_unitario, 0)
-  const descuentoARS = Math.round(subtotalSin * pct / 100)
-  const total = subtotalSin - descuentoARS
+  const total = cart.reduce((s, i) => s + i.cantidad * i.insumo.precio_unitario, 0)
   const totalUnidades = cart.reduce((s, i) => s + i.cantidad, 0)
 
   function loginConCarrito() {
@@ -173,14 +145,14 @@ export default function InsumosShop({
           precio_unitario: i.insumo.precio_unitario,
         })),
         total,
-        descuento_pct: pct,
+        descuento_pct: 0,
       })
       if (result.error) { setCheckoutError(result.error); setCheckoutStep('form'); return }
       if (user && clienteTelefono.trim()) {
         const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
         sb.auth.updateUser({ data: { phone: clienteTelefono.trim() } })
       }
-      setPedidoSnapshot({ items: cart, subtotal: subtotalSin, descuento: descuentoARS, pct })
+      setPedidoSnapshot({ items: cart, total })
       setPedidoNumero(result.numero!); setCheckoutStep('done'); setCart([]); setShowCart(false)
     })
   }
@@ -188,9 +160,7 @@ export default function InsumosShop({
   function abrirWhatsApp(numero: number) {
     const snap = pedidoSnapshot
     if (!snap) return
-    const itemLines = snap.items.map(i =>
-      `  - ${i.cantidad}x ${i.insumo.nombre}`
-    )
+    const itemLines = snap.items.map(i => `  - ${i.cantidad}x ${i.insumo.nombre}`)
     const lines = [
       `Hola, soy ${clienteNombre}!`,
       `Hice el pedido de insumos N° ${numero} desde la web.`,
@@ -198,13 +168,10 @@ export default function InsumosShop({
       `*Detalle:*`,
       ...itemLines,
       ``,
-      snap.pct > 0
-        ? `Descuento mayorista (${snap.pct}%): -${fmtARS(snap.descuento)}`
-        : null,
-      `*Total: ${fmtARS(total)}*`,
+      `*Total: ${fmtARS(snap.total)}*`,
       ``,
       `Quedo esperando confirmacion para coordinar el pago y la entrega.`,
-    ].filter(Boolean).join('\n')
+    ].join('\n')
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines)}`, '_blank')
   }
 
@@ -216,60 +183,25 @@ export default function InsumosShop({
 
         {/* Sidebar desktop */}
         {categorias.length > 1 && (
-          <aside className="hidden lg:block w-48 shrink-0 sticky top-[72px] bg-card border border-border rounded-2xl p-4 space-y-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Categoría</p>
-              <div className="space-y-1">
+          <aside className="hidden lg:block w-48 shrink-0 sticky top-[72px] bg-card border border-border rounded-2xl p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Categoría</p>
+            <div className="space-y-1">
+              <button
+                onClick={() => setCatFilter('')}
+                className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${!catFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
+              >
+                Todos ({insumos.length})
+              </button>
+              {categorias.map(cat => (
                 <button
-                  onClick={() => setCatFilter('')}
-                  className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${!catFilter ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
+                  key={cat}
+                  onClick={() => setCatFilter(catFilter === cat ? '' : cat)}
+                  className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${catFilter === cat ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
                 >
-                  Todos ({insumos.length})
+                  {cat}
+                  <span className="text-xs text-muted-foreground">{insumos.filter(i => i.categoria === cat).length}</span>
                 </button>
-                {categorias.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCatFilter(catFilter === cat ? '' : cat)}
-                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${catFilter === cat ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-semibold' : 'hover:bg-secondary'}`}
-                  >
-                    {cat}
-                    <span className="text-xs text-muted-foreground">{insumos.filter(i => i.categoria === cat).length}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Descuentos mayoristas */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#22c55e' }}>💰 Descuento mayorista</p>
-              {kgPeriodo > 0 && (
-                <div className="mb-2 text-[10px] px-2.5 py-1.5 rounded-lg border font-semibold"
-                  style={{ backgroundColor: 'oklch(0.22 0.04 145)', borderColor: '#166534', color: '#4ade80' }}>
-                  🏆 {kgPeriodo.toFixed(1)} kg filamentos comprados
-                </div>
-              )}
-              <div className="space-y-1.5">
-                {[
-                  { min: 5,  pct: 5,  label: 'Plata' },
-                  { min: 10, pct: 10, label: 'Oro' },
-                  { min: 15, pct: 15, label: 'Platino' },
-                ].map(t => {
-                  const activo = kgPeriodo >= t.min
-                  return (
-                    <div
-                      key={t.min}
-                      className="flex items-center justify-between text-xs rounded-lg px-3 py-2 font-semibold border"
-                      style={activo
-                        ? { backgroundColor: '#166534', color: '#bbf7d0', borderColor: '#16a34a' }
-                        : { backgroundColor: 'oklch(0.22 0.005 264)', color: 'oklch(0.50 0.006 264)', borderColor: 'oklch(1 0 0 / 8%)' }
-                      }
-                    >
-                      <span>{activo ? '✓ ' : ''}{t.label} {t.min}+ kg</span>
-                      <span>−{t.pct}%</span>
-                    </div>
-                  )
-                })}
-              </div>
+              ))}
             </div>
           </aside>
         )}
@@ -277,7 +209,7 @@ export default function InsumosShop({
         {/* Main */}
         <div className="flex-1 min-w-0">
 
-          {/* Searchbar + banner */}
+          {/* Searchbar */}
           <div className="mb-4 space-y-2">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -308,15 +240,6 @@ export default function InsumosShop({
                 ))}
               </div>
             )}
-
-            {/* Membership banner */}
-            {pct > 0 && (
-              <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl border"
-                style={{ backgroundColor: 'oklch(0.22 0.04 145)', borderColor: '#166534', color: '#4ade80' }}>
-                <span>🏆</span>
-                <span>Mayorista activo · <strong>−{pct}% de descuento</strong> en insumos ({descLabel})</span>
-              </div>
-            )}
           </div>
 
           {/* Count */}
@@ -337,7 +260,6 @@ export default function InsumosShop({
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {filtered.map(insumo => {
                 const enCart = getCartCantidad(insumo.id)
-                const precioFinal = pct > 0 ? Math.round(insumo.precio_unitario * (1 - pct / 100)) : insumo.precio_unitario
                 return (
                   <div
                     key={insumo.id}
@@ -355,7 +277,6 @@ export default function InsumosShop({
                           📦
                         </div>
                       )}
-                      {/* Fotos extra */}
                       {(insumo.imagen_url_2 || insumo.imagen_url_3) && (
                         <div className="absolute bottom-1.5 right-1.5 flex gap-1">
                           {insumo.imagen_url_2 && (
@@ -376,14 +297,7 @@ export default function InsumosShop({
                         <p className="text-[10px] text-muted-foreground line-clamp-2 mb-2">{insumo.descripcion}</p>
                       )}
                       <div className="mt-auto">
-                        {pct > 0 ? (
-                          <div className="mb-2">
-                            <span className="line-through text-muted-foreground text-xs">{fmtARS(insumo.precio_unitario)}</span>
-                            <span className="ml-1.5 font-black text-sm" style={{ color: '#22c55e' }}>{fmtARS(precioFinal)}</span>
-                          </div>
-                        ) : (
-                          <p className="font-black text-sm mb-2">{fmtARS(insumo.precio_unitario)}</p>
-                        )}
+                        <p className="font-black text-sm mb-2">{fmtARS(insumo.precio_unitario)}</p>
                         {insumo.stock <= 3 && insumo.stock > 0 && (
                           <p className="text-[10px] text-amber-500 font-semibold mb-1">Últimas {insumo.stock} unidades</p>
                         )}
@@ -429,11 +343,6 @@ export default function InsumosShop({
           <ShoppingCart size={16} className="shrink-0" />
           <span className="text-xs sm:text-sm font-bold">{totalUnidades} items</span>
           <span className="text-xs sm:text-sm font-bold">{fmtARS(total)}</span>
-          {pct > 0 && (
-            <span className="hidden xs:inline text-[10px] bg-white/20 font-bold px-1.5 py-0.5 rounded-full">
-              -{pct}%
-            </span>
-          )}
         </button>
       )}
 
@@ -466,17 +375,7 @@ export default function InsumosShop({
             </div>
 
             <div className="px-5 py-4 border-t border-border space-y-3">
-              {pct > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Subtotal</span><span>{fmtARS(subtotalSin)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs" style={{ color: '#22c55e' }}>
-                    <span>Descuento mayorista (−{pct}%)</span><span>−{fmtARS(descuentoARS)}</span>
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-base border-t border-border pt-2">
+              <div className="flex justify-between font-bold text-base">
                 <span>Total estimado</span><span>{fmtARS(total)}</span>
               </div>
               <button
@@ -513,20 +412,8 @@ export default function InsumosShop({
                         <span className="text-xs font-mono text-muted-foreground">{fmtARS(i.cantidad * i.insumo.precio_unitario)}</span>
                       </div>
                     ))}
-                    <div className="border-t border-border mt-2 pt-2 space-y-1">
-                      {pct > 0 && (
-                        <>
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Subtotal</span><span>{fmtARS(subtotalSin)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs font-semibold" style={{ color: '#22c55e' }}>
-                            <span>Desc. mayorista −{pct}%</span><span>−{fmtARS(descuentoARS)}</span>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex justify-between text-sm font-bold pt-1">
-                        <span>Total</span><span>{fmtARS(total)}</span>
-                      </div>
+                    <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-2">
+                      <span>Total</span><span>{fmtARS(total)}</span>
                     </div>
                   </div>
                 </div>
